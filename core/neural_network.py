@@ -15,6 +15,11 @@ class NeuralNetwork():
         activation_function='relu',
         learning_rate=0.001,
         momentum=.9,
+        dropout=0.4,
+        batch_size=60,
+        batch_norm=True,
+        l2_reg=True,
+        leakiness_ReLU=0.1,
         loss_function='categorical_crossentropy',
         epochs=500
     ):
@@ -28,26 +33,49 @@ class NeuralNetwork():
         self.activation_function = activation_function 
         self.learning_rate = learning_rate
         self.momentum = momentum
+        self.dropout = dropout
+        self.batch_size = batch_size
+        self.batch_norm = batch_norm
+        self.l2_reg = l2_reg
+        self.leakiness_ReLU = leakiness_ReLU
         self.loss_function = loss_function
         self.epochs = epochs
         self.model = keras.models.Sequential()
+        if self.leakiness_ReLU > 0.0 and self.activation_function == 'relu':
+            self.activation_function = lambda x: keras.activations.relu(
+                x, 
+                alpha=self.leakiness_ReLU)
+
         for nodes, layer_idx in zip(
             self.list_of_layer_nodes, 
             range(0, len(self.list_of_layer_nodes) - 1)
         ):
-            if layer_idx !=  len(self.list_of_layer_nodes) - 2:
+            if layer_idx != len(self.list_of_layer_nodes) - 2:
                 activation = self.activation_function
 
             else:
                 activation = 'softmax'
+
+            if l2_reg != True:
+                regularizer = None
+
+            else:
+                regularizer = keras.regularizers.l2(l2=0.01)
 
             self.model.add(keras.layers.Dense(
                 input_shape = (nodes,),
                 units = self.list_of_layer_nodes[layer_idx+1],                            
                 kernel_initializer = 'glorot_uniform',                                          
                 bias_initializer = 'zeros',                                               
-                activation = activation))
+                activation = activation,
+                activity_regularizer=regularizer))
+            if layer_idx != len(self.list_of_layer_nodes) - 2:
+                if self.batch_norm == True:
+                    self.model.add(keras.layers.normalization.BatchNormalization())
 
+                self.model.add(keras.layers.Dropout(
+                    self.dropout
+                ))
 
     def train(self):
         """Train the NN using the x_training_data input and onehot encoded 
@@ -66,10 +94,11 @@ class NeuralNetwork():
         history = self.model.fit(
             self.x_input_data,
             self.y_input_data_onehot,
-            batch_size = 64,
+            batch_size = self.batch_size,
             epochs = self.epochs, 
             verbose = 0,
-            validation_split = .1)
+            validation_split = .1,
+            callbacks=[early_stopping_callback])
 
     def predict(self, input_vec):
         """Calculate and return label prediction of trained model for an input

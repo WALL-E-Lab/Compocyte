@@ -201,6 +201,8 @@ class HierarchicalClassifier():
 
         # init and run root node
         y_onehot = self.graph.nodes[root]['memory']._get_y_input_onehot()
+        # get_raw_x does not get counts, but the x_input_data to NodeMemory, so
+        # scVI data usually
         x_data = self.graph.nodes[root]['memory']._get_raw_x_input_data()
         output_len = self.graph.nodes[root]['memory']._get_output_len_of_node()
 
