@@ -3,8 +3,11 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import StratifiedKFold
 from uncertainties import ufloat
+from .tools import make_graph_from_edges, list_subgraph_nodes
+from .node_memory import NodeMemory
+from .neural_network import NeuralNetwork
 
-class Hierarchical_Classifier():
+class HierarchicalClassifier():
     """Class connects Nodes of Local Classifiers, passes results to children \
     classifiers and forms the final hierarchical classifier
     """ 
@@ -25,8 +28,8 @@ class Hierarchical_Classifier():
 
     def init_node_memory_object(self, node, x_input, y_input):
         """Add memory object to Node node; Node_Memory object organizes all relevant local classifier params
-        and run preprocessing methods of Node_Memory object"""
-        self.graph.add_node(node, memory=Node_Memory(x_input, y_input))
+        and run preprocessing methods of NodeMemory object"""
+        self.graph.add_node(node, memory=NodeMemory(x_input, y_input))
         # relevant prediction labels for node
         self.graph.nodes[node]['memory']._set_y_input_grouped_labels(
             self.group_labels_of_subgraph_to_parent_label(node))
@@ -155,7 +158,7 @@ class Hierarchical_Classifier():
             X_test, y_test_int, y_test_onehot = self.graph.nodes[node]['memory']._get_indexed_data(test_index)
             self.init_local_classifier(
                 node, 
-                Neural_Network, 
+                NeuralNetwork, 
                 X_train, 
                 y_train_onehot, 
                 output_len, 
@@ -201,7 +204,7 @@ class Hierarchical_Classifier():
         x_data = self.graph.nodes[root]['memory']._get_raw_x_input_data()
         output_len = self.graph.nodes[root]['memory']._get_output_len_of_node()
 
-        self.init_local_classifier(root, Neural_Network, x_data, y_onehot, output_len)
+        self.init_local_classifier(root, NeuralNetwork, x_data, y_onehot, output_len)
         self.train_local_classifier_kfold_CV(root) 
         x_for_predict = self.graph.nodes[root]['memory']._get_raw_x_input_data()
         self.local_classifier_prediction(root, x_for_predict)

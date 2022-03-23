@@ -1,8 +1,9 @@
 import tensorflow.keras as keras
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
+from .tools import z_transform_properties
 
-class Node_Memory():
+class NodeMemory():
     """Add explanation.
     """
 
