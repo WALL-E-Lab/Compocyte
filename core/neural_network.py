@@ -71,7 +71,7 @@ class NeuralNetwork():
                 activity_regularizer=regularizer))
             if layer_idx != len(self.list_of_layer_nodes) - 2:
                 if self.batch_norm == True:
-                    self.model.add(keras.layers.normalization.BatchNormalization())
+                    self.model.add(keras.layers.BatchNormalization())
 
                 self.model.add(keras.layers.Dropout(
                     self.dropout

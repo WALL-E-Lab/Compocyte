@@ -21,14 +21,16 @@ class NodeMemory():
     def _get_raw_y_input_data(self):
         return self.y_input_data
 
-    def _set_y_input_grouped_labels(self, y_input_grouped_labels):
+    def _set_y_input_grouped_labels(self, y_input_grouped_labels, all_potential_labels):
         """Should only be run once, sets and fits LabelEncoder to node specific 
         output labels
         """
 
         self.y_input_grouped_labels = y_input_grouped_labels
+        self.all_potential_labels = all_potential_labels
         self.label_encoder = LabelEncoder()
-        self.label_encoder.fit(self.y_input_grouped_labels)
+        print(all_potential_labels)
+        self.label_encoder.fit(np.array(all_potential_labels))
 
     def _get_y_input_grouped(self):
         return self.y_input_grouped_labels
@@ -41,7 +43,8 @@ class NodeMemory():
         self.y_input_data_int = self.label_encoder.transform(
             self.y_input_grouped_labels)
         self.y_input_data_onehot = keras.utils.to_categorical(
-            self.y_input_data_int)
+            self.y_input_data_int,
+            num_classes=len(self.all_potential_labels))
         self.x_input_data = z_transform_properties(self.x_input_data)
         self.bool_processed = True
 
