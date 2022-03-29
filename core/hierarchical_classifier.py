@@ -1,6 +1,7 @@
 import networkx as nx
 import pandas as pd
 import numpy as np
+import random
 from sklearn.model_selection import StratifiedKFold
 from uncertainties import ufloat
 from .tools import make_graph_from_edges, list_subgraph_nodes
@@ -32,7 +33,8 @@ class HierarchicalClassifier():
         self.graph.add_node(node, memory=NodeMemory(x_input, y_input))
         # relevant prediction labels for node
         self.graph.nodes[node]['memory']._set_y_input_grouped_labels(
-            self.group_labels_of_subgraph_to_parent_label(node))
+            self.group_labels_of_subgraph_to_parent_label(node),
+            list(self.graph.adj[node].keys()))
         # processing of data
         self.graph.nodes[node]['memory']._set_processed_input_data()
         # save output len of local classifier/Node 
@@ -139,6 +141,87 @@ class HierarchicalClassifier():
         lc = classifier(x_input_data, y_input_onehot, len_of_output, **kwargs)
         self.graph.nodes[node]['memory']._setup_local_classifier(lc)
 
+    def grid_search_local_classifier(
+        self,
+        adata,
+        node,
+        obs_name,
+        options_scVI = [10, 20, 50],
+        options_n_neurons = [64, 128, 256],
+        options_n_layers = [2, 5, 10],
+        options_dropout = [0.1, 0.2, 0.4, 0.6],
+        options_learning_rate = [0.002, 0.001, 0.005],
+        options_momentum = [0.5, 0.9],
+        options_batch_size = [20, 40, 60],
+        options_batch_norm = [True, False],
+        options_l2_reg = [True, False],
+        options_leakiness_ReLU = [0.1, 0.2],
+        random_tries = 10,
+    ):
+        performance_df = pd.DataFrame(columns=[
+            'train_accuracy',
+            'test_accuracy',
+            'scVI_dimensions',
+            'layer_structure',
+            'dropout',
+            'learning_rate',
+            'momentum',
+            'batch_size',
+            'batch_norm',
+            'l2_reg',
+            'leakiness_ReLU'])
+        for _ in range(random_tries):
+            print(len(performance_df))
+            scVI_dim = random.sample(options_scVI, 1)[0]
+            self.init_node_memory_object(
+                node, 
+                adata.obsm[f'X_scVI_{scVI_dim}'], 
+                adata.obs[obs_name])
+            layer_structure = []
+            for i in range(random.sample(options_n_layers, 1)[0]):
+                layer_structure.append(
+                    random.sample(options_n_neurons, 1)[0]
+                )
+
+            learning_rate = random.sample(options_learning_rate, 1)[0]
+            momentum = random.sample(options_momentum, 1)[0]
+            dropout = random.sample(options_dropout, 1)[0]
+            batch_size = random.sample(options_batch_size, 1)[0]
+            batch_norm = random.sample(options_batch_norm, 1)[0]
+            l2_reg = random.sample(options_l2_reg, 1)[0]
+            leakiness_ReLU = random.sample(options_leakiness_ReLU, 1)[0]
+            self.train_local_classifier_kfold_CV(
+                node,
+                k=4,
+                list_of_hidden_layer_nodes=layer_structure,
+                activation_function='relu',
+                learning_rate=learning_rate,
+                momentum=momentum,
+                dropout=dropout,
+                batch_size=batch_size,
+                batch_norm=batch_norm,
+                l2_reg=l2_reg,
+                leakiness_ReLU=leakiness_ReLU,
+            )
+            parameters = {
+                'train_accuracy': self.graph.nodes[node]['memory']._get_trainings_accuracy(),
+                'test_accuracy': self.graph.nodes[node]['memory']._get_test_accuracy(),
+                'scVI_dimensions': scVI_dim,
+                'layer_structure': str(layer_structure),
+                'dropout': dropout,
+                'learning_rate': learning_rate,
+                'momentum': momentum,
+                'batch_size': batch_size,
+                'batch_norm': batch_norm,
+                'l2_reg': l2_reg, 
+                'leakiness_ReLU': leakiness_ReLU
+            }
+            index = len(performance_df)
+            for key, value in parameters.items():
+                performance_df.loc[index, key] = value
+
+        print(performance_df)
+        return performance_df
 
     def train_local_classifier_kfold_CV(self, node, k=10, **kwargs):
         """Train and validate local classifier by using stratified k-fold crossvalidation"""
@@ -201,6 +284,8 @@ class HierarchicalClassifier():
 
         # init and run root node
         y_onehot = self.graph.nodes[root]['memory']._get_y_input_onehot()
+        # get_raw_x does not get counts, but the x_input_data to NodeMemory, so
+        # scVI data usually
         x_data = self.graph.nodes[root]['memory']._get_raw_x_input_data()
         output_len = self.graph.nodes[root]['memory']._get_output_len_of_node()
 
