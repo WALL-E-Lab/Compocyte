@@ -2,7 +2,10 @@ import networkx as nx
 import pandas as pd
 import numpy as np
 import random
+import tensorflow as tf 
+import tensorflow.keras as keras
 from sklearn.model_selection import StratifiedKFold
+from imblearn.over_sampling import SMOTE
 from uncertainties import ufloat
 from .tools import make_graph_from_edges, list_subgraph_nodes
 from .node_memory import NodeMemory
@@ -157,6 +160,7 @@ class HierarchicalClassifier():
         options_l2_reg = [True, False],
         options_leakiness_ReLU = [0.1, 0.2],
         random_tries = 10,
+        n_sample=50000
     ):
         performance_df = pd.DataFrame(columns=[
             'train_accuracy',
@@ -173,10 +177,14 @@ class HierarchicalClassifier():
         for _ in range(random_tries):
             print(len(performance_df))
             scVI_dim = random.sample(options_scVI, 1)[0]
+            if n_sample > len(list(adata.obs_names)):
+                adata_sample = adata
+            else:
+                adata_sample = adata[adata.obs.sample(n=n_sample, replace=False, random_state=1, axis=0).index,:]
             self.init_node_memory_object(
                 node, 
-                adata.obsm[f'X_scVI_{scVI_dim}'], 
-                adata.obs[obs_name])
+                adata_sample.obsm[f'X_scVI_{scVI_dim}'], 
+                adata_sample.obs[obs_name])
             layer_structure = []
             for i in range(random.sample(options_n_layers, 1)[0]):
                 layer_structure.append(
@@ -223,13 +231,14 @@ class HierarchicalClassifier():
         print(performance_df)
         return performance_df
 
-    def train_local_classifier_kfold_CV(self, node, k=10, **kwargs):
-        """Train and validate local classifier by using stratified k-fold crossvalidation"""
+    def train_local_classifier_kfold_CV(self, node, k=10, sampling_class = SMOTE, sampling_strategy = 'auto', **kwargs):
+        """Train and validate local classifier by using stratified k-fold crossvalidation, oversamples 
+            training data via SMOTE per default, currently equalizes representation of classes"""
 
         skf = StratifiedKFold(n_splits=k)
         X = self.graph.nodes[node]['memory']._get_raw_x_input_data()
         y = self.graph.nodes[node]['memory']._get_raw_y_input_data()
-        output_len = len(self.graph.adj[node].keys()) # könnte man jetzt auch aus Node_Memory abrufen
+        output_len = self.graph.nodes[node]['memory']._get_output_len_of_node() 
 
         train_scores = []
         test_scores = []
@@ -238,6 +247,13 @@ class HierarchicalClassifier():
 
         for train_index, test_index in skf.split(X, y):
             X_train, y_train_int, y_train_onehot = self.graph.nodes[node]['memory']._get_indexed_data(train_index)
+
+            if sampling_class != None:
+                sampler = sampling_class(sampling_strategy=sampling_strategy)
+                X_train, y_train_int = sampler.fit_transform(X_train, y_train_int)
+                #cave: watch out if keras really keeps the same encoding system
+                y_train_onehot = keras.utils.to_categorical(y_train_int)
+
             X_test, y_test_int, y_test_onehot = self.graph.nodes[node]['memory']._get_indexed_data(test_index)
             self.init_local_classifier(
                 node, 
