@@ -33,7 +33,9 @@ class HierarchicalClassifier():
     def init_node_memory_object(self, node, x_input, y_input):
         """Add memory object to Node node; Node_Memory object organizes all relevant local classifier params
         and run preprocessing methods of NodeMemory object"""
-        self.graph.add_node(node, memory=NodeMemory(x_input, y_input))
+        
+        all_potential_labels = list(self.graph.adj[node].keys())
+        self.graph.add_node(node, memory=NodeMemory(x_input, y_input, all_potential_labels))
         # relevant prediction labels for node
         self.graph.nodes[node]['memory']._set_y_input_grouped_labels(
             self.group_labels_of_subgraph_to_parent_label(node),
