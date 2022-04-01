@@ -7,7 +7,8 @@ import tensorflow.keras as keras
 from sklearn.model_selection import StratifiedKFold
 from imblearn.over_sampling import SMOTE
 from uncertainties import ufloat
-from .tools import make_graph_from_edges, list_subgraph_nodes
+from .tools import make_graph_from_edges, list_subgraph_nodes, is_counts, dict_depth, \
+hierarchy_names_unique
 from .node_memory import NodeMemory
 from .neural_network import NeuralNetwork
 
@@ -16,13 +17,52 @@ class HierarchicalClassifier():
     classifiers and forms the final hierarchical classifier
     """ 
 
-    def __init__(self, dict_of_cell_relations):
+    def __init__(self, adata, dict_of_cell_relations, obs_names):
         """Params
+        - adata: AnnData object containing annotations and raw count data
         - dict_of_cell_relations: used for initializing network structure of \
         hierarchical classifier
+        - obs_names: list containing the keys for annotations of single cells at the levels
+        defined by dict_of_cell_relations. len(obs_names) should be equal to the levels of nesting
+        in the dict.
         """
 
+        # Ensure that adata is not a view
+        if adata.isview:
+            self.adata = adata.copy()
+
+        else:
+            self.adata = adata
+
+        self.choose_count_data()
+        # Check if the annotations supplied in .obs under obs_names are sufficiently deep
+        # to work with the hierarchy provided
+        if not dict_depth(dict_of_cell_relations) == len(obs_names):
+            raise Exception('obs_names must contain an annotation key for every \
+                level of the hierarchy supplied in dict_of_cell_relations.')
+
+        # Check if keys within the hierarchy are unique across all levels as that is a requirement
+        # for uniquely identifying graph nodes with networkx
+        if not hierarchy_names_unique(dict_of_cell_relations):
+            raise Exception('Names given in the hierarchy must be unique.')
+
+        # assign obs name to each individual node
         self.dict_of_cell_relations = dict_of_cell_relations
+
+    def choose_count_data(self):
+        """Checks adata.X and adata.raw.X for presence of raw count data, setting those up to be used
+        in the future.
+        """
+
+        if is_counts(self.adata.X):
+            self.counts = self.adata.X
+
+        else:
+            if hasattr(self.adata, 'raw') and self.adata.raw != None and is_counts(self.adata.raw.X):
+                self.counts = self.adata.raw.X
+
+            else:
+                raise ValueError('No raw counts found in adata.X or adata.raw.X.')
 
     def make_classifier_graph(self):
         """Compute Graph from a given dictionary of cell relationships"""
