@@ -4,11 +4,12 @@ import numpy as np
 import random
 import tensorflow as tf 
 import tensorflow.keras as keras
+import scvi
 from sklearn.model_selection import StratifiedKFold
 from imblearn.over_sampling import SMOTE
 from uncertainties import ufloat
 from .tools import make_graph_from_edges, list_subgraph_nodes, is_counts, dict_depth, \
-hierarchy_names_unique
+hierarchy_names_unique, flatten_dict
 from .node_memory import NodeMemory
 from .neural_network import NeuralNetwork
 
@@ -17,14 +18,15 @@ class HierarchicalClassifier():
     classifiers and forms the final hierarchical classifier
     """ 
 
-    def __init__(self, adata, dict_of_cell_relations, obs_names):
+    def __init__(self, adata, dict_of_cell_relations, obs_names, batch_key='batch'):
         """Params
         - adata: AnnData object containing annotations and raw count data
         - dict_of_cell_relations: used for initializing network structure of \
         hierarchical classifier
         - obs_names: list containing the keys for annotations of single cells at the levels
         defined by dict_of_cell_relations. len(obs_names) should be equal to the levels of nesting
-        in the dict.
+        in the dict. I. e. if the parent node for all cells is 'L', and cells are labelled
+        as 'L' in obs['Level_1'] then the first entry should be ['Level_1'].
         """
 
         # Ensure that adata is not a view
@@ -48,6 +50,38 @@ class HierarchicalClassifier():
 
         # assign obs name to each individual node
         self.dict_of_cell_relations = dict_of_cell_relations
+        self.obs_names = obs_names
+        self.batch_key = batch_key
+        self.all_nodes = flatten_dict(self.dict_of_cell_relations)
+        self.make_classifier_graph()
+        self.set_node_to_obs()
+
+    def set_node_to_obs(self, depth=0, dictionary=None):
+        """Create dict assigning to each node in the hierarchy a key in obs under which one
+        can find the fitting annotations for the respective sub-nodes. I. e. n cells are labelled
+        as T cells in level 2. If one wants to know where the target labels for sub-classification
+        of these cells are found, one can call get_obs_from_node('T'), yielding level 3.
+        """
+
+        self.node_to_obs = {}
+        if dictionary == None:
+            dictionary = self.dict_of_cell_relations
+
+        if len(dictionary.keys()) == 0:
+            pass
+
+        else:
+            for key in dictionary.keys():
+                self.set_node_to_obs(depth=depth+1, dictionary=dictionary[key])
+                self.node_to_obs[key] = depth + 1
+
+    def get_obs_from_node(self, node):
+        """For a given node, returns the obs key under which the annotations to divide into
+        sub-groups can be found. I. e. for T_ILC returns the obs key containing annotations like
+        T and ILC_ALL.
+        """
+
+        return self.node_to_obs[node]
 
     def choose_count_data(self):
         """Checks adata.X and adata.raw.X for presence of raw count data, setting those up to be used
@@ -64,6 +98,47 @@ class HierarchicalClassifier():
             else:
                 raise ValueError('No raw counts found in adata.X or adata.raw.X.')
 
+    def get_scVI_key(n_dimensions=10, node=None, barcodes=None, overwrite=False):
+        """Ensure that scVI data is present as requested (specified number of dimensions,
+        if applicable for the given node and all of the associated barcodes) If it is not, run scVI.
+        Return the obsm key corresponding to the requested scVI data.
+        """
+
+        key = f'X_scVI_{n_dimensions}_{'overall' if node == None else node}'
+        # Make sure to also run again if entry does not exist for all barcodes supplied
+        #!!!!
+        if not key in self.adata.obsm or overwrite:
+            self.run_scVI(n_dimensions=n_dimensions, key=key, node=node, barcodes=barcodes)
+
+        return key
+
+    def run_scVI(n_dimensions, key, node=None, barcodes=None):
+        """Run scVI, currently with parameters taken from the scvi-tools scANVI tutorial. If requested,
+        run scVI for a subset of cells only (defined by barcodes, saved by node name).
+        """
+
+        scvi.settings.seed = 94705 # For reproducibility
+        adata_subset = None
+        if node != None and barcodes != None:
+            adata_subset = self.adata[barcodes, :].copy()
+
+        # !!!!
+        # Implement using a previously trained scVI model for a given node to ensure transfer effect
+        scvi.model.SCVI.setup_anndata(
+            adata if adata_subset == None else adata_subset, 
+            batch_key="batch")
+        arches_params = dict(
+            use_layer_norm="both",
+            use_batch_norm="none",
+            encode_covariates=True,
+            dropout_rate=0.2,
+            n_layers=2,)
+        vae = scvi.model.SCVI(
+            adata if adata_subset == None,
+            **arches_params)
+        vae.train()
+        self.adata.obsm[key] = vae.get_latent_representation()
+
     def make_classifier_graph(self):
         """Compute Graph from a given dictionary of cell relationships"""
 
@@ -74,8 +149,7 @@ class HierarchicalClassifier():
         """Add memory object to Node node; Node_Memory object organizes all relevant local classifier params
         and run preprocessing methods of NodeMemory object"""
         
-        all_potential_labels = list(self.graph.adj[node].keys())
-        self.graph.add_node(node, memory=NodeMemory(x_input, y_input, all_potential_labels))
+        self.graph.add_node(node, memory=NodeMemory(x_input, y_input, self.all_nodes))
         # relevant prediction labels for node
         self.graph.nodes[node]['memory']._set_y_input_grouped_labels(
             self.group_labels_of_subgraph_to_parent_label(node),
