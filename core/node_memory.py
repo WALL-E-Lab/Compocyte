@@ -7,13 +7,15 @@ class NodeMemory():
     """Add explanation.
     """
 
-    def __init__(self, x_input_data, y_input_data):
+    def __init__(self, x_input_data, y_input_data, all_potential_labels):
         """Params: x_input and y_input for whole (ie not splitted) data set
         """
 
         self.x_input_data = x_input_data  
         self.y_input_data = y_input_data
         self.bool_processed = False
+        self.all_potential_labels = all_potential_labels
+        self._set_label_encoder(all_potential_labels)
 
     def _get_raw_x_input_data(self):
         return self.x_input_data 
@@ -21,15 +23,17 @@ class NodeMemory():
     def _get_raw_y_input_data(self):
         return self.y_input_data
 
-    def _set_y_input_grouped_labels(self, y_input_grouped_labels, all_potential_labels):
+    def _set_y_input_grouped_labels(self, y_input_grouped_labels):
         """Should only be run once, sets and fits LabelEncoder to node specific 
         output labels
         """
 
         self.y_input_grouped_labels = y_input_grouped_labels
-        self.all_potential_labels = all_potential_labels
+
+    def _set_label_encoder(self, all_potential_labels):
+        """DO only once! When node is initialized! i.e. in __init__"""
+
         self.label_encoder = LabelEncoder()
-        print(all_potential_labels)
         self.label_encoder.fit(np.array(all_potential_labels))
 
     def _get_y_input_grouped(self):
