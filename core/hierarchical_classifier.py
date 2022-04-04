@@ -58,7 +58,7 @@ class HierarchicalClassifier():
         self.all_nodes = flatten_dict(self.dict_of_cell_relations)
         self.make_classifier_graph()
         self.set_node_to_obs()
-        self.setup_label_encoder()
+        # self.setup_label_encoder()
 
     def setup_label_encoder(self):
         self.label_encoder = LabelEncoder()
@@ -81,7 +81,11 @@ class HierarchicalClassifier():
         else:
             for key in dictionary.keys():
                 self.set_node_to_obs(depth=depth+1, dictionary=dictionary[key])
-                self.node_to_obs[key] = depth + 1
+                try:
+                    self.node_to_obs[key] = self.obs_names[depth + 1]
+
+                except:
+                    pass
 
     def get_obs_from_node(self, node):
         """For a given node, returns the obs key under which the annotations to divide into
@@ -179,7 +183,9 @@ class HierarchicalClassifier():
         
         self.graph.add_node(
             node,
-            memory=NodeMemory(self.get_obs_from_node(node)))
+            memory=NodeMemory(
+                self.get_obs_from_node(node), 
+                list(self.graph.adj[node].keys())),)
 
     def init_local_classifier(self, node, classifier, input_len, **kwargs):
         """Initializes local classifier
@@ -204,35 +210,35 @@ class HierarchicalClassifier():
             self.init_node_memory_object(node)
 
         # Check if classifier has been initialized with n_dimensions_scVI
-        if not hasattr(self.graph[node]['memory'], 'local_classifier'):
-            self.init_local_classifier(node, classifier=neural_network, input_len=n_dimensions_scVI)
+        if not hasattr(self.graph.nodes[node]['memory'], 'local_classifier'):
+            self.init_local_classifier(node, classifier=NeuralNetwork, input_len=n_dimensions_scVI)
 
         x = None
         y_int = None
         if not barcodes == None:
             adata_subset = self.adata[barcodes, :].copy()
             x = adata_subset.obsm[scVI_key]
-            y_int = self.label_encoder.transform(
+            y_int = self.graph.nodes[node]['memory'].label_encoder.transform(
                 np.array(
-                    adata_subset.obs[self.node_to_obs(node)]))
+                    adata_subset.obs[self.get_obs_from_node(node)]))
 
         else:
             x = self.adata.obsm[scVI_key]
-            y_int = self.label_encoder.transform(
+            y_int = self.graph.nodes[node]['memory'].label_encoder.transform(
                 np.array(
-                    self.adata.obs[self.node_to_obs(node)]))
+                    self.adata.obs[self.get_obs_from_node(node)]))
 
         y_onehot = keras.utils.to_categorical(
             y_int,
             num_classes=len(self.all_nodes))
         x = z_transform_properties(x)
-        x_train, x_test, y_onehot_train, y_onehot_test = train_test_split(
-            x, y_onehot, test_size=0.2, random_state=42)
+        x_train, x_test, y_int_train, y_int_test, y_onehot_train, y_onehot_test = train_test_split(
+            x, y_int, y_onehot, test_size=0.2, random_state=42)
 
-        self.graph.nodes[node]['memory'].local_classifier.train()
+        self.graph.nodes[node]['memory'].local_classifier.train(x_train, y_onehot_train)
 
-        train_acc, train_con_mat = self.graph.nodes[node]['memory'].local_classifier.validate(X_train, y_train_int)
-        test_acc, test_con_mat = self.graph.nodes[node]['memory'].local_classifier.validate(X_test, y_test_int)
+        train_acc, train_con_mat = self.graph.nodes[node]['memory'].local_classifier.validate(x_train, y_int_train)
+        test_acc, test_con_mat = self.graph.nodes[node]['memory'].local_classifier.validate(x_test, y_int_test)
         print(train_acc)
         print(test_acc)
         print(train_con_mat)

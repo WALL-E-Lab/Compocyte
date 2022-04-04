@@ -7,11 +7,13 @@ class NodeMemory():
     """Add explanation.
     """
 
-    def __init__(self, obs_name_children):
+    def __init__(self, obs_name_children, children_labels):
         """Params: x_input and y_input for whole (ie not splitted) data set
         """
 
         self.obs_name_children = obs_name_children
+        self.children_labels = children_labels
+        self._set_label_encoder()
 
     def _get_raw_x_input_data(self):
         return self.x_input_data 
@@ -30,7 +32,7 @@ class NodeMemory():
         """DO only once! When node is initialized! i.e. in __init__"""
 
         self.label_encoder = LabelEncoder()
-        self.label_encoder.fit(np.array(all_potential_labels))
+        self.label_encoder.fit(np.array(self.children_labels))
 
     def _get_y_input_grouped(self):
         return self.y_input_grouped_labels

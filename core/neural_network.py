@@ -91,8 +91,8 @@ class NeuralNetwork():
             optimizer = self.optimizer, 
             loss = self.loss_function)
         history = self.model.fit(
-            self.x_input_data,
-            self.y_input_data_onehot,
+            x,
+            y_onehot,
             batch_size = self.batch_size,
             epochs = self.epochs, 
             verbose = 0,
