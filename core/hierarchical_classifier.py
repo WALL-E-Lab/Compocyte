@@ -33,7 +33,7 @@ class HierarchicalClassifier():
         """
 
         # Ensure that adata is not a view
-        if adata.isview:
+        if adata.is_view:
             self.adata = adata.copy()
 
         else:
@@ -106,7 +106,7 @@ class HierarchicalClassifier():
             else:
                 raise ValueError('No raw counts found in adata.X or adata.raw.X.')
 
-    def get_scVI_key(n_dimensions=10, node=None, barcodes=None, overwrite=False, **kwargs):
+    def get_scVI_key(self, n_dimensions=10, node=None, barcodes=None, overwrite=False, **kwargs):
         """Ensure that scVI data is present as requested (specified number of dimensions,
         if applicable for the given node and all of the associated barcodes) If it is not, run scVI.
         Return the obsm key corresponding to the requested scVI data.
@@ -125,7 +125,7 @@ class HierarchicalClassifier():
 
         return key
 
-    def run_scVI(n_dimensions, key, node=None, barcodes=None, overwrite_scVI=False):
+    def run_scVI(self, n_dimensions, key, node=None, barcodes=None, overwrite_scVI=False):
         """Run scVI, currently with parameters taken from the scvi-tools scANVI tutorial. If requested,
         run scVI for a subset of cells only (defined by barcodes, saved by node name).
         """
