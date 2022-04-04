@@ -230,7 +230,7 @@ class HierarchicalClassifier():
 
         y_onehot = keras.utils.to_categorical(
             y_int,
-            num_classes=len(self.all_nodes))
+            num_classes=len(list(self.graph.adj[node].keys())))
         x = z_transform_properties(x)
         x_train, x_test, y_int_train, y_int_test, y_onehot_train, y_onehot_test = train_test_split(
             x, y_int, y_onehot, test_size=0.2, random_state=42)

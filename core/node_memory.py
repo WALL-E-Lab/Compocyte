@@ -28,7 +28,7 @@ class NodeMemory():
 
         self.y_input_grouped_labels = y_input_grouped_labels
 
-    def _set_label_encoder(self, all_potential_labels):
+    def _set_label_encoder(self):
         """DO only once! When node is initialized! i.e. in __init__"""
 
         self.label_encoder = LabelEncoder()
