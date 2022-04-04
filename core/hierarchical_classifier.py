@@ -104,7 +104,7 @@ class HierarchicalClassifier():
         Return the obsm key corresponding to the requested scVI data.
         """
 
-        key = f'X_scVI_{n_dimensions}_{'overall' if node == None else node}'
+        key = f'X_scVI_{n_dimensions}_{"overall" if node == None else node}'
         # Make sure to also run again if entry does not exist for all barcodes supplied
         #!!!!
         if not key in self.adata.obsm or overwrite:
@@ -126,7 +126,7 @@ class HierarchicalClassifier():
         # Implement using a previously trained scVI model for a given node to ensure transfer effect
         scvi.model.SCVI.setup_anndata(
             adata if adata_subset == None else adata_subset, 
-            batch_key="batch")
+            batch_key=self.batch_key)
         arches_params = dict(
             use_layer_norm="both",
             use_batch_norm="none",
@@ -134,7 +134,7 @@ class HierarchicalClassifier():
             dropout_rate=0.2,
             n_layers=2,)
         vae = scvi.model.SCVI(
-            adata if adata_subset == None,
+            adata if adata_subset == None else adata_subset,
             **arches_params)
         vae.train()
         self.adata.obsm[key] = vae.get_latent_representation()
