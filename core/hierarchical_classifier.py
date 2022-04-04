@@ -139,13 +139,13 @@ class HierarchicalClassifier():
         model_path = os.path.join(self.save_path, 'models', 'scvi', key)
         model_exists = os.path.exists(model_path)
         scvi.model.SCVI.setup_anndata(
-            adata if adata_subset == None else adata_subset, 
+            self.adata if adata_subset == None else adata_subset, 
             batch_key=self.batch_key)
 
         if model_exists and not overwrite_scVI:
             vae = scvi.model.SCVI.load(
                 model_path,
-                adata if adata_subset == None else adata_subset)
+                self.adata if adata_subset == None else adata_subset)
 
         else:
             arches_params = dict(
@@ -155,7 +155,7 @@ class HierarchicalClassifier():
                 dropout_rate=0.2,
                 n_layers=2,)
             vae = scvi.model.SCVI(
-                adata if adata_subset == None else adata_subset,
+                self.adata if adata_subset == None else adata_subset,
                 **arches_params)
 
         vae.train(
@@ -200,7 +200,7 @@ class HierarchicalClassifier():
 
     def run_single_node(self, node, barcodes=None, n_dimensions_scVI=10):
         scVI_key = self.get_scVI_key(n_dimensions=n_dimensions_scVI)
-        if not node in self.graph.nodes.keys():
+        if not node in self.graph.nodes.keys() or not 'memory' in self.graph[node].keys():
             self.init_node_memory_object(node)
 
         # Check if classifier has been initialized with n_dimensions_scVI
