@@ -17,7 +17,7 @@ def is_counts(matrix, n_rows_to_try=100):
     contains_negative_values = np.any(test_data < 0)
     contains_non_whole_numbers = np.any(test_data % 1 != 0)
 
-    return contains_negative_values or contains_non_whole_numbers
+    return not contains_negative_values and not contains_non_whole_numbers
 
 def dict_depth(dictionary, running_count=0):
     if not type(dictionary) == dict:
