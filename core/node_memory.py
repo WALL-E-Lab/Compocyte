@@ -7,15 +7,11 @@ class NodeMemory():
     """Add explanation.
     """
 
-    def __init__(self, x_input_data, y_input_data, all_potential_labels):
+    def __init__(self, obs_name_children):
         """Params: x_input and y_input for whole (ie not splitted) data set
         """
 
-        self.x_input_data = x_input_data  
-        self.y_input_data = y_input_data
-        self.bool_processed = False
-        self.all_potential_labels = all_potential_labels
-        self._set_label_encoder(all_potential_labels)
+        self.obs_name_children = obs_name_children
 
     def _get_raw_x_input_data(self):
         return self.x_input_data 
