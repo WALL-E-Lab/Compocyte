@@ -12,7 +12,7 @@ from sklearn.preprocessing import LabelEncoder
 from imblearn.over_sampling import SMOTE
 from uncertainties import ufloat
 from .tools import make_graph_from_edges, list_subgraph_nodes, is_counts, dict_depth, \
-hierarchy_names_unique, flatten_dict, z_transform_properties
+hierarchy_names_unique, flatten_dict, z_transform_properties, set_node_to_obs, set_node_to_scVI
 from .node_memory import NodeMemory
 from .neural_network import NeuralNetwork
 
@@ -57,43 +57,8 @@ class HierarchicalClassifier():
         self.batch_key = batch_key
         self.all_nodes = flatten_dict(self.dict_of_cell_relations)
         self.make_classifier_graph()
-        self.set_node_to_obs()
-        # self.setup_label_encoder()
-
-    def setup_label_encoder(self):
-        self.label_encoder = LabelEncoder()
-        self.label_encoder.fit(np.array(self.all_nodes))
-
-    def set_node_to_obs(self, depth=0, dictionary=None):
-        """Create dict assigning to each node in the hierarchy a key in obs under which one
-        can find the fitting annotations for the respective sub-nodes. I. e. n cells are labelled
-        as T cells in level 2. If one wants to know where the target labels for sub-classification
-        of these cells are found, one can call get_obs_from_node('T'), yielding level 3.
-        """
-
-        self.node_to_obs = {}
-        if dictionary == None:
-            dictionary = self.dict_of_cell_relations
-
-        if len(dictionary.keys()) == 0:
-            pass
-
-        else:
-            for key in dictionary.keys():
-                self.set_node_to_obs(depth=depth+1, dictionary=dictionary[key])
-                try:
-                    self.node_to_obs[key] = self.obs_names[depth + 1]
-
-                except:
-                    pass
-
-    def get_obs_from_node(self, node):
-        """For a given node, returns the obs key under which the annotations to divide into
-        sub-groups can be found. I. e. for T_ILC returns the obs key containing annotations like
-        T and ILC_ALL.
-        """
-
-        return self.node_to_obs[node]
+        self.node_to_obs = set_node_to_obs(self.dict_of_cell_relations, self.obs_names)
+        self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
 
     def choose_count_data(self):
         """Checks adata.X and adata.raw.X for presence of raw count data, setting those up to be used
@@ -115,6 +80,9 @@ class HierarchicalClassifier():
         if applicable for the given node and all of the associated barcodes) If it is not, run scVI.
         Return the obsm key corresponding to the requested scVI data.
         """
+
+        if node != None:
+            node = self.node_to_scVI[node]
 
         key = f'X_scVI_{n_dimensions}_{"overall" if node == None else node}'
         # Run scVI if it has not been run at the specified number of dimensions or for the specified
@@ -184,20 +152,11 @@ class HierarchicalClassifier():
         self.graph.add_node(
             node,
             memory=NodeMemory(
-                self.get_obs_from_node(node), 
+                self.node_to_obs[node], 
                 list(self.graph.adj[node].keys())),)
 
     def init_local_classifier(self, node, classifier, input_len, **kwargs):
-        """Initializes local classifier
-        ___________________________________________________
-        Params:
-        ---------------------------------------------------
-        node: node where local classifier shall be initialized
-        x_input_data: transformed x_data which will be used by the classifier \
-        without further processing 
-        y_input_onehot: onehot encoded y_input (used for training of NN)
-        len_of_output: number of prediction categories, ie dimension of output layer
-        **kwargs: any arguments taken by classifier conctructor
+        """Adjust explanation
         """
 
         output_len = len(list(self.graph.adj[node].keys()))
@@ -205,7 +164,8 @@ class HierarchicalClassifier():
         self.graph.nodes[node]['memory']._setup_local_classifier(lc)
 
     def run_single_node(self, node, barcodes=None, n_dimensions_scVI=10):
-        scVI_key = self.get_scVI_key(n_dimensions=n_dimensions_scVI)
+        scVI_key = self.get_scVI_key(n_dimensions=n_dimensions_scVI, node=node, barcodes=barcodes)
+        # Initialize node memory object if that has not yet been done
         if not node in self.graph.nodes.keys() or not 'memory' in self.graph[node].keys():
             self.init_node_memory_object(node)
 
@@ -213,6 +173,10 @@ class HierarchicalClassifier():
         if not hasattr(self.graph.nodes[node]['memory'], 'local_classifier'):
             self.init_local_classifier(node, classifier=NeuralNetwork, input_len=n_dimensions_scVI)
 
+        # Generate input array (i.e. scVI dimensions per cell) and onehot encoded output targets
+        # for either all cells in self.adata (barcodes == None) or 
+        # a chosen subset (not barcodes == None)
+        # -------------------------------------- #
         x = None
         y_int = None
         if not barcodes == None:
@@ -220,13 +184,13 @@ class HierarchicalClassifier():
             x = adata_subset.obsm[scVI_key]
             y_int = self.graph.nodes[node]['memory'].label_encoder.transform(
                 np.array(
-                    adata_subset.obs[self.get_obs_from_node(node)]))
+                    adata_subset.obs[self.node_to_obs[node]]))
 
         else:
             x = self.adata.obsm[scVI_key]
             y_int = self.graph.nodes[node]['memory'].label_encoder.transform(
                 np.array(
-                    self.adata.obs[self.get_obs_from_node(node)]))
+                    self.adata.obs[self.node_to_obs[node]]))
 
         y_onehot = keras.utils.to_categorical(
             y_int,
@@ -235,14 +199,46 @@ class HierarchicalClassifier():
         x_train, x_test, y_int_train, y_int_test, y_onehot_train, y_onehot_test = train_test_split(
             x, y_int, y_onehot, test_size=0.2, random_state=42)
 
+        # -------------------------------------- #
+
         self.graph.nodes[node]['memory'].local_classifier.train(x_train, y_onehot_train)
 
+        # Calculate and save performance metrics
+        # -------------------------------------- #
         train_acc, train_con_mat = self.graph.nodes[node]['memory'].local_classifier.validate(x_train, y_int_train)
         test_acc, test_con_mat = self.graph.nodes[node]['memory'].local_classifier.validate(x_test, y_int_test)
-        print(train_acc)
-        print(test_acc)
-        print(train_con_mat)
-        print(test_con_mat)
+        self.graph.nodes[node]['memory']._set_trainings_accuracy(
+            ufloat(np.mean(train_scores), 
+            np.std(train_scores)))
+        self.graph.nodes[node]['memory']._set_test_accuracy(
+            ufloat(np.mean(test_scores), 
+            np.std(test_scores)))
+
+        self.graph.nodes[node]['memory']._set_training_conmat(train_conmat)
+        self.graph.nodes[node]['memory']._set_test_conmat(test_conmat)
+        # -------------------------------------- #
+
+    def train_all_child_nodes(self, current_node=None, current_barcodes=None, parent_node=None):
+        """Runs all nodes starting at current_node (if supplied), trains local classifiers
+        using only those cells that have been annotated as truly belong to that node, e.g.
+        the T node classifier is only trained using cells actually classified as T at the relevant
+        level.
+        """
+
+        if current_node == None:
+            current_node = self.dict_of_cell_relations.keys()[0]
+
+        print(f'Running {current_node}.')
+        if current_barcodes == None and parent_node != None:
+            true_node_subset = self.adata.obs[
+                self.node_to_obs[parent_node] == current_node
+            ]
+            print(f'Subsetting to {len(true_node_subset)} cells.')
+            current_barcodes = list(true_node_subset.index)
+
+        self.run_single_node(current_node, current_barcodes)
+        for node in self.graph.adj[current_node].keys():
+            self.train_all_child_nodes(node, parent_node=current_node)
 
     def train_local_classifier_kfold_CV(self, node, k=10, sampling_class = SMOTE, sampling_strategy = 'auto', **kwargs):
         """Train and validate local classifier by using stratified k-fold crossvalidation, oversamples 
