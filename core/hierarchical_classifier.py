@@ -92,7 +92,7 @@ class HierarchicalClassifier():
         elif node != None and barcodes != None:
             # Also run scVI again if entry does not exist for all barcodes supplied
             adata_subset = self.adata[barcodes, :].copy()
-            if adata_subset.obs[key].isnull().any():
+            if np.isnan(adata_subset.obsm[key]).any():
                 self.run_scVI(n_dimensions=n_dimensions, key=key, node=node, barcodes=barcodes, **kwargs)
 
         return key
@@ -111,13 +111,13 @@ class HierarchicalClassifier():
         model_path = os.path.join(self.save_path, 'models', 'scvi', key)
         model_exists = os.path.exists(model_path)
         scvi.model.SCVI.setup_anndata(
-            self.adata if adata_subset == None else adata_subset, 
+            self.adata if type(adata_subset) == type(None) else adata_subset, 
             batch_key=self.batch_key)
 
         if model_exists and not overwrite_scVI:
             vae = scvi.model.SCVI.load(
                 model_path,
-                self.adata if adata_subset == None else adata_subset)
+                self.adata if type(adata_subset) == type(None) else adata_subset)
 
         else:
             arches_params = dict(
@@ -127,17 +127,35 @@ class HierarchicalClassifier():
                 dropout_rate=0.2,
                 n_layers=2,)
             vae = scvi.model.SCVI(
-                self.adata if adata_subset == None else adata_subset,
+                self.adata if type(adata_subset) == type(None) else adata_subset,
                 **arches_params)
 
         vae.train(
             early_stopping=True,
             early_stopping_patience=10)
+        # !!!!!
+        # Save only if new data is presented or overwrite
+        # how to deal with prefix?
         vae.save(
             model_path,
-            prefix=datetime.now().isoformat(timespec='minutes'),
+            #prefix=datetime.now().isoformat(timespec='minutes'),
             overwrite=True)
-        self.adata.obsm[key] = vae.get_latent_representation()
+
+        if node != None and barcodes != None:
+            # Ensure that scVI values in the relevant obsm key are only being set for those
+            # cells that belong to the specified subset (by barcodes) and values for all other
+            # cells are set to np.nan
+            scvi_template = np.empty(shape = (len(self.adata), n_dimensions))
+            scvi_template[:] = np.nan
+            barcodes_np_index = np.where(
+                np.isin(
+                    np.array(self.adata.obs_names), 
+                    barcodes))[0]
+            scvi_template[barcodes_np_index, :] = vae.get_latent_representation()
+            self.adata.obsm[key] = scvi_template
+
+        else:
+            self.adata.obsm[key] = vae.get_latent_representation()
 
     def make_classifier_graph(self):
         """Compute Graph from a given dictionary of cell relationships"""
@@ -151,9 +169,9 @@ class HierarchicalClassifier():
         
         self.graph.add_node(
             node,
-            memory=NodeMemory(
-                self.node_to_obs[node], 
-                list(self.graph.adj[node].keys())),)
+            memory=NodeMemory( 
+                list(self.graph.adj[node].keys()),
+                self.node_to_obs[node]),)
 
     def init_local_classifier(self, node, classifier, input_len, **kwargs):
         """Adjust explanation
@@ -163,7 +181,7 @@ class HierarchicalClassifier():
         lc = classifier(input_len, output_len, **kwargs)
         self.graph.nodes[node]['memory']._setup_local_classifier(lc)
 
-    def run_single_node(self, node, barcodes=None, n_dimensions_scVI=10):
+    def run_single_node(self, node, barcodes=None, n_dimensions_scVI=10, test_size=0.2):
         scVI_key = self.get_scVI_key(n_dimensions=n_dimensions_scVI, node=node, barcodes=barcodes)
         # Initialize node memory object if that has not yet been done
         if not node in self.graph.nodes.keys() or not 'memory' in self.graph[node].keys():
@@ -197,7 +215,7 @@ class HierarchicalClassifier():
             num_classes=len(list(self.graph.adj[node].keys())))
         x = z_transform_properties(x)
         x_train, x_test, y_int_train, y_int_test, y_onehot_train, y_onehot_test = train_test_split(
-            x, y_int, y_onehot, test_size=0.2, random_state=42)
+            x, y_int, y_onehot, test_size=test_size, random_state=42)
 
         # -------------------------------------- #
 
@@ -207,15 +225,10 @@ class HierarchicalClassifier():
         # -------------------------------------- #
         train_acc, train_con_mat = self.graph.nodes[node]['memory'].local_classifier.validate(x_train, y_int_train)
         test_acc, test_con_mat = self.graph.nodes[node]['memory'].local_classifier.validate(x_test, y_int_test)
-        self.graph.nodes[node]['memory']._set_trainings_accuracy(
-            ufloat(np.mean(train_scores), 
-            np.std(train_scores)))
-        self.graph.nodes[node]['memory']._set_test_accuracy(
-            ufloat(np.mean(test_scores), 
-            np.std(test_scores)))
-
-        self.graph.nodes[node]['memory']._set_training_conmat(train_conmat)
-        self.graph.nodes[node]['memory']._set_test_conmat(test_conmat)
+        self.graph.nodes[node]['memory']._set_trainings_accuracy(train_acc)
+        self.graph.nodes[node]['memory']._set_test_accuracy(test_acc)
+        self.graph.nodes[node]['memory']._set_training_conmat(train_con_mat)
+        self.graph.nodes[node]['memory']._set_test_conmat(test_con_mat)
         # -------------------------------------- #
 
     def train_all_child_nodes(self, current_node=None, current_barcodes=None, parent_node=None):
@@ -231,13 +244,16 @@ class HierarchicalClassifier():
         print(f'Running {current_node}.')
         if current_barcodes == None and parent_node != None:
             true_node_subset = self.adata.obs[
-                self.node_to_obs[parent_node] == current_node
+                self.adata.obs[self.node_to_obs[parent_node]] == current_node
             ]
             print(f'Subsetting to {len(true_node_subset)} cells.')
             current_barcodes = list(true_node_subset.index)
 
         self.run_single_node(current_node, current_barcodes)
         for node in self.graph.adj[current_node].keys():
+            if len(list(self.graph.adj[node].keys())) == 0:
+                continue
+
             self.train_all_child_nodes(node, parent_node=current_node)
 
     def train_local_classifier_kfold_CV(self, node, k=10, sampling_class = SMOTE, sampling_strategy = 'auto', **kwargs):

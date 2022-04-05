@@ -128,6 +128,6 @@ class NeuralNetwork():
         con_mat = confusion_matrix(
             y_true=y_input_int, 
             y_pred=y_preds, 
-            normalize = 'pred')
+            normalize = 'true')
 
         return acc, con_mat
