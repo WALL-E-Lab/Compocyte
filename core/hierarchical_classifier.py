@@ -89,7 +89,7 @@ class HierarchicalClassifier():
         if not key in self.adata.obsm or overwrite:
             self.run_scVI(n_dimensions=n_dimensions, key=key, node=node, barcodes=barcodes, **kwargs)
 
-        elif node != None and barcodes != None:
+        elif node != None and type(barcodes) != type(None):
             # Also run scVI again if entry does not exist for all barcodes supplied
             adata_subset = self.adata[barcodes, :].copy()
             if np.isnan(adata_subset.obsm[key]).any():
@@ -104,7 +104,7 @@ class HierarchicalClassifier():
 
         scvi.settings.seed = 94705 # For reproducibility
         adata_subset = None
-        if node != None and barcodes != None:
+        if node != None and type(barcodes) != type(None):
             adata_subset = self.adata[barcodes, :].copy()
 
         # Check if scVI has previously been trained for this node and number of dimensions
@@ -141,7 +141,7 @@ class HierarchicalClassifier():
             #prefix=datetime.now().isoformat(timespec='minutes'),
             overwrite=True)
 
-        if node != None and barcodes != None:
+        if node != None and type(barcodes) != type(None):
             # Ensure that scVI values in the relevant obsm key are only being set for those
             # cells that belong to the specified subset (by barcodes) and values for all other
             # cells are set to np.nan
@@ -170,8 +170,8 @@ class HierarchicalClassifier():
         self.graph.add_node(
             node,
             memory=NodeMemory( 
-                list(self.graph.adj[node].keys()),
-                self.node_to_obs[node]),)
+                self.node_to_obs[node],
+                list(self.graph.adj[node].keys())),)
 
     def init_local_classifier(self, node, classifier, input_len, **kwargs):
         """Adjust explanation
@@ -205,7 +205,7 @@ class HierarchicalClassifier():
         # -------------------------------------- #
         x = None
         y_int = None
-        if not barcodes == None:
+        if not type(barcodes) == type(None):
             adata_subset = self.adata[barcodes, :].copy()
             x = adata_subset.obsm[scVI_key]
             y_int = self.graph.nodes[node]['memory'].label_encoder.transform(
@@ -250,21 +250,47 @@ class HierarchicalClassifier():
     def predict_all_child_nodes(self,
         current_node=None,
         barcodes=None,
-        is_test=False):
+        is_test=False,
+        parent_node=None):
         """Add explanation
         """
 
-        if barcodes == None:
+        if type(barcodes) == type(None):
             barcodes = np.array(self.adata.obs.index)
 
+        # SHOULD BE SET DEPENDING ON CLASSIFIER
+        # SHOULD BE A PROPERTY OF THE NODE !!!!!!
+        n_dimensions_scVI = 10
         scVI_key = self.get_scVI_key(n_dimensions=n_dimensions_scVI, node=current_node, barcodes=barcodes)
         adata_subset = self.adata[barcodes, :].copy()
         x = adata_subset.obsm[scVI_key]
         x = z_transform_properties(x)
+        print(f'Running {current_node}.')
+        print(f'Subsetting to {len(adata_subset)} cells based on node assignment and '\
+            'designation as prediction data.')
 
         pred_vec = self.graph.nodes[current_node]['memory'].local_classifier.predict(x)
-        obs_name_pred = f'pred_{current_node}'
+        try:
+            suffix_obs = self.node_to_obs[parent_node]
+
+        except:
+            suffix_obs = current_node
+
+        obs_name_pred = f'pred_int_{suffix_obs}'
         self.adata.obs.loc[barcodes, obs_name_pred] = pred_vec
+        obs_name_pred = f'pred_{suffix_obs}'
+        self.adata.obs.loc[barcodes, obs_name_pred] = self.graph.nodes[current_node]['memory']\
+            .label_encoder.inverse_transform(pred_vec)
+
+        for node in self.graph.adj[current_node].keys():
+            if len(list(self.graph.adj[node].keys())) == 0:
+                continue
+
+            adata_subset_child_node = adata_subset[
+                adata_subset.obs[self.node_to_obs[current_node]] == node
+            ]
+            barcodes_child_node = list(adata_subset_child_node.obs.index)
+            self.predict_all_child_nodes(node, barcodes_child_node, is_test=is_test, parent_node=current_node)
 
         # Continue
 
@@ -292,7 +318,7 @@ class HierarchicalClassifier():
             ]
 
         if test_division:
-            if barcodes_train == None and barcodes_test == None:
+            if type(barcodes_train) == type(None) and type(barcodes_test) == type(None):
                 barcodes_train, barcodes_test = train_test_split(
                     np.array(self.adata.obs.index), 
                     test_size=test_size, 
@@ -302,8 +328,8 @@ class HierarchicalClassifier():
                 true_node_subset.index.isin(barcodes_train)
             ]
 
-        print(f'Subsetting to {len(true_node_subset)} cells based on node assignment and \
-            designation as training data.')
+        print(f'Subsetting to {len(true_node_subset)} cells based on node assignment and '\
+            'designation as training data.')
         current_barcodes = list(true_node_subset.index)
         self.run_single_node(current_node, current_barcodes)
         for node in self.graph.adj[current_node].keys():
