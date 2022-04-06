@@ -181,7 +181,15 @@ class HierarchicalClassifier():
         lc = classifier(input_len, output_len, **kwargs)
         self.graph.nodes[node]['memory']._setup_local_classifier(lc)
 
-    def run_single_node(self, node, barcodes=None, n_dimensions_scVI=10, test_size=0.2):
+    def run_single_node(self, 
+        node, 
+        barcodes=None, 
+        n_dimensions_scVI=10, 
+        test_size=0.2, 
+        test_division=False):
+        """Add explanation
+        """
+
         scVI_key = self.get_scVI_key(n_dimensions=n_dimensions_scVI, node=node, barcodes=barcodes)
         # Initialize node memory object if that has not yet been done
         if not node in self.graph.nodes.keys() or not 'memory' in self.graph[node].keys():
@@ -214,8 +222,14 @@ class HierarchicalClassifier():
             y_int,
             num_classes=len(list(self.graph.adj[node].keys())))
         x = z_transform_properties(x)
-        x_train, x_test, y_int_train, y_int_test, y_onehot_train, y_onehot_test = train_test_split(
-            x, y_int, y_onehot, test_size=test_size, random_state=42)
+        # Determine whether division into test and training dataset occurs on the node-level
+        # or at a multi-node level (i. e. in train_all_child_nodes)
+        if test_division:
+            x_train, x_test, y_int_train, y_int_test, y_onehot_train, y_onehot_test = train_test_split(
+                x, y_int, y_onehot, test_size=test_size, random_state=42)
+
+        else:
+            x_train, y_int_train, y_onehot_train = x, y_int, y_onehot
 
         # -------------------------------------- #
 
@@ -224,14 +238,43 @@ class HierarchicalClassifier():
         # Calculate and save performance metrics
         # -------------------------------------- #
         train_acc, train_con_mat = self.graph.nodes[node]['memory'].local_classifier.validate(x_train, y_int_train)
-        test_acc, test_con_mat = self.graph.nodes[node]['memory'].local_classifier.validate(x_test, y_int_test)
         self.graph.nodes[node]['memory']._set_trainings_accuracy(train_acc)
-        self.graph.nodes[node]['memory']._set_test_accuracy(test_acc)
         self.graph.nodes[node]['memory']._set_training_conmat(train_con_mat)
-        self.graph.nodes[node]['memory']._set_test_conmat(test_con_mat)
+
+        if test_division:
+            test_acc, test_con_mat = self.graph.nodes[node]['memory'].local_classifier.validate(x_test, y_int_test)
+            self.graph.nodes[node]['memory']._set_test_accuracy(test_acc)
+            self.graph.nodes[node]['memory']._set_test_conmat(test_con_mat)
         # -------------------------------------- #
 
-    def train_all_child_nodes(self, current_node=None, current_barcodes=None, parent_node=None):
+    def predict_all_child_nodes(self,
+        current_node=None,
+        barcodes=None,
+        is_test=False):
+        """Add explanation
+        """
+
+        if barcodes == None:
+            barcodes = np.array(self.adata.obs.index)
+
+        scVI_key = self.get_scVI_key(n_dimensions=n_dimensions_scVI, node=current_node, barcodes=barcodes)
+        adata_subset = self.adata[barcodes, :].copy()
+        x = adata_subset.obsm[scVI_key]
+        x = z_transform_properties(x)
+
+        pred_vec = self.graph.nodes[current_node]['memory'].local_classifier.predict(x)
+        obs_name_pred = f'pred_{current_node}'
+        self.adata.obs.loc[barcodes, obs_name_pred] = pred_vec
+
+        # Continue
+
+    def train_all_child_nodes(self, 
+        current_node=None, 
+        parent_node=None, 
+        test_size=0.2, 
+        test_division=True,
+        barcodes_train=None,
+        barcodes_test=None):
         """Runs all nodes starting at current_node (if supplied), trains local classifiers
         using only those cells that have been annotated as truly belong to that node, e.g.
         the T node classifier is only trained using cells actually classified as T at the relevant
@@ -242,19 +285,38 @@ class HierarchicalClassifier():
             current_node = self.dict_of_cell_relations.keys()[0]
 
         print(f'Running {current_node}.')
-        if current_barcodes == None and parent_node != None:
-            true_node_subset = self.adata.obs[
-                self.adata.obs[self.node_to_obs[parent_node]] == current_node
+        true_node_subset = self.adata.obs
+        if parent_node != None:
+            true_node_subset = true_node_subset[
+                true_node_subset[self.node_to_obs[parent_node]] == current_node
             ]
-            print(f'Subsetting to {len(true_node_subset)} cells.')
-            current_barcodes = list(true_node_subset.index)
 
+        if test_division:
+            if barcodes_train == None and barcodes_test == None:
+                barcodes_train, barcodes_test = train_test_split(
+                    np.array(self.adata.obs.index), 
+                    test_size=test_size, 
+                    random_state=42)
+
+            true_node_subset = true_node_subset[
+                true_node_subset.index.isin(barcodes_train)
+            ]
+
+        print(f'Subsetting to {len(true_node_subset)} cells based on node assignment and \
+            designation as training data.')
+        current_barcodes = list(true_node_subset.index)
         self.run_single_node(current_node, current_barcodes)
         for node in self.graph.adj[current_node].keys():
             if len(list(self.graph.adj[node].keys())) == 0:
                 continue
 
-            self.train_all_child_nodes(node, parent_node=current_node)
+            self.train_all_child_nodes(
+                node, 
+                parent_node=current_node,
+                test_size=test_size,
+                test_division=test_division,
+                barcodes_train=barcodes_train,
+                barcodes_test=barcodes_test)
 
     def train_local_classifier_kfold_CV(self, node, k=10, sampling_class = SMOTE, sampling_strategy = 'auto', **kwargs):
         """Train and validate local classifier by using stratified k-fold crossvalidation, oversamples 
@@ -317,7 +379,6 @@ class HierarchicalClassifier():
         pred_vec = self.graph.nodes[node]['memory'].local_classifier.predict(x_data)
         self.graph.nodes[node]['memory']._set_prediction_vector(pred_vec)
         self.subset_pred_vec(node) 
-
 
     def master(self, root):#, x_data, y_data):
         """run HC automated with Neural Network classifiers
@@ -432,8 +493,6 @@ class HierarchicalClassifier():
 
         print(performance_df)
         return performance_df
-
-
 
     def group_labels_of_subgraph_to_parent_label(self, super_node):
         """Maps y_input_data labels to parent label (eg map (CD4 T, CD8 T, NK) -> (TNK) for all neighbors of given super_node (eg TNK, B, Others) of Graph g
