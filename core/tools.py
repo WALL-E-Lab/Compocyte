@@ -2,30 +2,12 @@ import numpy as np
 import tensorflow.keras as keras
 from scipy.sparse.csr import csr_matrix
 
+def set_node_to_depth(dictionary, depth=0, node_to_depth={}):
+    for node in dictionary.keys():
+        node_to_depth = set_node_to_depth(dictionary[node], depth=depth+1)
+        node_to_depth[node] = depth
 
-def set_node_to_obs(dictionary, obs_names, depth=0, node_to_obs={}):
-    """Create dict assigning to each node in the hierarchy a key in obs under which one
-    can find the fitting annotations for the respective sub-nodes. I. e. n cells are labelled
-    as T cells in level 2. If one wants to know where the target labels for sub-classification
-    of these cells are found, one can call get_obs_from_node('T'), yielding level 3.
-    """
-
-    if len(dictionary.keys()) == 0:
-        pass
-
-    else:
-        for key in dictionary.keys():
-            deeper_assignments = set_node_to_obs(dictionary[key], obs_names, depth=depth+1)
-            for deeper_key, value in deeper_assignments.items():
-                node_to_obs[deeper_key] = value
-
-            try:
-                node_to_obs[key] = obs_names[depth + 1]
-
-            except:
-                pass
-
-    return node_to_obs
+    return node_to_depth
 
 def set_node_to_scVI(dictionary, parent_node=None, depth=0, max_depth_scVI=2, node_to_scVI={}):
     """Create dict assigning to each node in the hierarchy the node whose scVI dimensions should
