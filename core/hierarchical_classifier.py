@@ -42,30 +42,26 @@ class HierarchicalClassifier():
         self.hierarchy_container = hierarchy_container
         self.save_path = save_path
 
-    def init_node_memory_object(self, node):
-        """Add memory object to Node node; Node_Memory object organizes all relevant local classifier params
-        and run preprocessing methods of NodeMemory object"""
-        
-        self.graph.add_node(
-            node,
-            memory=NodeMemory( 
-                self.node_to_obs[node],
-                list(self.graph.adj[node].keys())),)
-
-    def init_local_classifier(self, node, classifier, input_len, **kwargs):
-        """Adjust explanation
+    def get_training_data(
+        self, 
+        node,
+        barcodes, 
+        scVI_key, 
+        obs_name_children):
+        """Add explanation
         """
+        
+        x, y = self.data_container.get_x_y_untransformed(barcodes, scVI_key, obs_name_children)
+        x = z_transform_properties(x)
+        y_int, y_onehot = self.hierarchy_container.transform_y(node, y)
 
-        output_len = len(list(self.graph.adj[node].keys()))
-        lc = classifier(input_len, output_len, **kwargs)
-        self.graph.nodes[node]['memory']._setup_local_classifier(lc)
+        return x, y_int, y_onehot
 
-    def run_single_node(self, 
+    def train_single_node(
+        self, 
         node, 
         barcodes=None, 
-        n_dimensions_scVI=10, 
-        test_size=0.2, 
-        test_division=False):
+        n_dimensions_scVI=10):
         """Add explanation
         """
 
@@ -76,62 +72,17 @@ class HierarchicalClassifier():
             n_dimensions=n_dimensions_scVI, 
             node=node, 
             barcodes=barcodes)
-        
-        # Initialize node memory object if that has not yet been done
-        if not node in self.graph.nodes.keys() or not 'memory' in self.graph[node].keys():
-            self.init_node_memory_object(node)
+        self.hierarchy_container.ensure_existence_classifier(
+            node, 
+            n_dimensions_scVI,
+            classifier=NeuralNetwork)
+        self.hierarchy_container.ensure_existence_label_encoder(node)
+        if barcodes == None:
+            barcodes = self.data_container.adata.obs_names
 
-        # Check if classifier has been initialized with n_dimensions_scVI
-        if not hasattr(self.graph.nodes[node]['memory'], 'local_classifier'):
-            self.init_local_classifier(node, classifier=NeuralNetwork, input_len=n_dimensions_scVI)
-
-        # Generate input array (i.e. scVI dimensions per cell) and onehot encoded output targets
-        # for either all cells in self.adata (barcodes == None) or 
-        # a chosen subset (not barcodes == None)
-        # -------------------------------------- #
-        x = None
-        y_int = None
-        if not type(barcodes) == type(None):
-            adata_subset = self.adata[barcodes, :].copy()
-            x = adata_subset.obsm[scVI_key]
-            y_int = self.graph.nodes[node]['memory'].label_encoder.transform(
-                np.array(
-                    adata_subset.obs[self.node_to_obs[node]]))
-
-        else:
-            x = self.adata.obsm[scVI_key]
-            y_int = self.graph.nodes[node]['memory'].label_encoder.transform(
-                np.array(
-                    self.adata.obs[self.node_to_obs[node]]))
-
-        y_onehot = keras.utils.to_categorical(
-            y_int,
-            num_classes=len(list(self.graph.adj[node].keys())))
-        x = z_transform_properties(x)
-        # Determine whether division into test and training dataset occurs on the node-level
-        # or at a multi-node level (i. e. in train_all_child_nodes)
-        if test_division:
-            x_train, x_test, y_int_train, y_int_test, y_onehot_train, y_onehot_test = train_test_split(
-                x, y_int, y_onehot, test_size=test_size, random_state=42)
-
-        else:
-            x_train, y_int_train, y_onehot_train = x, y_int, y_onehot
-
-        # -------------------------------------- #
-
-        self.graph.nodes[node]['memory'].local_classifier.train(x_train, y_onehot_train)
-
-        # Calculate and save performance metrics
-        # -------------------------------------- #
-        train_acc, train_con_mat = self.graph.nodes[node]['memory'].local_classifier.validate(x_train, y_int_train)
-        self.graph.nodes[node]['memory']._set_trainings_accuracy(train_acc)
-        self.graph.nodes[node]['memory']._set_training_conmat(train_con_mat)
-
-        if test_division:
-            test_acc, test_con_mat = self.graph.nodes[node]['memory'].local_classifier.validate(x_test, y_int_test)
-            self.graph.nodes[node]['memory']._set_test_accuracy(test_acc)
-            self.graph.nodes[node]['memory']._set_test_conmat(test_con_mat)
-        # -------------------------------------- #
+        obs_name_children = self.hierarchy_container.get_children_obs_key(node)
+        x, y_int, y_onehot = self.get_training_data(node, barcodes, scVI_key, obs_name_children)
+        self.hierarchy_container.train_single_node(node, x, y_int, y_onehot)
 
     def predict_all_child_nodes(self,
         current_node=None,

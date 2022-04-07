@@ -1,6 +1,7 @@
 import networkx as nx
-from .tools import flatten_dict, dict_depth, hierarchy_names_unique, make_graph_from_edges, \
-    set_node_to_depth, set_node_to_scVI
+from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
+    make_graph_from_edges, set_node_to_depth, set_node_to_scVI
+from classiFire.core.neural_network import NeuralNetwork
 
 class HierarchyContainer():
     """Add explanation
@@ -72,3 +73,52 @@ class HierarchyContainer():
         depth_parent = self.node_to_depth[parent_node]
 
         return self.obs_names[depth_parent]
+
+    def ensure_existence_classifier(self, node, input_len, classifier=NeuralNetwork, **kwargs):
+        """Ensure that for the specified node in the graph, a local classifier exists under the
+        key 'local_classifier'.
+        """
+        
+        output_len = len(list(self.graph.adj[node].keys()))
+        define_classifier = False
+        if not 'local_classifier' in self.graph.nodes[node].keys():
+            define_classifier = True
+
+        else:
+            current_input_len = self.graph.nodes[node]['local_classifier'].len_of_input
+            current_output_len = self.graph.nodes[node]['local_classifier'].len_of_output
+            if current_input_len != input_len: or current_output_len != output_len:
+                # At some point (once changing the hierarchy becomes a thing) this should 
+                # change the layer structure, rather than overwriting it all together
+                define_classifier = True
+
+        if define_classifier:
+            self.graph.nodes[node]['local_classifier'] = classifier(input_len, output_len, **kwargs)
+
+    def ensure_existence_label_encoder(self, node):
+        """Add explanation.
+        """
+
+        if not 'label_encoder' in self.graph.nodes[node].keys():
+            self.label_encoder = LabelEncoder()
+            children_labels = self.graph.adj[node].keys()
+            self.label_encoder.fit(np.array(children_labels))
+
+    def transform_y(self, node, y):
+        """Add explanation.
+        """
+
+        num_classes = len(list(self.graph.adj[node].keys()))
+        y_int = self.graph.nodes[node]['label_encoder'].transform(y)
+        y_onehot = keras.utils.to_categorical(y_int, num_classes=num_classes)
+
+        return y_int, y_onehot
+
+    def train_single_node(self, node, x, y_int, y_onehot):
+        """Add explanation.
+        """
+
+        self.graph.nodes[node]['local_classifier'].train(x, y_onehot)
+        train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x, y_int)
+        self.graph.nodes[node]['last_train_acc'] = train_acc
+        self.graph.nodes[node]['last_train_con_mat'] = train_con_mat

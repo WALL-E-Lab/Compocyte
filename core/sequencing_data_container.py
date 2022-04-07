@@ -76,7 +76,6 @@ class SequencingDataContainer():
         # node
         if not key in self.adata.obsm or overwrite:
             self.run_scVI(
-                node, 
                 n_dimensions, 
                 key, 
                 barcodes=barcodes, 
@@ -88,7 +87,6 @@ class SequencingDataContainer():
             adata_subset = self.adata[barcodes, :]
             if np.isnan(adata_subset.obsm[key]).any():
                 self.run_scVI(
-                    node, 
                     n_dimensions, 
                     key, 
                     barcodes=barcodes, 
@@ -99,7 +97,6 @@ class SequencingDataContainer():
 
     def run_scVI(
         self, 
-        node, 
         n_dimensions, 
         key, 
         barcodes=None, 
@@ -109,8 +106,6 @@ class SequencingDataContainer():
 
         Parameters
         ----------
-        node
-            Node in the cell label hierarchy for which the scVI data should be specific.
         n_dimensions
             Number of latent dimensions/nodes in the scVI bottleneck.
         key
@@ -181,3 +176,13 @@ class SequencingDataContainer():
 
         else:
             self.adata.obsm[key] = vae.get_latent_representation()
+
+    def get_x_y_untransformed(self, barcodes, scVI_key, obs_name_children):
+        """Add explanation.
+        """
+
+        adata_subset = self.adata[barcodes, :]
+        x = adata_subset.obsm[scVI_key]
+        y = np.array(adata_subset.obs[obs_name_children])
+
+        return x, y
