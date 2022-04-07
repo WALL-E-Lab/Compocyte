@@ -1,35 +1,40 @@
-from .tools import is_counts
+import scvi
+import os
+import numpy as np
+from classiFire.core.tools import is_counts
 
 class SequencingDataContainer():
-	"""Add explanation
-	"""
+    """Add explanation
+    """
 
-	def __init__(self, adata, batch_key='batch'):
-		self.adata = adata
+    def __init__(self, adata, save_path, batch_key='batch', scVI_model_prefix=None):
+        self.adata = adata
+        self.save_path = save_path
         self.batch_key = batch_key
-		self.ensure_not_view()
-		self.check_for_counts()
-		self.ensure_batch_assignment()
+        self.scVI_model_prefix = scVI_model_prefix
+        self.ensure_not_view()
+        self.check_for_counts()
+        self.ensure_batch_assignment()
 
-	def ensure_not_view(self):
-		"""Ensure that the AnnData object saved within is not a view.
-		"""
+    def ensure_not_view(self):
+        """Ensures that the AnnData object saved within is not a view.
+        """
 
-		if adata.is_view:
+        if adata.is_view:
             self.adata = adata.copy()
 
         else:
             self.adata = adata
 
     def ensure_batch_assignment(self):
-    	"""Ensure that the batch_key supplied is actually a key in adata.obs.
-    	"""
+        """Ensures that self.batch_key is actually a key in self.adata.obs.
+        """
 
-    	if not self.batch_key in self.adata.obs.columns:
-    		raise KeyError('The batch key supplied does not match any column in adata.obs.')
+        if not self.batch_key in self.adata.obs.columns:
+            raise KeyError('The batch key supplied does not match any column in adata.obs.')
 
     def check_for_counts(self):
-        """Checks adata.X and adata.raw.X for presence of raw count data.
+        """Checks self.adata.X and self.adata.raw.X for presence of raw count data.
         """
 
         if is_counts(self.adata.X):
@@ -41,3 +46,138 @@ class SequencingDataContainer():
 
             else:
                 raise ValueError('No raw counts found in adata.X or adata.raw.X.')
+
+    def get_scVI_key(
+        self,
+        node,
+        n_dimensions=10,
+        barcodes=None, 
+        overwrite=False, 
+        **kwargs):
+        """This method ensures that scVI data is present as requested, i. e. for the specified
+        barcodes, the specified node and the specified number of dimensions. Returns the obsm key
+        corresponding to the requested scVI data.
+
+        Parameters
+        ----------
+        node
+            Node in the cell label hierarchy for which the scVI data should be specific.
+        n_dimensions
+            Number of latent dimensions/nodes in the scVI bottleneck.
+        barcodes
+            Barcodes belonging to cells which are to be predicted/trained with and for whom,
+            consequently, scVI dimensions should be available.
+        overwrite
+            Whether or not existing scVI dimensions fitting all criteria should be overwritten.
+        """
+        
+        key = f'X_scVI_{n_dimensions}_{node}'
+        # Run scVI if it has not been run at the specified number of dimensions or for the specified
+        # node
+        if not key in self.adata.obsm or overwrite:
+            self.run_scVI(
+                node, 
+                n_dimensions, 
+                key, 
+                barcodes=barcodes, 
+                overwrite=overwrite, 
+                **kwargs)
+
+        # Also run scVI again if entry does not exist for all barcodes supplied
+        elif type(barcodes) != type(None):
+            adata_subset = self.adata[barcodes, :]
+            if np.isnan(adata_subset.obsm[key]).any():
+                self.run_scVI(
+                    node, 
+                    n_dimensions, 
+                    key, 
+                    barcodes=barcodes, 
+                    overwrite=overwrite, 
+                    **kwargs)
+
+        return key
+
+    def run_scVI(
+        self, 
+        node, 
+        n_dimensions, 
+        key, 
+        barcodes=None, 
+        overwrite=False, 
+        **kwargs):
+        """Run scVI with parameters taken from the scvi-tools scANVI tutorial.
+
+        Parameters
+        ----------
+        node
+            Node in the cell label hierarchy for which the scVI data should be specific.
+        n_dimensions
+            Number of latent dimensions/nodes in the scVI bottleneck.
+        key
+            Key under which to save the latent representation in self.adata.obsm.
+        barcodes
+            Barcodes belonging to cells which are to be predicted/trained with and for whom,
+            consequently, scVI dimensions should be available.
+        overwrite
+            Whether or not existing scVI dimensions fitting all criteria should be overwritten.
+        """
+
+        # Check if scVI has previously been trained for this node and number of dimensions
+        model_path = os.path.join(
+            self.save_path, 
+            'models', 
+            'scvi', 
+            f'{self.scVI_model_prefix}_{key}')        
+        model_exists = os.path.exists(model_path)
+        if type(barcodes) != type(None):
+            relevant_adata = self.adata[barcodes, :].copy()
+
+        else:
+            relevant_adata = self.adata
+
+        scvi.model.SCVI.setup_anndata(
+            relevant_adata, 
+            batch_key=self.batch_key)
+
+        save_model = False
+        if model_exists and not overwrite:
+            vae = scvi.model.SCVI.load(
+                model_path,
+                relevant_adata)
+
+        else:
+            save_model = True
+            arches_params = dict(
+                use_layer_norm="both",
+                use_batch_norm="none",
+                encode_covariates=True,
+                dropout_rate=0.2,
+                n_layers=2,)
+            vae = scvi.model.SCVI(
+                relevant_adata,
+                **arches_params)
+
+        vae.train(
+            early_stopping=True,
+            early_stopping_patience=10)
+        if save_model:
+            self.scVI_model_prefix = datetime.now().isoformat(timespec='minutes')
+            vae.save(
+                f'{self.scVI_model_prefix}_{key}',
+                overwrite=True)
+
+        if type(barcodes) != type(None):
+            # Ensure that scVI values in the relevant obsm key are only being set for those
+            # cells that belong to the specified subset (by barcodes) and values for all other
+            # cells are set to np.nan
+            scvi_template = np.empty(shape=(len(self.adata), n_dimensions))
+            scvi_template[:] = np.nan
+            barcodes_np_index = np.where(
+                np.isin(
+                    np.array(self.adata.obs_names), 
+                    barcodes))[0]
+            scvi_template[barcodes_np_index, :] = vae.get_latent_representation()
+            self.adata.obsm[key] = scvi_template
+
+        else:
+            self.adata.obsm[key] = vae.get_latent_representation()

@@ -11,106 +11,36 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.preprocessing import LabelEncoder
 from imblearn.over_sampling import SMOTE
 from uncertainties import ufloat
-from .tools import list_subgraph_nodes, \
-z_transform_properties, set_node_to_obs, set_node_to_scVI
-from .node_memory import NodeMemory
-from .neural_network import NeuralNetwork
-from .sequencing_data_container import SequencingDataContainer
+from classiFire.core.tools import list_subgraph_nodes, \
+z_transform_properties, set_node_to_scVI
+from classiFire.core.node_memory import NodeMemory
+from classiFire.core.neural_network import NeuralNetwork
+from classiFire.core.sequencing_data_container import SequencingDataContainer
 
 class HierarchicalClassifier():
-    """Class connects Nodes of Local Classifiers, passes results to children \
-    classifiers and forms the final hierarchical classifier
+    """This class coordinates the passing of information between the cell label hierarchy (in
+    HierarchyContainer), the sequencing and cell-level data (in SequencingDataContainer) and the
+    local classifiers making classification decisions for single nodes in the cell label hierarchy.
+
+    Parameters
+    ----------
+    data_container
+        Object of type classiFire.core.sequencing_data_container.SequencingDataContainer.
+    hierarchy_container
+        Object of type classiFire.core.hierarchy_container.HierarchyContainer.
+    save_path
+        Path to save model states and other information processed by this class.
     """ 
 
-    def __init__(self, data_container, hierarchy_container, save_path):
-        """Rewrite explanation.
-        """
+    def __init__(
+        self, 
+        data_container, 
+        hierarchy_container, 
+        save_path):
 
         self.data_container = data_container
         self.hierarchy_container = hierarchy_container
         self.save_path = save_path
-
-    def get_scVI_key(self, n_dimensions=10, node=None, barcodes=None, overwrite=False, **kwargs):
-        """Ensure that scVI data is present as requested (specified number of dimensions,
-        if applicable for the given node and all of the associated barcodes) If it is not, run scVI.
-        Return the obsm key corresponding to the requested scVI data.
-        """
-
-        if node != None:
-            node = self.node_to_scVI[node]
-
-        key = f'X_scVI_{n_dimensions}_{"overall" if node == None else node}'
-        # Run scVI if it has not been run at the specified number of dimensions or for the specified
-        if not key in self.adata.obsm or overwrite:
-            self.run_scVI(n_dimensions=n_dimensions, key=key, node=node, barcodes=barcodes, **kwargs)
-
-        elif node != None and type(barcodes) != type(None):
-            # Also run scVI again if entry does not exist for all barcodes supplied
-            adata_subset = self.adata[barcodes, :].copy()
-            if np.isnan(adata_subset.obsm[key]).any():
-                self.run_scVI(n_dimensions=n_dimensions, key=key, node=node, barcodes=barcodes, **kwargs)
-
-        return key
-
-    def run_scVI(self, n_dimensions, key, node=None, barcodes=None, overwrite_scVI=False):
-        """Run scVI, currently with parameters taken from the scvi-tools scANVI tutorial. If requested,
-        run scVI for a subset of cells only (defined by barcodes, saved by node name).
-        """
-
-        scvi.settings.seed = 94705 # For reproducibility
-        adata_subset = None
-        if node != None and type(barcodes) != type(None):
-            adata_subset = self.adata[barcodes, :].copy()
-
-        # Check if scVI has previously been trained for this node and number of dimensions
-        model_path = os.path.join(self.save_path, 'models', 'scvi', key)
-        model_exists = os.path.exists(model_path)
-        scvi.model.SCVI.setup_anndata(
-            self.adata if type(adata_subset) == type(None) else adata_subset, 
-            batch_key=self.batch_key)
-
-        if model_exists and not overwrite_scVI:
-            vae = scvi.model.SCVI.load(
-                model_path,
-                self.adata if type(adata_subset) == type(None) else adata_subset)
-
-        else:
-            arches_params = dict(
-                use_layer_norm="both",
-                use_batch_norm="none",
-                encode_covariates=True,
-                dropout_rate=0.2,
-                n_layers=2,)
-            vae = scvi.model.SCVI(
-                self.adata if type(adata_subset) == type(None) else adata_subset,
-                **arches_params)
-
-        vae.train(
-            early_stopping=True,
-            early_stopping_patience=10)
-        # !!!!!
-        # Save only if new data is presented or overwrite
-        # how to deal with prefix?
-        vae.save(
-            model_path,
-            #prefix=datetime.now().isoformat(timespec='minutes'),
-            overwrite=True)
-
-        if node != None and type(barcodes) != type(None):
-            # Ensure that scVI values in the relevant obsm key are only being set for those
-            # cells that belong to the specified subset (by barcodes) and values for all other
-            # cells are set to np.nan
-            scvi_template = np.empty(shape = (len(self.adata), n_dimensions))
-            scvi_template[:] = np.nan
-            barcodes_np_index = np.where(
-                np.isin(
-                    np.array(self.adata.obs_names), 
-                    barcodes))[0]
-            scvi_template[barcodes_np_index, :] = vae.get_latent_representation()
-            self.adata.obsm[key] = scvi_template
-
-        else:
-            self.adata.obsm[key] = vae.get_latent_representation()
 
     def init_node_memory_object(self, node):
         """Add memory object to Node node; Node_Memory object organizes all relevant local classifier params
@@ -139,7 +69,14 @@ class HierarchicalClassifier():
         """Add explanation
         """
 
-        scVI_key = self.get_scVI_key(n_dimensions=n_dimensions_scVI, node=node, barcodes=barcodes)
+        # Choose the most cell-type specific scVI dimensions available.
+        scVI_node = self.hierarchy_container.node_to_scVI[node]
+        scVI_key = self.data_container.get_scVI_key(
+            node=scVI_node, 
+            n_dimensions=n_dimensions_scVI, 
+            node=node, 
+            barcodes=barcodes)
+        
         # Initialize node memory object if that has not yet been done
         if not node in self.graph.nodes.keys() or not 'memory' in self.graph[node].keys():
             self.init_node_memory_object(node)
