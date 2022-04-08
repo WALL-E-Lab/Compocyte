@@ -1,6 +1,7 @@
 import scvi
 import os
 import numpy as np
+from datetime import datetime
 from classiFire.core.tools import is_counts
 
 class SequencingDataContainer():
@@ -20,11 +21,11 @@ class SequencingDataContainer():
         """Ensures that the AnnData object saved within is not a view.
         """
 
-        if adata.is_view:
+        if self.adata.is_view:
             self.adata = adata.copy()
 
         else:
-            self.adata = adata
+            pass
 
     def ensure_batch_assignment(self):
         """Ensures that self.batch_key is actually a key in self.adata.obs.

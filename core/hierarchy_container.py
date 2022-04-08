@@ -1,4 +1,8 @@
 import networkx as nx
+import numpy as np
+import tensorflow as tf 
+import tensorflow.keras as keras
+from sklearn.preprocessing import LabelEncoder
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
     make_graph_from_edges, set_node_to_depth, set_node_to_scVI
 from classiFire.core.neural_network import NeuralNetwork
@@ -87,7 +91,7 @@ class HierarchyContainer():
         else:
             current_input_len = self.graph.nodes[node]['local_classifier'].len_of_input
             current_output_len = self.graph.nodes[node]['local_classifier'].len_of_output
-            if current_input_len != input_len: or current_output_len != output_len:
+            if current_input_len != input_len or current_output_len != output_len:
                 # At some point (once changing the hierarchy becomes a thing) this should 
                 # change the layer structure, rather than overwriting it all together
                 define_classifier = True
@@ -100,9 +104,10 @@ class HierarchyContainer():
         """
 
         if not 'label_encoder' in self.graph.nodes[node].keys():
-            self.label_encoder = LabelEncoder()
-            children_labels = self.graph.adj[node].keys()
-            self.label_encoder.fit(np.array(children_labels))
+            label_encoder = LabelEncoder()
+            children_labels = list(self.graph.adj[node].keys())
+            label_encoder.fit(np.array(children_labels))
+            self.graph.nodes[node]['label_encoder'] = label_encoder
 
     def transform_y(self, node, y):
         """Add explanation.

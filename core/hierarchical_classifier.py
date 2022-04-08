@@ -8,7 +8,6 @@ import scvi
 import os
 from datetime import datetime
 from sklearn.model_selection import StratifiedKFold, train_test_split
-from sklearn.preprocessing import LabelEncoder
 from imblearn.over_sampling import SMOTE
 from uncertainties import ufloat
 from classiFire.core.tools import list_subgraph_nodes, \
@@ -69,8 +68,7 @@ class HierarchicalClassifier():
         scVI_node = self.hierarchy_container.node_to_scVI[node]
         scVI_key = self.data_container.get_scVI_key(
             node=scVI_node, 
-            n_dimensions=n_dimensions_scVI, 
-            node=node, 
+            n_dimensions=n_dimensions_scVI,
             barcodes=barcodes)
         self.hierarchy_container.ensure_existence_classifier(
             node, 
