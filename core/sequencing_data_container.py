@@ -187,3 +187,11 @@ class SequencingDataContainer():
         y = np.array(adata_subset.obs[obs_name_children])
 
         return x, y
+
+    def get_true_barcodes(self, obs_name_node, node):
+        """Retrieves bar codes of the cells that match the node supplied in the obs column supplied.
+        Important for training using only the cells that are actually classified as belonging to
+        that node.
+        """
+
+        return list(self.adata[self.adata.obs[obs_name_node] == node].obs_names)

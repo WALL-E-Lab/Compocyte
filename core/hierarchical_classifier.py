@@ -64,6 +64,11 @@ class HierarchicalClassifier():
         """Add explanation
         """
 
+        print(f'Training classifier at {node}.')
+        if type(barcodes) != type(None):
+            print(f'Subsetting to {len(true_barcodes)} cells based on node assignment and'\
+            ' designation as training data.')
+
         # Choose the most cell-type specific scVI dimensions available.
         scVI_node = self.hierarchy_container.node_to_scVI[node]
         scVI_key = self.data_container.get_scVI_key(
@@ -81,6 +86,21 @@ class HierarchicalClassifier():
         obs_name_children = self.hierarchy_container.get_children_obs_key(node)
         x, y_int, y_onehot = self.get_training_data(node, barcodes, scVI_key, obs_name_children)
         self.hierarchy_container.train_single_node(node, x, y_int, y_onehot)
+
+    def train_all_child_nodes(
+        self,
+        current_node):
+        """Add explanation
+        """
+
+        obs_name_parent = self.hierarchy_container.get_parent_obs_key(current_node)
+        true_barcodes = self.data_container.get_true_barcodes(obs_name_parent, current_node)        
+        self.train_single_node(current_node, true_barcodes)
+        for child_node in self.graph.adj[current_node].keys():
+            if len(list(self.graph.adj[child_node].keys())) == 0:
+                continue
+
+            self.train_all_child_nodes(node)
 
     def predict_all_child_nodes(self,
         current_node=None,
