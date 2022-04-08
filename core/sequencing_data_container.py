@@ -158,8 +158,13 @@ class SequencingDataContainer():
             early_stopping_patience=10)
         if save_model:
             self.scVI_model_prefix = datetime.now().isoformat(timespec='minutes')
+            model_path = os.path.join(
+                self.save_path, 
+                'models', 
+                'scvi', 
+                f'{self.scVI_model_prefix}_{key}')
             vae.save(
-                f'{self.scVI_model_prefix}_{key}',
+                model_path,
                 overwrite=True)
 
         if type(barcodes) != type(None):
@@ -188,10 +193,17 @@ class SequencingDataContainer():
 
         return x, y
 
-    def get_true_barcodes(self, obs_name_node, node):
+    def get_true_barcodes(self, obs_name_node, node, true_from=None):
         """Retrieves bar codes of the cells that match the node supplied in the obs column supplied.
         Important for training using only the cells that are actually classified as belonging to
         that node.
         """
 
-        return list(self.adata[self.adata.obs[obs_name_node] == node].obs_names)
+        adata_subset = self.adata[self.adata.obs[obs_name_node] == node]
+        if type(true_from) != type(None):
+            true_barcodes = [b for b in adata_subset.obs_names if b in true_from]
+
+        else:
+            true_barcodes = adata_subset.obs_names
+
+        return true_barcodes

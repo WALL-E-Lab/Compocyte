@@ -127,3 +127,6 @@ class HierarchyContainer():
         train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x, y_int)
         self.graph.nodes[node]['last_train_acc'] = train_acc
         self.graph.nodes[node]['last_train_con_mat'] = train_con_mat
+
+    def get_child_nodes(self, node):
+        return self.graph.adj[node].keys()
