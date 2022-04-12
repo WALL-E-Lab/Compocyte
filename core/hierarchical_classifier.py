@@ -1,19 +1,5 @@
-import networkx as nx
-import pandas as pd
-import numpy as np
-import random
-import tensorflow as tf 
-import tensorflow.keras as keras
-import scvi
-import os
-from datetime import datetime
-from sklearn.model_selection import StratifiedKFold, train_test_split
-from imblearn.over_sampling import SMOTE
-from uncertainties import ufloat
-from classiFire.core.tools import list_subgraph_nodes, \
-z_transform_properties, set_node_to_scVI
+from classiFire.core.tools import z_transform_properties
 from classiFire.core.neural_network import NeuralNetwork
-from classiFire.core.sequencing_data_container import SequencingDataContainer
 
 class HierarchicalClassifier():
     """This class coordinates the passing of information between the cell label hierarchy (in
@@ -94,9 +80,6 @@ class HierarchicalClassifier():
         """
 
         obs_name_parent = self.hierarchy_container.get_parent_obs_key(current_node)
-        if type(train_barcodes) == type(None):
-            pass
-
         true_barcodes = self.data_container.get_true_barcodes(
             obs_name_parent, 
             current_node, 
@@ -107,3 +90,38 @@ class HierarchicalClassifier():
                 continue
 
             self.train_all_child_nodes(child_node, train_barcodes=train_barcodes)
+
+    def predict_single_node(
+        self,
+        node,
+        barcodes=None,
+        n_dimensions_scVI=10,
+        test_barcodes=None):
+        """Add explanation.
+        """
+
+        print(f'Predicting cells at {node}.')
+        if type(test_barcodes) != type(None) and type(barcodes) != type(None):
+            barcodes = [b for b in barcodes if b in test_barcodes]
+
+        if type(barcodes) != type(None):
+            print(f'Making prediction for {len(barcodes)} cells based on node assignment and'\
+            ' designation as prediction data.')
+
+        else:
+            barcodes = self.data_container.adata.obs_names
+
+        # Choose the most cell-type specific scVI dimensions available.
+        scVI_node = self.hierarchy_container.node_to_scVI[node]
+        scVI_key = self.data_container.get_scVI_key(
+            node=scVI_node, 
+            n_dimensions=n_dimensions_scVI,
+            barcodes=barcodes)
+        if not self.hierarchy_container.is_trained_at(node):
+            raise Exception(f'Must train local classifier for {node} before trying to predict cell'\
+                ' types')
+
+        x = self.data_container.get_x_untransformed(barcodes, scVI_key)
+        x = z_transform_properties(x)
+        y_pred = self.hierarchy_container.predict_single_node()
+        self.data_container.set_predictions(node, barcodes, y_pred)        

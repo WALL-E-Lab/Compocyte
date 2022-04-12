@@ -193,6 +193,15 @@ class SequencingDataContainer():
 
         return x, y
 
+    def get_x_untransformed(self, barcodes, scVI_key):
+        """Add explanation.
+        """
+
+        adata_subset = self.adata[barcodes, :]
+        x = adata_subset.obsm[scVI_key]
+
+        return x
+
     def get_true_barcodes(self, obs_name_node, node, true_from=None):
         """Retrieves bar codes of the cells that match the node supplied in the obs column supplied.
         Important for training using only the cells that are actually classified as belonging to
@@ -207,3 +216,16 @@ class SequencingDataContainer():
             true_barcodes = adata_subset.obs_names
 
         return true_barcodes
+
+    def set_predictions(self, node, barcodes, y_pred):
+        """Add explanation.
+        """
+
+        pred_template = np.empty(shape=len(self.adata))
+        pred_template[:] = np.nan
+        barcodes_np_index = np.where(
+            np.isin(
+                np.array(self.adata.obs_names), 
+                barcodes))[0]
+        pred_template[barcodes_np_index] = y_pred
+        self.adata.obs[f'{node}_pred'] = pred_template

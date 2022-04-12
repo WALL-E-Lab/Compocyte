@@ -130,3 +130,15 @@ class HierarchyContainer():
 
     def get_child_nodes(self, node):
         return self.graph.adj[node].keys()
+
+    def is_trained_at(self, node):
+        return 'local_classifier' in self.graph.nodes[node].keys()
+
+    def predict_single_node(self, node, x):
+        """Add explanation.
+        """
+
+        y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
+        y_pred = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred_int)
+
+        return y_pred
