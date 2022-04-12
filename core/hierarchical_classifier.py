@@ -123,5 +123,5 @@ class HierarchicalClassifier():
 
         x = self.data_container.get_x_untransformed(barcodes, scVI_key)
         x = z_transform_properties(x)
-        y_pred = self.hierarchy_container.predict_single_node()
+        y_pred = self.hierarchy_container.predict_single_node(node, x)
         self.data_container.set_predictions(node, barcodes, y_pred)        

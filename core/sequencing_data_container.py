@@ -227,5 +227,7 @@ class SequencingDataContainer():
             np.isin(
                 np.array(self.adata.obs_names), 
                 barcodes))[0]
+        # NEED TO TEST IF CONVERSION OF NP.NAN TO STR CREATES PROBLEMS
+        pred_template = pred_template.astype(str)
         pred_template[barcodes_np_index] = y_pred
         self.adata.obs[f'{node}_pred'] = pred_template
