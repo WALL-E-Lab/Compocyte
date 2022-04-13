@@ -217,17 +217,31 @@ class SequencingDataContainer():
 
         return true_barcodes
 
-    def set_predictions(self, node, barcodes, y_pred):
+    def set_predictions(self, obs_key, barcodes, y_pred):
         """Add explanation.
         """
 
-        pred_template = np.empty(shape=len(self.adata))
-        pred_template[:] = np.nan
-        barcodes_np_index = np.where(
-            np.isin(
-                np.array(self.adata.obs_names), 
-                barcodes))[0]
-        # NEED TO TEST IF CONVERSION OF NP.NAN TO STR CREATES PROBLEMS
-        pred_template = pred_template.astype(str)
-        pred_template[barcodes_np_index] = y_pred
-        self.adata.obs[f'{node}_pred'] = pred_template
+        try:
+            existing_annotations = self.adata.obs[f'{obs_key}_pred']
+            existing_annotations[barcodes_np_index] = y_pred
+            self.adata.obs[f'{obs_key}_pred'] = existing_annotations
+
+        except KeyError:            
+            pred_template = np.empty(shape=len(self.adata))
+            pred_template[:] = np.nan
+            barcodes_np_index = np.where(
+                np.isin(
+                    np.array(self.adata.obs_names), 
+                    barcodes))[0]
+            # NEED TO TEST IF CONVERSION OF NP.NAN TO STR CREATES PROBLEMS
+            pred_template = pred_template.astype(str)
+            pred_template[barcodes_np_index] = y_pred
+            self.adata.obs[f'{obs_key}_pred'] = pred_template
+
+    def get_predicted_barcodes(self, obs_key, child_node):
+        """Add explanation.
+        """
+
+        adata_subset = self.adata[self.adata.obs[obs_key] == child_node]
+
+        return adata_subset.obs_names

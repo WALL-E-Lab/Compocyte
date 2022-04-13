@@ -124,4 +124,24 @@ class HierarchicalClassifier():
         x = self.data_container.get_x_untransformed(barcodes, scVI_key)
         x = z_transform_properties(x)
         y_pred = self.hierarchy_container.predict_single_node(node, x)
-        self.data_container.set_predictions(node, barcodes, y_pred)        
+        obs_key = self.hierarchy_container.get_children_obs_key(node)
+        self.data_container.set_predictions(obs_key, barcodes, y_pred)
+
+    def predict_all_child_nodes(
+        self,
+        current_node,
+        current_barcodes=None,
+        test_barcodes=None):
+        """Add explanation.
+        """
+
+        self.predict_single_node(current_node, current_barcodes, test_barcodes=test_barcodes)
+        obs_key = self.hierarchy_container.get_children_obs_key(current_node)
+        for child_node in self.hierarchy_container.get_child_nodes(current_node):
+            if len(self.hierarchy_container.get_child_nodes(child_node)) == 0:
+                continue
+
+            child_node_barcodes = self.sequencing_data_container.get_predicted_barcodes(
+                obs_key, 
+                child_node)
+            self.predict_all_child_nodes(child_node, child_node_barcodes, test_barcodes)
