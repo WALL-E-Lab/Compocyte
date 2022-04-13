@@ -1,5 +1,6 @@
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.neural_network import NeuralNetwork
+from sklearn.model_selection import train_test_split, StratifiedKFold
 
 class HierarchicalClassifier():
     """This class coordinates the passing of information between the cell label hierarchy (in
@@ -101,16 +102,14 @@ class HierarchicalClassifier():
         """
 
         print(f'Predicting cells at {node}.')
-        if type(test_barcodes) != type(None) and type(barcodes) != type(None):
-            barcodes = [b for b in barcodes if b in test_barcodes]
-
-        if type(barcodes) != type(None):
-            print(f'Making prediction for {len(barcodes)} cells based on node assignment and'\
-            ' designation as prediction data.')
-
-        else:
+        if type(barcodes) == type(None):
             barcodes = self.data_container.adata.obs_names
 
+        if type(test_barcodes) != type(None):
+            barcodes = [b for b in barcodes if b in test_barcodes]
+
+        print(f'Making prediction for {len(barcodes)} cells based on node assignment and'\
+            ' designation as prediction data.')
         # Choose the most cell-type specific scVI dimensions available.
         scVI_node = self.hierarchy_container.node_to_scVI[node]
         scVI_key = self.data_container.get_scVI_key(
@@ -141,7 +140,37 @@ class HierarchicalClassifier():
             if len(self.hierarchy_container.get_child_nodes(child_node)) == 0:
                 continue
 
-            child_node_barcodes = self.sequencing_data_container.get_predicted_barcodes(
+            child_node_barcodes = self.data_container.get_predicted_barcodes(
                 obs_key, 
                 child_node)
             self.predict_all_child_nodes(child_node, child_node_barcodes, test_barcodes)
+
+    def train_child_nodes_with_validation(
+        self, 
+        starting_node,
+        y_obs=None,
+        barcodes=None,
+        k=None,
+        test_size=0.25):
+        """Add explanation.
+        """
+
+        if type(y_obs) == type(None):
+            y_obs = self.hierarchy_container.obs_names[-1]
+        
+        y = self.data_container.adata.obs[y_obs]
+        if type(barcodes) == type(None):
+            barcodes = self.data_container.adata.obs_names
+
+        if type(k) == type(None):
+            barcodes_train, barcodes_test = train_test_split(barcodes, test_size=test_size)
+            self.train_all_child_nodes(starting_node, barcodes_train)
+            self.predict_all_child_nodes(starting_node, test_barcodes=barcodes_test)
+            self.data_container.get_total_accuracy(y_obs)
+
+        else:
+            skf = StratifiedKFold(n_splits=k)
+            for barcodes_train, barcodes_test in skf.split(barcodes, y):
+                self.train_all_child_nodes(starting_node, barcodes_train)
+                self.predict_all_child_nodes(starting_node, test_barcodes=barcodes_test)
+                self.data_container.get_total_accuracy(y_obs)

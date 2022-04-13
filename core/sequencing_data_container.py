@@ -3,6 +3,7 @@ import os
 import numpy as np
 from datetime import datetime
 from classiFire.core.tools import is_counts
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 class SequencingDataContainer():
     """Add explanation
@@ -210,6 +211,7 @@ class SequencingDataContainer():
 
         adata_subset = self.adata[self.adata.obs[obs_name_node] == node]
         if type(true_from) != type(None):
+            true_from = list(true_from)
             true_barcodes = [b for b in adata_subset.obs_names if b in true_from]
 
         else:
@@ -221,6 +223,10 @@ class SequencingDataContainer():
         """Add explanation.
         """
 
+        barcodes_np_index = np.where(
+            np.isin(
+                np.array(self.adata.obs_names), 
+                barcodes))[0]
         try:
             existing_annotations = self.adata.obs[f'{obs_key}_pred']
             existing_annotations[barcodes_np_index] = y_pred
@@ -228,11 +234,7 @@ class SequencingDataContainer():
 
         except KeyError:            
             pred_template = np.empty(shape=len(self.adata))
-            pred_template[:] = np.nan
-            barcodes_np_index = np.where(
-                np.isin(
-                    np.array(self.adata.obs_names), 
-                    barcodes))[0]
+            pred_template[:] = np.nan            
             # NEED TO TEST IF CONVERSION OF NP.NAN TO STR CREATES PROBLEMS
             pred_template = pred_template.astype(str)
             pred_template[barcodes_np_index] = y_pred
@@ -245,3 +247,24 @@ class SequencingDataContainer():
         adata_subset = self.adata[self.adata.obs[obs_key] == child_node]
 
         return adata_subset.obs_names
+
+    def get_total_accuracy(self, obs_key):
+        """Add explanation.
+        """
+
+        known_type = np.array(self.adata.obs[obs_key])
+        pred_type = np.array(self.adata.obs[f'{obs_key}_pred'])
+        possible_labels = np.concatenate((known_type, pred_type))
+        possible_labels = np.unique(possible_labels)
+        acc = np.sum(known_type == pred_type, axis = 0) / len(known_type)
+        con_mat = confusion_matrix(
+            y_true=known_type, 
+            y_pred=pred_type, 
+            normalize='true',
+            labels=possible_labels)
+        acc = round(acc * 100, 2)
+        print(f'Overall accuracy is {acc} %')
+        disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
+        disp.plot()
+
+        return acc, con_mat
