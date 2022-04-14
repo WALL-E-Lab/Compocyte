@@ -138,9 +138,9 @@ class SequencingDataContainer():
 
         save_model = False
         if model_exists and not overwrite:
-            vae = scvi.model.SCVI.load(
-                model_path,
-                relevant_adata)
+            vae = scvi.model.SCVI.load_query_data(
+                relevant_adata,
+                model_path)
 
         else:
             save_model = True
@@ -248,12 +248,13 @@ class SequencingDataContainer():
 
         return adata_subset.obs_names
 
-    def get_total_accuracy(self, obs_key):
+    def get_total_accuracy(self, obs_key, test_barcodes):
         """Add explanation.
         """
 
-        known_type = np.array(self.adata.obs[obs_key])
-        pred_type = np.array(self.adata.obs[f'{obs_key}_pred'])
+        adata_subset = self.adata[test_barcodes, :]
+        known_type = np.array(adata_subset.obs[obs_key])
+        pred_type = np.array(adata_subset.obs[f'{obs_key}_pred'])
         possible_labels = np.concatenate((known_type, pred_type))
         possible_labels = np.unique(possible_labels)
         acc = np.sum(known_type == pred_type, axis = 0) / len(known_type)

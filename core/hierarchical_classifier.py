@@ -1,6 +1,7 @@
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.neural_network import NeuralNetwork
 from sklearn.model_selection import train_test_split, StratifiedKFold
+from copy import deepcopy
 
 class HierarchicalClassifier():
     """This class coordinates the passing of information between the cell label hierarchy (in
@@ -151,7 +152,8 @@ class HierarchicalClassifier():
         y_obs=None,
         barcodes=None,
         k=None,
-        test_size=0.25):
+        test_size=0.25,
+        isolate_test_network=True):
         """Add explanation.
         """
 
@@ -163,14 +165,26 @@ class HierarchicalClassifier():
             barcodes = self.data_container.adata.obs_names
 
         if type(k) == type(None):
+            if isolate_test_network:
+                self.hierarchy_container_copy = deepcopy(self.hierarchy_container)
+
             barcodes_train, barcodes_test = train_test_split(barcodes, test_size=test_size)
             self.train_all_child_nodes(starting_node, barcodes_train)
             self.predict_all_child_nodes(starting_node, test_barcodes=barcodes_test)
-            self.data_container.get_total_accuracy(y_obs)
+            self.data_container.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
+            if isolate_test_network:
+                self.hierarchy_container = deepcopy(self.hierarchy_container_copy)
 
         else:
             skf = StratifiedKFold(n_splits=k)
-            for barcodes_train, barcodes_test in skf.split(barcodes, y):
+            for barcodes_train_idx, barcodes_test_idx in skf.split(barcodes, y):
+                if isolate_test_network:
+                    self.hierarchy_container_copy = deepcopy(self.hierarchy_container)
+
+                barcodes_train = barcodes[barcodes_train_idx]
+                barcodes_test = barcodes[barcodes_test_idx]
                 self.train_all_child_nodes(starting_node, barcodes_train)
                 self.predict_all_child_nodes(starting_node, test_barcodes=barcodes_test)
-                self.data_container.get_total_accuracy(y_obs)
+                self.data_container.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
+                if isolate_test_network:
+                    self.hierarchy_container = deepcopy(self.hierarchy_container_copy)
