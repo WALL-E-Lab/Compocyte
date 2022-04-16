@@ -8,8 +8,7 @@ class NeuralNetwork():
 
     def __init__(
         self, 
-        x_input_data,
-        y_input_onehot,
+        len_of_input,
         len_of_output, 
         list_of_hidden_layer_nodes=[30],
         activation_function='relu',
@@ -26,10 +25,10 @@ class NeuralNetwork():
         """Add explanation.
         """
 
-        self.x_input_data = x_input_data
-        self.y_input_data_onehot = y_input_onehot
-        self.list_of_layer_nodes = [len(self.x_input_data[0])]\
-            + [nodes for nodes in list_of_hidden_layer_nodes] + [len_of_output]  
+        self.len_of_input = len_of_input
+        self.len_of_output = len_of_output
+        self.list_of_layer_nodes = [len_of_input] + [nodes for nodes in list_of_hidden_layer_nodes]\
+            + [len_of_output]  
         self.activation_function = activation_function 
         self.learning_rate = learning_rate
         self.momentum = momentum
@@ -77,7 +76,7 @@ class NeuralNetwork():
                     self.dropout
                 ))
 
-    def train(self):
+    def train(self, x, y_onehot):
         """Train the NN using the x_training_data input and onehot encoded 
         y_training_onehot.
         """
@@ -92,8 +91,8 @@ class NeuralNetwork():
             optimizer = self.optimizer, 
             loss = self.loss_function)
         history = self.model.fit(
-            self.x_input_data,
-            self.y_input_data_onehot,
+            x,
+            y_onehot,
             batch_size = self.batch_size,
             epochs = self.epochs, 
             verbose = 0,
@@ -129,6 +128,6 @@ class NeuralNetwork():
         con_mat = confusion_matrix(
             y_true=y_input_int, 
             y_pred=y_preds, 
-            normalize = 'pred')
+            normalize = 'true')
 
         return acc, con_mat

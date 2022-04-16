@@ -1,5 +1,87 @@
 import numpy as np
 import tensorflow.keras as keras
+from scipy.sparse.csr import csr_matrix
+
+def set_node_to_depth(dictionary, depth=0, node_to_depth={}):
+    for node in dictionary.keys():
+        node_to_depth = set_node_to_depth(dictionary[node], depth=depth+1)
+        node_to_depth[node] = depth
+
+    return node_to_depth
+
+def set_node_to_scVI(dictionary, parent_node=None, depth=0, max_depth_scVI=2, node_to_scVI={}):
+    """Create dict assigning to each node in the hierarchy the node whose scVI dimensions should
+    be used. The idea is that running scVI separately for the first max_depth_scVI + 1 levels
+    will better bring out subtle differences between cells, improving classifier accuracy.
+    """
+
+    if len(dictionary.keys()) == 0:
+        pass
+
+    else:
+        for key in dictionary.keys():
+            deeper_assignments = set_node_to_scVI(dictionary[key], parent_node=key, depth=depth+1)
+            if depth <= max_depth_scVI:
+                node_to_scVI[key] = key
+
+            else:
+                node_to_scVI[key] = parent_node
+
+            for deeper_key, value in deeper_assignments.items():
+                node_to_scVI[deeper_key] = value
+
+    return node_to_scVI
+
+def is_counts(matrix, n_rows_to_try=100):
+    """Determines whether or not a matrix (such as adata.X, adata.raw.X or an adata layer) contains
+    count data by manually checking a subsample of the supplied matrix.
+    """
+
+    if not (type(matrix) == np.matrix or type(matrix) == csr_matrix):
+        raise ValueError(f'Matrix supplied must be of type {csr_matrix} or {np.matrix}.')
+
+    test_data = matrix[:n_rows_to_try]
+    if type(test_data) == csr_matrix:
+        test_data = test_data.todense()
+
+    contains_negative_values = np.any(test_data < 0)
+    contains_non_whole_numbers = np.any(test_data % 1 != 0)
+
+    return not contains_negative_values and not contains_non_whole_numbers
+
+def dict_depth(dictionary, running_count=0):
+    if not type(dictionary) == dict:
+        raise TypeError()
+
+    elif len(dictionary.keys()) == 0:
+        return running_count
+
+    running_counts_subdicts = []
+    for key in dictionary.keys():
+        running_counts_subdicts.append(
+            dict_depth(
+                dictionary[key],
+                running_count))
+
+    return max(running_counts_subdicts) + 1
+
+def flatten_dict(dictionary, running_list_of_values=[]):
+    if not type(dictionary) == dict:
+        raise TypeError()
+
+    elif len(dictionary.keys()) == 0:
+        return running_list_of_values
+
+    else:
+        for key in dictionary.keys():
+            running_list_of_values = running_list_of_values + flatten_dict(dictionary[key]) + [key]
+
+        return running_list_of_values
+
+def hierarchy_names_unique(hierarchy_dict):
+    all_nodes = flatten_dict(hierarchy_dict)
+    
+    return len(all_nodes) == len(set(all_nodes))
 
 def z_transform_properties(data_arr):
     """Calculates a z transformation to center properties across cells in data_arr \
