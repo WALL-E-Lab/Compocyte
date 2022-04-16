@@ -34,7 +34,25 @@ class HierarchicalClassifier():
         barcodes, 
         scVI_key, 
         obs_name_children):
-        """Add explanation
+        """Gets untransformed input and target data for the training of a local classifier, 
+        z-transforms the input data (scVI dimensions in the case of NeuralNetwork), calls upon
+        self.hierarchy_container to encode the cell type labels into onehot and integer format using
+        the label encoder at the local node.
+
+        Parameters
+        ----------
+        node
+            Specifies which local classifier is currently being trained. This information is
+            used to access the relevant label encoder in self.hierarchy_container.transform_y.
+        barcodes
+            Specifies which cells should be used for training, enabling the retrieval of input
+            and target data for these cells only.
+        scVI_key
+            Specifies under which key in data_container.adata.obsm the relevant scVI dimensions
+            are to be found.
+        obs_name_children
+            Specifies under which key in data_container.adata.obs the target label relevant at this node
+            is saved for each cell.
         """
         
         x, y = self.data_container.get_x_y_untransformed(barcodes, scVI_key, obs_name_children)
@@ -48,9 +66,22 @@ class HierarchicalClassifier():
         node, 
         barcodes=None, 
         n_dimensions_scVI=10):
-        """Add explanation
+        """Trains the local classifier stored at node.
+
+        Parameters
+        ----------
+        node
+            Specifies which local classifier is to be trained. node='T' would result in training
+            of the classifier further differentiating between T cells.
+        barcodes
+            Specifies which cells should be used for training.
+        n_dimensions_scVI
+            Specifies the number of dimensions to run scVI with and to use as input into the 
+            classifier.
         """
 
+        # TODO
+        # Overwrite n_dimensions_scVI if classifier already exists
         print(f'Training classifier at {node}.')
         if type(barcodes) != type(None):
             print(f'Subsetting to {len(barcodes)} cells based on node assignment and'\
@@ -78,7 +109,21 @@ class HierarchicalClassifier():
         self,
         current_node,
         train_barcodes=None):
-        """Add explanation
+        """Starts at current_node, training its local classifier and following up by recursively
+        training all local classifiers lower in the hierarchy. Uses cells that were labeled as 
+        current_node at the relevant level (i. e. cells that are truly of type current_node, rather
+        than cells predicted to be of that type). If train_barcodes is not None, only cells within
+        that subset are used for training.
+
+        Parameters
+        ----------
+        current_node
+            When initially calling the method this refers to the node in the hierarchy at which
+            to start training. Keeps track of which node is currently being trained over the course
+            of the recursion.
+        train_barcodes
+            Barcodes (adata.obs_names) of those cells that are available for training of the
+            classifier. Necessary to enable separation of training and test data for cross-validation.
         """
 
         obs_name_parent = self.hierarchy_container.get_parent_obs_key(current_node)
@@ -97,17 +142,30 @@ class HierarchicalClassifier():
         self,
         node,
         barcodes=None,
-        n_dimensions_scVI=10,
-        test_barcodes=None):
-        """Add explanation.
+        n_dimensions_scVI=10):
+        """Uses an existing classifier at node to assign one of the child labels to the cells
+        specified by barcodes. The predictions are stored in self.data_container.adata.obs by calling
+        self.data_container.set_predictions under f'{obs_key}_pred' where obs_key is the key under
+        which the annotations as one of the child labels are stored. If train_barcodes is not None, only cells within
+        that subset are used for training.
+
+        Parameters
+        ----------
+        node
+            Specifies which local classifier is to be used for prediction. node='T' would result in
+            predicting affiliation to one the T cell sub-labels.
+        barcodes
+            Specifies which cells are to be labelled.
+        n_dimensions_scVI
+            Specifies the number of dimensions to run scVI with and to use as input into the 
+            classifier.
         """
 
+        # TODO
+        # Overwrite n_dimensions_scVI if classifier already exists
         print(f'Predicting cells at {node}.')
         if type(barcodes) == type(None):
             barcodes = self.data_container.adata.obs_names
-
-        if type(test_barcodes) != type(None):
-            barcodes = [b for b in barcodes if b in test_barcodes]
 
         print(f'Making prediction for {len(barcodes)} cells based on node assignment and'\
             ' designation as prediction data.')
@@ -132,10 +190,25 @@ class HierarchicalClassifier():
         current_node,
         current_barcodes=None,
         test_barcodes=None):
-        """Add explanation.
+        """Starts at current_node, predicting cell label affiliation using its local classifier.
+        Recursively predicts affiliation to cell type labels lower in the hierarchy, using as relevant
+        cell subgroup those cells that were predicted to belong to the parent node label. If 
+        test_barcodes is not None, only cells within that subset are used for prediction, enabling
+        cross-validation.
+
+        Parameters
+        ----------
+        current_node
+            When initially calling the method this refers to the node in the hierarchy at which
+            to start prediction. Keeps track of which node is currently being predicted for over 
+            the course of the recursion.
+        test_barcodes
+            Barcodes (adata.obs_names) of those cells that are available for prediction. Necessary 
+            to enable separation of training and test data for cross-validation and make predictions
+            only for those cells which the classifier has not yet seen.
         """
 
-        self.predict_single_node(current_node, current_barcodes, test_barcodes=test_barcodes)
+        self.predict_single_node(current_node, current_barcodes)
         obs_key = self.hierarchy_container.get_children_obs_key(current_node)
         for child_node in self.hierarchy_container.get_child_nodes(current_node):
             if len(self.hierarchy_container.get_child_nodes(child_node)) == 0:
@@ -143,8 +216,9 @@ class HierarchicalClassifier():
 
             child_node_barcodes = self.data_container.get_predicted_barcodes(
                 obs_key, 
-                child_node)
-            self.predict_all_child_nodes(child_node, child_node_barcodes, test_barcodes)
+                child_node,
+                predicted_from=test_barcodes)
+            self.predict_all_child_nodes(child_node, child_node_barcodes)
 
     def train_child_nodes_with_validation(
         self, 
@@ -154,7 +228,31 @@ class HierarchicalClassifier():
         k=None,
         test_size=0.25,
         isolate_test_network=True):
-        """Add explanation.
+        """Implements automatic hierarchical/recursive classification along the hierarchy
+        in combination with a test/train split (simple or k-fold CV if k is not None).
+
+        Parameters
+        ----------
+        starting_node
+            When initially calling the method this refers to the node in the hierarchy at which
+            to start training and later on testing. Keeps track of which node is currently being
+            trained or tested over the course of the recursion.
+        y_obs
+            Specifies which obs key/level of labels is considered for overall accuracy determination
+            and construction of the confusion matrix. If y_obs == None, is set to the last level
+            in the hierarchy.
+        barcodes
+            Barcodes of cells to consider for training and testing.
+        k
+            Number of test splits for k-fold CV. If k == None, a simpel train_test_split is used.
+        test_size
+            Percentage of barcodes to withhold for testing in the event a simple train_test_split
+            is used.
+        isolate_test_network
+            If true, the classification models stored in the hierarchy are left untouched by this 
+            method, restoring them to their original state after each train/test sequence. If false,
+            the models would have previously seen any test data at least once after the first
+            train/test sequence of k-fold CV, rendering all results basically useless.
         """
 
         if type(y_obs) == type(None):

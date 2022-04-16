@@ -240,13 +240,19 @@ class SequencingDataContainer():
             pred_template[barcodes_np_index] = y_pred
             self.adata.obs[f'{obs_key}_pred'] = pred_template
 
-    def get_predicted_barcodes(self, obs_key, child_node):
+    def get_predicted_barcodes(self, obs_key, child_node, predicted_from=None):
         """Add explanation.
         """
 
         adata_subset = self.adata[self.adata.obs[obs_key] == child_node]
+        if type(predicted_from) != type(None):
+            predicted_from = list(true_from)
+            predicted_barcodes = [b for b in adata_subset.obs_names if b in predicted_from]
 
-        return adata_subset.obs_names
+        else:
+            predicted_barcodes = adata_subset.obs_names
+
+        return predicted_barcodes
 
     def get_total_accuracy(self, obs_key, test_barcodes):
         """Add explanation.
