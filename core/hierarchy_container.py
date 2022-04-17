@@ -5,7 +5,8 @@ import tensorflow.keras as keras
 from sklearn.preprocessing import LabelEncoder
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
     make_graph_from_edges, set_node_to_depth, set_node_to_scVI
-from classiFire.core.neural_network import NeuralNetwork
+from classiFire.core.models.neural_network import NeuralNetwork
+from classiFire.core.models.celltypist import CellTypistWrapper
 
 class HierarchyContainer():
     """Add explanation
@@ -97,7 +98,9 @@ class HierarchyContainer():
                 define_classifier = True
 
         if define_classifier:
-            self.graph.nodes[node]['local_classifier'] = classifier(input_len, output_len, **kwargs)
+            self.graph.nodes[node]['local_classifier'] = classifier(len_of_input=input_len, len_of_output=output_len, **kwargs)
+
+        return type(self.graph.nodes[node]['local_classifier'])
 
     def ensure_existence_label_encoder(self, node):
         """Add explanation.
@@ -119,12 +122,12 @@ class HierarchyContainer():
 
         return y_int, y_onehot
 
-    def train_single_node(self, node, x, y_int, y_onehot):
+    def train_single_node(self, node, x, y_int, y_onehot, y, type_classifier):
         """Add explanation.
         """
 
-        self.graph.nodes[node]['local_classifier'].train(x, y_onehot)
-        train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x, y_int)
+        self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y)
+        train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
         self.graph.nodes[node]['last_train_acc'] = train_acc
         self.graph.nodes[node]['last_train_con_mat'] = train_con_mat
 

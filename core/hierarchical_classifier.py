@@ -1,5 +1,6 @@
 from classiFire.core.tools import z_transform_properties
-from classiFire.core.neural_network import NeuralNetwork
+from classiFire.core.models.neural_network import NeuralNetwork
+from classiFire.core.models.celltypist import CellTypistWrapper
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from copy import deepcopy
 
@@ -59,7 +60,7 @@ class HierarchicalClassifier():
         x = z_transform_properties(x)
         y_int, y_onehot = self.hierarchy_container.transform_y(node, y)
 
-        return x, y_int, y_onehot
+        return x, y_int, y_onehot, y
 
     def train_single_node(
         self, 
@@ -87,23 +88,27 @@ class HierarchicalClassifier():
             print(f'Subsetting to {len(barcodes)} cells based on node assignment and'\
             ' designation as training data.')
 
+        type_classifier = self.hierarchy_container.ensure_existence_classifier(
+            node, 
+            n_dimensions_scVI,
+            classifier=CellTypistWrapper)
+        obs_name_children = self.hierarchy_container.get_children_obs_key(node)
+        if type(barcodes) == type(None):
+            barcodes = self.data_container.adata.obs_names
+
+        #if type(type_classifier) == type(NeuralNetwork):
+    	self.hierarchy_container.ensure_existence_label_encoder(node)
         # Choose the most cell-type specific scVI dimensions available.
         scVI_node = self.hierarchy_container.node_to_scVI[node]
         scVI_key = self.data_container.get_scVI_key(
             node=scVI_node, 
             n_dimensions=n_dimensions_scVI,
             barcodes=barcodes)
-        self.hierarchy_container.ensure_existence_classifier(
-            node, 
-            n_dimensions_scVI,
-            classifier=NeuralNetwork)
-        self.hierarchy_container.ensure_existence_label_encoder(node)
-        if type(barcodes) == type(None):
-            barcodes = self.data_container.adata.obs_names
+        x, y_int, y_onehot, y = self.get_training_data(node, barcodes, scVI_key, obs_name_children)
+    	self.hierarchy_container.train_single_node(node, x, y_int, y_onehot, y, type_classifier=type_classifier)
 
-        obs_name_children = self.hierarchy_container.get_children_obs_key(node)
-        x, y_int, y_onehot = self.get_training_data(node, barcodes, scVI_key, obs_name_children)
-        self.hierarchy_container.train_single_node(node, x, y_int, y_onehot)
+        #elif type(type_classifier) == type(CellTypistWrapper):
+        #	pass
 
     def train_all_child_nodes(
         self,
