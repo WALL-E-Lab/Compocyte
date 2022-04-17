@@ -90,12 +90,17 @@ class HierarchyContainer():
             define_classifier = True
 
         else:
-            current_input_len = self.graph.nodes[node]['local_classifier'].len_of_input
-            current_output_len = self.graph.nodes[node]['local_classifier'].len_of_output
-            if current_input_len != input_len or current_output_len != output_len:
-                # At some point (once changing the hierarchy becomes a thing) this should 
-                # change the layer structure, rather than overwriting it all together
-                define_classifier = True
+            try:
+                current_input_len = self.graph.nodes[node]['local_classifier'].len_of_input
+                current_output_len = self.graph.nodes[node]['local_classifier'].len_of_output
+                if current_input_len != input_len or current_output_len != output_len:
+                    # At some point (once changing the hierarchy becomes a thing) this should 
+                    # change the layer structure, rather than overwriting it all together
+                    define_classifier = True
+
+            except AttributeError:
+                print('There has either been an issue setting up input and output length of the local '\
+                    'classifier or you\'re using a model that does not rely on these arguments.')
 
         if define_classifier:
             self.graph.nodes[node]['local_classifier'] = classifier(len_of_input=input_len, len_of_output=output_len, **kwargs)
@@ -122,7 +127,7 @@ class HierarchyContainer():
 
         return y_int, y_onehot
 
-    def train_single_node(self, node, x, y_int, y_onehot, y, type_classifier):
+    def train_single_node(self, node, x, y_int=None, y_onehot=None, y=None, type_classifier=None):
         """Add explanation.
         """
 
@@ -137,11 +142,15 @@ class HierarchyContainer():
     def is_trained_at(self, node):
         return 'local_classifier' in self.graph.nodes[node].keys()
 
-    def predict_single_node(self, node, x):
+    def predict_single_node(self, node, x, type_classifier):
         """Add explanation.
         """
 
-        y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
-        y_pred = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred_int)
+        if type_classifier == CellTypistWrapper:
+            y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
+
+        else: # type_classifier == type(NeuralNetwork):
+            y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
+            y_pred = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred_int)
 
         return y_pred

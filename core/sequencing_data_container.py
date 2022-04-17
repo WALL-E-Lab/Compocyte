@@ -1,6 +1,7 @@
 import scvi
 import os
 import numpy as np
+import scanpy as sc
 from datetime import datetime
 from classiFire.core.tools import is_counts
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
@@ -184,7 +185,7 @@ class SequencingDataContainer():
         else:
             self.adata.obsm[key] = vae.get_latent_representation()
 
-    def get_x_y_untransformed(self, barcodes, scVI_key, obs_name_children):
+    def get_x_y_untransformed_scVI(self, barcodes, scVI_key, obs_name_children):
         """Add explanation.
         """
 
@@ -194,12 +195,43 @@ class SequencingDataContainer():
 
         return x, y
 
-    def get_x_untransformed(self, barcodes, scVI_key):
+    def get_x_y_untransformed_normlog(self, barcodes, obs_name_children):
+        """Add explanation.
+        """
+
+        if not 'normlog' in self.adata.layers:
+            self.adata.layers['normlog'] = self.adata.X
+            sc.pp.normalize_total(self.adata, target_sum=10000, layer='normlog')
+            sc.pp.log1p(self.adata, layer='normlog')
+
+        adata_subset = self.adata[barcodes, :]
+        x = adata_subset.layers['normlog']
+        y = np.array(adata_subset.obs[obs_name_children])
+
+        return x, y
+
+    def get_x_untransformed_scVI(self, barcodes, scVI_key):
         """Add explanation.
         """
 
         adata_subset = self.adata[barcodes, :]
         x = adata_subset.obsm[scVI_key]
+
+        return x
+
+    def get_x_untransformed_normlog(self, barcodes):
+        """Add explanation.
+        """
+
+        if not 'normlog' in self.adata.layers:
+            # TODO
+            # this also normalizes/log1ps adata.X
+            self.adata.layers['normlog'] = self.adata.X
+            sc.pp.normalize_total(self.adata, target_sum=10000, layer='normlog')
+            sc.pp.log1p(self.adata, layer='normlog')
+
+        adata_subset = self.adata[barcodes, :]
+        x = adata_subset.layers['normlog']
 
         return x
 
