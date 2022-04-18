@@ -226,6 +226,12 @@ class HierarchicalClassifier():
             only for those cells which the classifier has not yet seen.
         """
 
+        if type(current_barcodes) == type(None):
+            current_barcodes = self.data_container.adata.obs_names
+
+        if type(test_barcodes) != type(None):
+            current_barcodes = [b for b in current_barcodes if b in test_barcodes]
+
         self.predict_single_node(current_node, current_barcodes)
         obs_key = self.hierarchy_container.get_children_obs_key(current_node)
         for child_node in self.hierarchy_container.get_child_nodes(current_node):

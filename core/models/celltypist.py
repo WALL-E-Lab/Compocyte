@@ -1,6 +1,8 @@
 import celltypist
 import numpy as np
+import pandas as pd
 from scanpy import AnnData
+from scipy.sparse.csr import csr_matrix
 
 class CellTypistWrapper():
     """Add explanation.
@@ -13,14 +15,15 @@ class CellTypistWrapper():
         pass
 
     def train(self, x, y, **kwargs):
-        self.model = celltypist.train(X=x, labels=y, genes=np.array(range(x.shape[1])))
+        x = x.copy()
+        self.model = celltypist.train(X=x, labels=y)
 
     def validate(self, x, y, **kwargs):
         return (0, 0)
 
     def predict(self, x):
-        adata_validate = AnnData(X=x)
-        pred = celltypist.annotate(adata_validate, model=self.model, majority_voting=True)
+        x = x.copy()
+        pred = celltypist.annotate(x, model=self.model, majority_voting=True)
         pred_adata = pred.to_adata()
 
         return np.array(pred_adata.obs['majority_voting'])

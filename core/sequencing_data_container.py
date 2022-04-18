@@ -205,10 +205,9 @@ class SequencingDataContainer():
             sc.pp.log1p(self.adata, layer='normlog')
 
         adata_subset = self.adata[barcodes, :]
-        x = adata_subset.layers['normlog']
-        y = np.array(adata_subset.obs[obs_name_children])
+        adata_subset.X = adata_subset.layers['normlog']
 
-        return x, y
+        return adata_subset, obs_name_children
 
     def get_x_untransformed_scVI(self, barcodes, scVI_key):
         """Add explanation.
@@ -231,9 +230,9 @@ class SequencingDataContainer():
             sc.pp.log1p(self.adata, layer='normlog')
 
         adata_subset = self.adata[barcodes, :]
-        x = adata_subset.layers['normlog']
+        adata_subset.X = adata_subset.layers['normlog']
 
-        return x
+        return adata_subset
 
     def get_true_barcodes(self, obs_name_node, node, true_from=None):
         """Retrieves bar codes of the cells that match the node supplied in the obs column supplied.
@@ -278,7 +277,7 @@ class SequencingDataContainer():
 
         adata_subset = self.adata[self.adata.obs[obs_key] == child_node]
         if type(predicted_from) != type(None):
-            predicted_from = list(true_from)
+            predicted_from = list(predicted_from)
             predicted_barcodes = [b for b in adata_subset.obs_names if b in predicted_from]
 
         else:
