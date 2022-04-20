@@ -202,8 +202,10 @@ class SequencingDataContainer():
 
         if not 'normlog' in self.adata.layers:
             self.adata.layers['normlog'] = self.adata.X
-            sc.pp.normalize_total(self.adata, target_sum=10000, layer='normlog')
-            sc.pp.log1p(self.adata, layer='normlog')
+            copy_adata = self.adata.copy()
+            sc.pp.normalize_total(copy_adata, target_sum=10000, layer='normlog')
+            sc.pp.log1p(copy_adata, layer='normlog')
+            self.adata.layers['normlog'] = copy_adata.layers['normlog']
 
         adata_subset = self.adata[barcodes, :]
         adata_subset.X = adata_subset.layers['normlog']
