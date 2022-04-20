@@ -110,11 +110,11 @@ class NeuralNetwork():
 
         return pred_vec
 
-    def validate(self, x_input, y_input_int):
+    def validate(self, x, y_int, **kwargs):
         """Add explanation.
         """
 
-        y_preds = self.predict(x_input)
+        y_preds = self.predict(x)
         def calc_acc(pred_vec, known_vec):
             if type(pred_vec) == type(known_vec):
                 acc = np.sum(pred_vec == known_vec, axis = 0) / len(known_vec)
@@ -125,9 +125,9 @@ class NeuralNetwork():
 
             return acc
 
-        acc = calc_acc(y_preds, y_input_int)
+        acc = calc_acc(y_preds, y_int)
         con_mat = confusion_matrix(
-            y_true=y_input_int, 
+            y_true=y_int, 
             y_pred=y_preds, 
             normalize = 'true')
 

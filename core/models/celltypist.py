@@ -16,7 +16,7 @@ class CellTypistWrapper():
 
     def train(self, x, y, **kwargs):
         x = x.copy()
-        self.model = celltypist.train(X=x, labels=y)
+        self.model = celltypist.train(X=x, labels=y, feature_selection=True, top_genes=1500)
 
     def validate(self, x, y, **kwargs):
         return (0, 0)

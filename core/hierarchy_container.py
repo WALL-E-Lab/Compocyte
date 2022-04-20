@@ -103,7 +103,11 @@ class HierarchyContainer():
                     'classifier or you\'re using a model that does not rely on these arguments.')
 
         if define_classifier:
-            self.graph.nodes[node]['local_classifier'] = classifier(len_of_input=input_len, len_of_output=output_len, **kwargs)
+            if 'preferred_classifier' in self.graph.nodes[node].keys():
+                self.graph.nodes[node]['local_classifier'] = self.graph.nodes[node]['preferred_classifier'](len_of_input=input_len, len_of_output=output_len, **kwargs)
+
+            else:
+                self.graph.nodes[node]['local_classifier'] = classifier(len_of_input=input_len, len_of_output=output_len, **kwargs)
 
         return type(self.graph.nodes[node]['local_classifier'])
 
@@ -154,3 +158,6 @@ class HierarchyContainer():
             y_pred = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred_int)
 
         return y_pred
+
+    def set_preferred_classifier(self, node, type_classifier):
+        self.graph.nodes[node]['preferred_classifier'] = type_classifier

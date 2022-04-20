@@ -66,7 +66,7 @@ class HierarchicalClassifier():
         self, 
         node, 
         barcodes=None, 
-        n_dimensions_scVI=10):
+        n_dimensions_scVI=20):
         """Trains the local classifier stored at node.
 
         Parameters
@@ -91,7 +91,7 @@ class HierarchicalClassifier():
         type_classifier = self.hierarchy_container.ensure_existence_classifier(
             node, 
             n_dimensions_scVI,
-            classifier=CellTypistWrapper)
+            classifier=NeuralNetwork)
         obs_name_children = self.hierarchy_container.get_children_obs_key(node)
         self.hierarchy_container.ensure_existence_label_encoder(node)
         if type(barcodes) == type(None):
@@ -150,7 +150,7 @@ class HierarchicalClassifier():
         self,
         node,
         barcodes=None,
-        n_dimensions_scVI=10):
+        n_dimensions_scVI=20):
         """Uses an existing classifier at node to assign one of the child labels to the cells
         specified by barcodes. The predictions are stored in self.data_container.adata.obs by calling
         self.data_container.set_predictions under f'{obs_key}_pred' where obs_key is the key under
@@ -185,7 +185,7 @@ class HierarchicalClassifier():
         type_classifier = self.hierarchy_container.ensure_existence_classifier(
             node, 
             n_dimensions_scVI,
-            classifier=CellTypistWrapper)
+            classifier=NeuralNetwork)
         if type_classifier == CellTypistWrapper:
             x = self.data_container.get_x_untransformed_normlog(barcodes)
 
@@ -310,3 +310,11 @@ class HierarchicalClassifier():
                 self.data_container.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
                 if isolate_test_network:
                     self.hierarchy_container = deepcopy(self.hierarchy_container_copy)
+
+    def set_classifier_type(self, node, preferred_classifier):
+        if type(node) == list:
+            for n in node:
+                self.set_classifier_type(node, preferred_classifier)
+
+        else:
+            self.hierarchy_container.set_preferred_classifier(node, preferred_classifier)

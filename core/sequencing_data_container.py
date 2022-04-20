@@ -150,7 +150,8 @@ class SequencingDataContainer():
                 use_batch_norm="none",
                 encode_covariates=True,
                 dropout_rate=0.2,
-                n_layers=2,)
+                n_layers=2,
+                n_latent=n_dimensions)
             vae = scvi.model.SCVI(
                 relevant_adata,
                 **arches_params)
