@@ -2,7 +2,10 @@ from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
 from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.metrics import ConfusionMatrixDisplay
+from uncertainties import ufloat
 from copy import deepcopy
+import numpy as np
 
 class HierarchicalClassifier():
     """This class coordinates the passing of information between the cell label hierarchy (in
@@ -23,11 +26,13 @@ class HierarchicalClassifier():
         self, 
         data_container, 
         hierarchy_container, 
-        save_path):
+        save_path,
+        n_dimensions_scVI=30):
 
         self.data_container = data_container
         self.hierarchy_container = hierarchy_container
         self.save_path = save_path
+        self.n_dimensions_scVI = n_dimensions_scVI
 
     def get_training_data_scVI(
         self, 
@@ -65,8 +70,7 @@ class HierarchicalClassifier():
     def train_single_node(
         self, 
         node, 
-        barcodes=None, 
-        n_dimensions_scVI=20):
+        barcodes=None):
         """Trains the local classifier stored at node.
 
         Parameters
@@ -83,6 +87,7 @@ class HierarchicalClassifier():
 
         # TODO
         # Overwrite n_dimensions_scVI if classifier already exists
+        n_dimensions_scVI = self.n_dimensions_scVI
         print(f'Training classifier at {node}.')
         if type(barcodes) != type(None):
             print(f'Subsetting to {len(barcodes)} cells based on node assignment and'\
@@ -91,7 +96,7 @@ class HierarchicalClassifier():
         type_classifier = self.hierarchy_container.ensure_existence_classifier(
             node, 
             n_dimensions_scVI,
-            classifier=NeuralNetwork)
+            classifier=CellTypistWrapper)
         obs_name_children = self.hierarchy_container.get_children_obs_key(node)
         self.hierarchy_container.ensure_existence_label_encoder(node)
         if type(barcodes) == type(None):
@@ -149,8 +154,7 @@ class HierarchicalClassifier():
     def predict_single_node(
         self,
         node,
-        barcodes=None,
-        n_dimensions_scVI=20):
+        barcodes=None):
         """Uses an existing classifier at node to assign one of the child labels to the cells
         specified by barcodes. The predictions are stored in self.data_container.adata.obs by calling
         self.data_container.set_predictions under f'{obs_key}_pred' where obs_key is the key under
@@ -171,6 +175,7 @@ class HierarchicalClassifier():
 
         # TODO
         # Overwrite n_dimensions_scVI if classifier already exists
+        n_dimensions_scVI = self.n_dimensions_scVI
         print(f'Predicting cells at {node}.')
         if type(barcodes) == type(None):
             barcodes = self.data_container.adata.obs_names
@@ -299,6 +304,8 @@ class HierarchicalClassifier():
 
         else:
             skf = StratifiedKFold(n_splits=k)
+            con_mats = []
+            accs = []
             for barcodes_train_idx, barcodes_test_idx in skf.split(barcodes, y):
                 if isolate_test_network:
                     self.hierarchy_container_copy = deepcopy(self.hierarchy_container)
@@ -307,9 +314,18 @@ class HierarchicalClassifier():
                 barcodes_test = barcodes[barcodes_test_idx]
                 self.train_all_child_nodes(starting_node, barcodes_train)
                 self.predict_all_child_nodes(starting_node, test_barcodes=barcodes_test)
-                self.data_container.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
+                acc, con_mat, possible_labels = self.data_container.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
+                con_mats.append(con_mat)
+                accs.append(acc)
                 if isolate_test_network:
                     self.hierarchy_container = deepcopy(self.hierarchy_container_copy)
+
+            averaged_con_mat = np.sum(con_mats, axis=0) / np.sum(np.sum(con_mats, axis=0), axis=1)
+            test_score_mean = ufloat(np.mean(accs), np.std(accs))
+            print('Average con mat')
+            disp = ConfusionMatrixDisplay(confusion_matrix=averaged_con_mat, display_labels=possible_labels)
+            disp.plot()
+            print(f'Test accuracy was {test_score_mean}')
 
     def set_classifier_type(self, node, preferred_classifier):
         if type(node) == list:

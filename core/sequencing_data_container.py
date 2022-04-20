@@ -306,4 +306,4 @@ class SequencingDataContainer():
         disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
         disp.plot()
 
-        return acc, con_mat
+        return acc, con_mat, possible_labels
