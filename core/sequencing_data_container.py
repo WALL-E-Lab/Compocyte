@@ -2,9 +2,13 @@ import scvi
 import os
 import numpy as np
 import scanpy as sc
+import pandas as pd
 from datetime import datetime
 from classiFire.core.tools import is_counts
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from imblearn.over_sampling import SMOTE, ADASYN
+from imblearn.under_sampling import TomekLinks
+from imblearn.combine import SMOTETomek
 
 class SequencingDataContainer():
     """Add explanation
@@ -193,8 +197,11 @@ class SequencingDataContainer():
         adata_subset = self.adata[barcodes, :]
         x = adata_subset.obsm[scVI_key]
         y = np.array(adata_subset.obs[obs_name_children])
+        sm = SMOTE(sampling_strategy='all')
+        x_res, y_res = sm.fit_resample(x, y)
+        print(f'Resample from {pd.Series(y).value_counts()} to {pd.Series(y_res).value_counts()}')
 
-        return x, y
+        return x_res, y_res
 
     def get_x_y_untransformed_normlog(self, barcodes, obs_name_children):
         """Add explanation.
@@ -209,8 +216,14 @@ class SequencingDataContainer():
 
         adata_subset = self.adata[barcodes, :]
         adata_subset.X = adata_subset.layers['normlog']
+        sm = SMOTE(sampling_strategy='all')
+        x_res, y_res = sm.fit_resample(adata_subset.X, np.array(adata_subset.obs[obs_name_children]))
+        adata_subset_res = sc.AnnData(x_res)
+        adata_subset_res.var = pd.DataFrame(index=adata_subset.var_names)
+        adata_subset_res.obs[obs_name_children] = y_res
+        print(f'Resample from {pd.Series(adata_subset.obs[obs_name_children]).value_counts()} to {pd.Series(y_res).value_counts()}')        
 
-        return adata_subset, obs_name_children
+        return adata_subset_res, obs_name_children
 
     def get_x_untransformed_scVI(self, barcodes, scVI_key):
         """Add explanation.

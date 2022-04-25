@@ -96,7 +96,7 @@ class HierarchicalClassifier():
         type_classifier = self.hierarchy_container.ensure_existence_classifier(
             node, 
             n_dimensions_scVI,
-            classifier=CellTypistWrapper)
+            classifier=NeuralNetwork)
         obs_name_children = self.hierarchy_container.get_children_obs_key(node)
         self.hierarchy_container.ensure_existence_label_encoder(node)
         if type(barcodes) == type(None):
