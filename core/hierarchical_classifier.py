@@ -330,7 +330,7 @@ class HierarchicalClassifier():
     def set_classifier_type(self, node, preferred_classifier):
         if type(node) == list:
             for n in node:
-                self.set_classifier_type(node, preferred_classifier)
+                self.hierarchy_container.set_preferred_classifier(n, preferred_classifier)
 
         else:
             self.hierarchy_container.set_preferred_classifier(node, preferred_classifier)

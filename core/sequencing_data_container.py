@@ -6,9 +6,6 @@ import pandas as pd
 from datetime import datetime
 from classiFire.core.tools import is_counts
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-from imblearn.over_sampling import SMOTE, ADASYN
-from imblearn.under_sampling import TomekLinks
-from imblearn.combine import SMOTETomek
 
 class SequencingDataContainer():
     """Add explanation
@@ -59,7 +56,7 @@ class SequencingDataContainer():
         node,
         n_dimensions=10,
         barcodes=None, 
-        overwrite=False, 
+        overwrite=False,
         **kwargs):
         """This method ensures that scVI data is present as requested, i. e. for the specified
         barcodes, the specified node and the specified number of dimensions. Returns the obsm key
@@ -97,7 +94,7 @@ class SequencingDataContainer():
                     n_dimensions, 
                     key, 
                     barcodes=barcodes, 
-                    overwrite=overwrite, 
+                    overwrite=overwrite,
                     **kwargs)
 
         return key
@@ -107,7 +104,7 @@ class SequencingDataContainer():
         n_dimensions, 
         key, 
         barcodes=None, 
-        overwrite=False, 
+        overwrite=False,
         **kwargs):
         """Run scVI with parameters taken from the scvi-tools scANVI tutorial.
 
@@ -138,7 +135,7 @@ class SequencingDataContainer():
             relevant_adata = self.adata
 
         scvi.model.SCVI.setup_anndata(
-            relevant_adata, 
+            relevant_adata,
             batch_key=self.batch_key)
 
         save_model = False
@@ -163,6 +160,7 @@ class SequencingDataContainer():
         vae.train(
             early_stopping=True,
             early_stopping_patience=10)
+
         if save_model:
             self.scVI_model_prefix = datetime.now().isoformat(timespec='minutes')
             model_path = os.path.join(
@@ -197,11 +195,8 @@ class SequencingDataContainer():
         adata_subset = self.adata[barcodes, :]
         x = adata_subset.obsm[scVI_key]
         y = np.array(adata_subset.obs[obs_name_children])
-        sm = SMOTE(sampling_strategy='all')
-        x_res, y_res = sm.fit_resample(x, y)
-        print(f'Resample from {pd.Series(y).value_counts()} to {pd.Series(y_res).value_counts()}')
 
-        return x_res, y_res
+        return x, y
 
     def get_x_y_untransformed_normlog(self, barcodes, obs_name_children):
         """Add explanation.
@@ -214,7 +209,7 @@ class SequencingDataContainer():
             sc.pp.log1p(copy_adata, layer='normlog')
             self.adata.layers['normlog'] = copy_adata.layers['normlog']
 
-        adata_subset = self.adata[barcodes, :]
+        adata_subset = self.adata[barcodes, :].copy()
         adata_subset.X = adata_subset.layers['normlog']
         sm = SMOTE(sampling_strategy='all')
         x_res, y_res = sm.fit_resample(adata_subset.X, np.array(adata_subset.obs[obs_name_children]))
