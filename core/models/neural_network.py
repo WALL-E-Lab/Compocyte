@@ -1,9 +1,9 @@
 import tensorflow.keras as keras
 import numpy as np
 from sklearn.metrics import confusion_matrix
-from imblearn.over_sampling import SMOTE, ADASYN
-from imblearn.under_sampling import TomekLinks, NearMiss
-from imblearn.tensorflow import balanced_batch_generator
+# from imblearn.over_sampling import SMOTE, ADASYN
+# from imblearn.under_sampling import TomekLinks, NearMiss
+# from imblearn.tensorflow import balanced_batch_generator
 
 class NeuralNetwork():
     """Add explanation.
