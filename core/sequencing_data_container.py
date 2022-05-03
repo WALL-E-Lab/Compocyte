@@ -6,6 +6,9 @@ import pandas as pd
 from datetime import datetime
 from classiFire.core.tools import is_counts
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from imblearn.over_sampling import SMOTE, ADASYN
+from imblearn.under_sampling import TomekLinks, NearMiss
+from imblearn.tensorflow import balanced_batch_generator
 
 class SequencingDataContainer():
     """Add explanation
@@ -195,8 +198,10 @@ class SequencingDataContainer():
         adata_subset = self.adata[barcodes, :]
         x = adata_subset.obsm[scVI_key]
         y = np.array(adata_subset.obs[obs_name_children])
+        nm = NearMiss(sampling_strategy='all')
+        x_res, y_res = nm.fit_resample(x, y)
 
-        return x, y
+        return x_res, y_res
 
     def get_x_y_untransformed_normlog(self, barcodes, obs_name_children):
         """Add explanation.

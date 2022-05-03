@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.metrics import confusion_matrix
 from imblearn.over_sampling import SMOTE, ADASYN
 from imblearn.under_sampling import TomekLinks, NearMiss
-from imblearn.keras import BalancedBatchGenerator
+from imblearn.tensorflow import balanced_batch_generator
 
 class NeuralNetwork():
     """Add explanation.
@@ -94,12 +94,10 @@ class NeuralNetwork():
         self.model.compile(
             optimizer = self.optimizer, 
             loss = self.loss_function)
-        training_generator = BalancedBatchGenerator(
-            X, y, sampler=NearMiss(), batch_size=self.batch_size, random_state=42)
         history = self.model.fit(
             x,
             y_onehot,
-            batch_size = self.batch_size,
+            batch_size=self.batch_size,
             epochs = self.epochs, 
             verbose = 0,
             validation_split = .1,
