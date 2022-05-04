@@ -1,5 +1,6 @@
 from sklearn.linear_model import LogisticRegression as LR
 from sklearn.preprocessing import StandardScaler
+import numpy as np
 
     # def _LRClassifier(indata, labels, C, solver, max_iter, n_jobs, **kwargs) -> LogisticRegression:
     #     """
@@ -61,9 +62,9 @@ class LogRegWrapper():
 
 
     def _to_array(_array_like) -> np.ndarray:
-    """
-    For internal use. Turn an array-like object into an array.
-    """
+        """
+        For internal use. Turn an array-like object into an array.
+        """
         if isinstance(_array_like, pd.DataFrame):
             return _array_like.values
         elif isinstance(_array_like, spmatrix):

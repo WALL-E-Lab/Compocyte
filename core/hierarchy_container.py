@@ -164,18 +164,25 @@ class HierarchyContainer():
         
         threshold = 0.9
 
-        if type_classifier == type(NeuralNetwork):
+        print(f'type_classifier from predict_.._proba: {type_classifier}')
+
+        if type_classifier == NeuralNetwork:
             y_pred_proba = self.graph.nodes[node]['local_classifier'].predict_proba(x)
             #y_pred_proba array_like with length of predictable classes, entries of form x element [0,1]
             #with sum(y_pred) = 1 along axis 1 (for one cell)
 
+            print(f'y_pred_proba: {y_pred_proba[:10]}')
+            print(f'y_pred_proba.shape: {y_pred_proba.shape}')
+
             #test if probability for one class is larger than threshold 
             largest_idx = np.argmax(y_pred_proba, axis = -1)
+
+            print(f'largest_idx: {largest_idx[:10]}')
 
             #y_pred is real prediction vector, with possible nans (else case)!
             y_pred = []
             for cell_idx, label_idx in enumerate(largest_idx):
-                if y_pred_proba[label_idx] > threshold:
+                if y_pred_proba[cell_idx][label_idx] > threshold:
                     #in this case: set prediction and move on to next classifier
                     y_pred.append(label_idx) #label_idx = class per definition
                 else: 

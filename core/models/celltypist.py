@@ -1,4 +1,4 @@
-import celltypist
+from src.celltypist import celltypist
 import numpy as np
 import pandas as pd
 from scanpy import AnnData

@@ -1,7 +1,7 @@
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
-from classiFire.core.models.loreg import LogRegWrapper
+from classiFire.core.models.logreg import LogRegWrapper
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import ConfusionMatrixDisplay
 from uncertainties import ufloat
@@ -232,7 +232,7 @@ class HierarchicalClassifier():
             child_obs_key = self.hierarchy_container.get_children_obs_key(node) 
             parent_obs_key = self.hierarchy_container.get_parent_obs_key(node)
             #TODO
-            self.data_container.set_prob_based_predictions(node, child_obs_key, parent_obs_key, barcodes, y_pred)
+            self.data_container.set_prob_based_predictions(child_obs_key, parent_obs_key, barcodes, y_pred, fitted_label_encoder=self.hierarchy_container.graph.nodes[node]['label_encoder'])
 
 
 
