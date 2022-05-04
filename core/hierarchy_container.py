@@ -159,5 +159,38 @@ class HierarchyContainer():
 
         return y_pred
 
+    def predict_single_node_proba(self, node, x, type_classifier):
+        """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
+        
+        threshold = 0.9
+
+        if type_classifier == type(NeuralNetwork):
+            y_pred_proba = self.graph.nodes[node]['local_classifier'].predict_proba(x)
+            #y_pred_proba array_like with length of predictable classes, entries of form x element [0,1]
+            #with sum(y_pred) = 1 along axis 1 (for one cell)
+
+            #test if probability for one class is larger than threshold 
+            largest_idx = np.argmax(y_pred_proba, axis = -1)
+
+            #y_pred is real prediction vector, with possible nans (else case)!
+            y_pred = []
+            for cell_idx, label_idx in enumerate(largest_idx):
+                if y_pred_proba[label_idx] > threshold:
+                    #in this case: set prediction and move on to next classifier
+                    y_pred.append(label_idx) #label_idx = class per definition
+                else: 
+                    #otherwise, set no new prediction, predition from superior node shall be set as 
+                    #the last prediction
+                    y_pred.append(np.nan)
+
+        else:
+            raise ValueError('Not yet supported probability classification classifier type')
+        
+        return y_pred
+
+
+
+
+
     def set_preferred_classifier(self, node, type_classifier):
         self.graph.nodes[node]['preferred_classifier'] = type_classifier

@@ -9,6 +9,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 # from imblearn.over_sampling import SMOTE, ADASYN
 # from imblearn.under_sampling import TomekLinks, NearMiss
 # from imblearn.tensorflow import balanced_batch_generator
+from sklearn.preprocessing import StandardScaler
 
 class SequencingDataContainer():
     """Add explanation
@@ -203,6 +204,10 @@ class SequencingDataContainer():
 
         return x, y
 
+    def get_x_y_hvg_standard(self, barcodes, obs_names_children):
+        """select HVG and scale to standard distribution"""
+        pass
+
     def get_x_y_untransformed_normlog(self, barcodes, obs_name_children):
         """Add explanation.
         """
@@ -286,6 +291,82 @@ class SequencingDataContainer():
             pred_template = pred_template.astype(str)
             pred_template[barcodes_np_index] = y_pred
             self.adata.obs[f'{obs_key}_pred'] = pred_template
+
+    def set_prob_based_predictions(self, node, children_obs_key, parent_obs_key, barcodes, y_pred):
+        """Set predicitons where confidence is high enough
+            REMEMBER currently only implemented with NeuralNetwork (y_pred is integer_vector! 
+            has to be inverse transformed after nans are eliminated)
+        """
+        
+        #with indices
+        current_barcode_subset_idx = np.where(
+                np.isin(np.array(self.adata.obs_names), 
+                        barcodes))[0]
+        #real barcode names to avoid conflicts with indices when assigning predicted and non predicted cells
+        current_barcode_subset = np.array(self.adata.obs_names)[current_barcode_subset_idx]
+        
+        #check where predictions were made and where not
+        barcodes_with_prediction_idx = np.argwhere(~np.isnan(y_pred))
+        barcodes_no_prediction_idx = np.argwhere(np.isnan(y_pred))
+
+        #set predictions where preds were made, set entries to np.nan where no prediction was made
+
+        barcodes_with_prediction = current_barcode_subset.iloc[barcodes_with_prediction_idx]
+        barcodes_no_prediction = current_barcode_subset.iloc[barcodes_no_prediction_idx]
+
+        # current_barcodes_subset[barcodes_with_prediction_idx] = y_pred[barcodes_with_prediction_idx]
+        # current_barcodes_subset[barcodes_no_prediction_idx] = np.nan
+        
+        #make y_pred contain string labels of cells (only where entry != nan)
+        y_pred_labels = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred[barcodes_with_prediction_idx])
+
+
+        #write predictions/non preds in Andnata, TODO SAVE FINAL PRED LEVEL IN ANOTHER OBS
+
+        # 1.) set values where predictions were made
+        try: 
+            existing_annotations = self.adata.obs[f'{children_obs_key}_pred']
+            existing_annotations[barcodes_with_prediction] = y_pred_labels
+        except KeyError:
+            pass
+
+        # 2.) set values where no prediction was made to np.nan
+        try: 
+            existing_annotations = self.adata.obs[f'{parent_obs_key}_pred']
+            existing_annotations[barcodes_no_prediciton] = np.nan
+        except KeyError:
+            existing_annotations_template = np.empty(shape=len(self.adata))
+            existing_annotations_template[:] = np.nan
+            existing_annotations_template = existing_annotations_template.astype(str)
+            
+            existing_annotations_template[barcodes_no_prediction_idx] = np.nan
+            self.adata.obs[f'{parent_obs_key}_pred'] = existing_annotations_template
+
+
+        #write where the last annotation level for a cell is currently saved (i.e. write the current obs_key for a cell 
+        #in 'final_pred_obs_key' - will be the last for that cell when not overwritten by next level classifier)
+        try: 
+            existing_final_pred_obs = self.adata.obs[f'final_pred_obs_key']
+            #use real cell label names instead of indices to avoid working on subsets
+            existing_final_pred_vec[barcodes_with_prediction] = f'{children_obs_key}'
+            existing_final_pred_vec[barcodes_no_prediction] = f'{parent_obs_key}'
+            self.adata.obs[f'final_pred_obs_key'] = existing_final_pred_vec
+
+        except KeyError:
+            final_pred_template = np.empty(shape=len(self.adata))
+            final_pred_template[:] = np.nan            
+            # NEED TO TEST IF CONVERSION OF NP.NAN TO STR CREATES PROBLEMS
+            final_pred_template = final_pred_template.astype(str)
+            final_pred_template[barcodes_with_prediction_idx] = f'{children_obs_key}'
+            try:
+                final_pred_template[barcodes_no_prediction_idx] = f'{parent_obs_key}' 
+            except:
+                #exception in case parent_obs_key not defined, should only happen for 
+                #first classifier, in that case should really set first node in hierarchy
+                final_pred_template[barcodes_no_prediction_idx] = np.nan
+
+            self.adata.obs[f'final_pred_obs_key'] = final_pred_template
+
 
     def get_predicted_barcodes(self, obs_key, child_node, predicted_from=None):
         """Add explanation.

@@ -1,6 +1,7 @@
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
+from classiFire.core.models.loreg import LogRegWrapper
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import ConfusionMatrixDisplay
 from uncertainties import ufloat
@@ -27,12 +28,14 @@ class HierarchicalClassifier():
         data_container, 
         hierarchy_container, 
         save_path,
-        n_dimensions_scVI=30):
+        n_dimensions_scVI=30,
+        prob_based_stopping = False):
 
         self.data_container = data_container
         self.hierarchy_container = hierarchy_container
         self.save_path = save_path
         self.n_dimensions_scVI = n_dimensions_scVI
+        self.prob_based_stopping = prob_based_stopping
 
     def get_training_data_scVI(
         self, 
@@ -118,6 +121,11 @@ class HierarchicalClassifier():
             x, y = self.data_container.get_x_y_untransformed_normlog(barcodes, obs_name_children)
             self.hierarchy_container.train_single_node(node, x=x, y=y, type_classifier=type_classifier)
 
+        elif type_classifier == LogRegWrapper:
+            #use same input data for normal logreg, still needs feature selection?
+            x, y = self.data_container.get_x_y_untransformed_normlog(barcodes, obs_name_children)
+            self.hierarchy_container.train_single_node(node, x=x, y=y, type_classifier=type_classifier)
+
     def train_all_child_nodes(
         self,
         current_node,
@@ -194,6 +202,9 @@ class HierarchicalClassifier():
         if type_classifier == CellTypistWrapper:
             x = self.data_container.get_x_untransformed_normlog(barcodes)
 
+        elif type_classifier == LogRegWrapper:
+            x = self.data_container.get_x_untransformed_normlog(barcodes)
+
         else: # type_classifier == type(NeuralNetwork):
             # Choose the most cell-type specific scVI dimensions available.
             scVI_node = self.hierarchy_container.node_to_scVI[node]
@@ -204,9 +215,28 @@ class HierarchicalClassifier():
             x = self.data_container.get_x_untransformed_scVI(barcodes, scVI_key)
             x = z_transform_properties(x)
 
-        y_pred = self.hierarchy_container.predict_single_node(node, x, type_classifier=type_classifier)
-        obs_key = self.hierarchy_container.get_children_obs_key(node)
-        self.data_container.set_predictions(obs_key, barcodes, y_pred)
+        if not self.prob_based_stopping:
+
+            y_pred = self.hierarchy_container.predict_single_node(node, x, type_classifier=type_classifier)
+            obs_key = self.hierarchy_container.get_children_obs_key(node)
+            self.data_container.set_predictions(obs_key, barcodes, y_pred)
+
+        #%--------------------------------------------------------------------------------------------------------------------------------------------%#       
+        #belongs somewhere in the prediction methds, not sure where yet because of test/training problem
+        #%--------------------------------------------------------------------------------------------------------------------------------------------%#
+
+        elif self.prob_based_stopping:
+
+            y_pred = self.hierarchy_container.predict_single_node_proba(node, x, type_classifier=type_classifier)
+            #child_obs_key says at which hierarchy level the predictions have to be saved
+            child_obs_key = self.hierarchy_container.get_children_obs_key(node) 
+            parent_obs_key = self.hierarchy_container.get_parent_obs_key(node)
+            #TODO
+            self.data_container.set_prob_based_predictions(node, child_obs_key, parent_obs_key, barcodes, y_pred)
+
+
+
+
 
     def predict_all_child_nodes(
         self,
