@@ -1,7 +1,6 @@
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
-from classiFire.core.models.logreg import LogRegWrapper
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import ConfusionMatrixDisplay
 from uncertainties import ufloat
@@ -325,10 +324,12 @@ class HierarchicalClassifier():
             if isolate_test_network:
                 self.hierarchy_container_copy = deepcopy(self.hierarchy_container)
 
-            barcodes_train, barcodes_test = train_test_split(barcodes, test_size=test_size)
+            barcodes_train, barcodes_test = train_test_split(barcodes, test_size=test_size, stratify = y)
             self.train_all_child_nodes(starting_node, barcodes_train)
             self.predict_all_child_nodes(starting_node, test_barcodes=barcodes_test)
             self.data_container.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
+            #integrate preliminary hierarchical confusion matrix
+            self.data_container.get_hierarchical_accuracy(test_barcodes=test_barcodes, level_obs_keys=self.hierachry_container.obs_names, all_labels = self.hierachry_container.all_nodes, overview_obs_key = 'Level_2' )
             if isolate_test_network:
                 self.hierarchy_container = deepcopy(self.hierarchy_container_copy)
 
