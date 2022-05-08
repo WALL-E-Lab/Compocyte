@@ -27,19 +27,22 @@ class HierarchicalClassifier():
         data_container, 
         hierarchy_container, 
         save_path,
-        n_dimensions_scVI=30):
+        n_dimensions_scVI=30,
+        use_scVI=True):
 
         self.data_container = data_container
         self.hierarchy_container = hierarchy_container
         self.save_path = save_path
         self.n_dimensions_scVI = n_dimensions_scVI
+        self.use_scVI = use_scVI
 
-    def get_training_data_scVI(
+    def get_training_data(
         self, 
         node,
-        barcodes, 
-        scVI_key, 
-        obs_name_children):
+        barcodes,
+        obs_name_children,
+        scVI_key='',
+        n_top_genes_per_class=300):
         """Gets untransformed input and target data for the training of a local classifier, 
         z-transforms the input data (scVI dimensions in the case of NeuralNetwork), calls upon
         self.hierarchy_container to encode the cell type labels into onehot and integer format using
@@ -61,7 +64,18 @@ class HierarchicalClassifier():
             is saved for each cell.
         """
         
-        x, y = self.data_container.get_x_y_untransformed_scVI(barcodes, scVI_key, obs_name_children)
+        if self.use_scVI == True:
+            x, y = self.data_container.get_x_y_untransformed_scVI(barcodes, scVI_key, obs_name_children)
+
+        else:
+            var_names = self.hierarchy_container.get_selected_var_names(node)
+            if type(var_names) == type(None) and type(n_top_genes_per_class) != type(None):
+                var_names = self.data_container.get_top_genes(barcodes, obs_name_children, n_top_genes_per_class)
+                self.hierarchy_container.set_selected_var_names(node, var_names)
+
+            print(f'Training with {len(var_names) if type(var_names) != type(None) else "all available"} genes')
+            x, y = self.data_container.get_x_y_untransformed(barcodes, var_names, obs_name_children)
+
         x = z_transform_properties(x)
         y_int, y_onehot = self.hierarchy_container.transform_y(node, y)
 
@@ -70,7 +84,8 @@ class HierarchicalClassifier():
     def train_single_node(
         self, 
         node, 
-        barcodes=None):
+        barcodes=None,
+        type_classifier=NeuralNetwork):
         """Trains the local classifier stored at node.
 
         Parameters
@@ -93,29 +108,47 @@ class HierarchicalClassifier():
             print(f'Subsetting to {len(barcodes)} cells based on node assignment and'\
             ' designation as training data.')
 
-        type_classifier = self.hierarchy_container.ensure_existence_classifier(
-            node, 
-            n_dimensions_scVI,
-            classifier=NeuralNetwork)
         obs_name_children = self.hierarchy_container.get_children_obs_key(node)
         self.hierarchy_container.ensure_existence_label_encoder(node)
-        if type(barcodes) == type(None):
-            barcodes = self.data_container.adata.obs_names
-
         if type_classifier == NeuralNetwork:        
             # Choose the most cell-type specific scVI dimensions available.
-            scVI_node = self.hierarchy_container.node_to_scVI[node]
-            scVI_key = self.data_container.get_scVI_key(
-                node=scVI_node, 
-                n_dimensions=n_dimensions_scVI,
-                barcodes=barcodes)
-            x, y_int, y_onehot, y = self.get_training_data_scVI(node, barcodes, scVI_key, obs_name_children)
-            self.hierarchy_container.train_single_node(node, x=x, y_int=y_int, y_onehot=y_onehot, y=y, type_classifier=type_classifier)
+            if self.use_scVI == True:
+                scVI_node = self.hierarchy_container.node_to_scVI[node]
+                scVI_key = self.data_container.get_scVI_key(
+                    node=scVI_node, 
+                    n_dimensions=n_dimensions_scVI,
+                    barcodes=barcodes)
+                x, y_int, y_onehot, y = self.get_training_data(node, barcodes, obs_name_children, scVI_key=scVI_key)
+
+            else:
+                x, y_int, y_onehot, y = self.get_training_data(node, barcodes, obs_name_children)
 
         elif type_classifier == CellTypistWrapper:
             # TODO
             # Currently overwrites the model with every training
             x, y = self.data_container.get_x_y_untransformed_normlog(barcodes, obs_name_children)
+
+        var_names = self.hierarchy_container.get_selected_var_names(node)
+        if self.use_scVI:
+            input_n_classifier = n_dimensions_scVI
+
+        elif type(var_names) == type(None):
+            input_n_classifier = len(self.data_container.adata.var_names)
+
+        else:
+            input_n_classifier = len(var_names)
+
+        type_classifier = self.hierarchy_container.ensure_existence_classifier(
+            node, 
+            input_n_classifier,
+            classifier=type_classifier)
+        if type(barcodes) == type(None):
+            barcodes = self.data_container.adata.obs_names
+
+        if type_classifier == NeuralNetwork:
+            self.hierarchy_container.train_single_node(node, x=x, y_int=y_int, y_onehot=y_onehot, y=y, type_classifier=type_classifier)
+
+        elif type_classifier == CellTypistWrapper:
             self.hierarchy_container.train_single_node(node, x=x, y=y, type_classifier=type_classifier)
 
     def train_all_child_nodes(
@@ -186,22 +219,38 @@ class HierarchicalClassifier():
             raise Exception(f'Must train local classifier for {node} before trying to predict cell'\
                 ' types')
 
+        var_names = self.hierarchy_container.get_selected_var_names(node)
+        if self.use_scVI:
+            input_n_classifier = n_dimensions_scVI
+
+        elif type(var_names) == type(None):
+            input_n_classifier = len(self.data_container.adata.var_names)
+
+        else:
+            input_n_classifier = len(var_names)
 
         type_classifier = self.hierarchy_container.ensure_existence_classifier(
             node, 
-            n_dimensions_scVI,
+            input_n_classifier,
             classifier=NeuralNetwork)
         if type_classifier == CellTypistWrapper:
             x = self.data_container.get_x_untransformed_normlog(barcodes)
 
         else: # type_classifier == type(NeuralNetwork):
-            # Choose the most cell-type specific scVI dimensions available.
-            scVI_node = self.hierarchy_container.node_to_scVI[node]
-            scVI_key = self.data_container.get_scVI_key(
-                node=scVI_node, 
-                n_dimensions=n_dimensions_scVI,
-                barcodes=barcodes)
-            x = self.data_container.get_x_untransformed_scVI(barcodes, scVI_key)
+            if self.use_scVI == True:
+                # Choose the most cell-type specific scVI dimensions available.
+                scVI_node = self.hierarchy_container.node_to_scVI[node]
+                scVI_key = self.data_container.get_scVI_key(
+                    node=scVI_node, 
+                    n_dimensions=n_dimensions_scVI,
+                    barcodes=barcodes)
+                x = self.data_container.get_x_untransformed_scVI(barcodes, scVI_key)
+
+            else:
+                var_names = self.hierarchy_container.get_selected_var_names(node)
+                print(f'Predicting with {len(var_names) if type(var_names) != type(None) else "all available"} genes')
+                x = self.data_container.get_x_untransformed(barcodes, var_names)
+
             x = z_transform_properties(x)
 
         y_pred = self.hierarchy_container.predict_single_node(node, x, type_classifier=type_classifier)

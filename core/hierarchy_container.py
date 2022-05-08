@@ -161,3 +161,13 @@ class HierarchyContainer():
 
     def set_preferred_classifier(self, node, type_classifier):
         self.graph.nodes[node]['preferred_classifier'] = type_classifier
+
+    def get_selected_var_names(self, node):
+        if not 'selected_var_names' in self.graph.nodes[node].keys():
+            return None
+
+        else:
+            return self.graph.nodes[node]['selected_var_names']
+
+    def set_selected_var_names(self, node, selected_var_names):
+        self.graph.nodes[node]['selected_var_names'] = selected_var_names

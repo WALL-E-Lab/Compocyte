@@ -191,6 +191,21 @@ class SequencingDataContainer():
         else:
             self.adata.obsm[key] = vae.get_latent_representation()
 
+    def get_x_y_untransformed(self, barcodes, var_names, obs_name_children):
+        """Add explanation.
+        """
+
+        if type(var_names) == type(None):
+            var_names = list(self.adata.var_names)
+
+        adata_subset = self.adata[barcodes, var_names]
+        x = adata_subset.X.todense()
+        y = np.array(adata_subset.obs[obs_name_children])
+        sm = SMOTE(sampling_strategy='all')
+        x_res, y_res = sm.fit_resample(x, y)
+
+        return x_res, y_res
+
     def get_x_y_untransformed_scVI(self, barcodes, scVI_key, obs_name_children):
         """Add explanation.
         """
@@ -198,8 +213,8 @@ class SequencingDataContainer():
         adata_subset = self.adata[barcodes, :]
         x = adata_subset.obsm[scVI_key]
         y = np.array(adata_subset.obs[obs_name_children])
-        nm = NearMiss(sampling_strategy='all')
-        x_res, y_res = nm.fit_resample(x, y)
+        sm = SMOTE(sampling_strategy='all')
+        x_res, y_res = sm.fit_resample(x, y)
 
         return x_res, y_res
 
@@ -231,6 +246,18 @@ class SequencingDataContainer():
 
         adata_subset = self.adata[barcodes, :]
         x = adata_subset.obsm[scVI_key]
+
+        return x
+
+    def get_x_untransformed(self, barcodes, var_names):
+        """Add explanation.
+        """
+
+        if type(var_names) == type(None):
+            var_names = list(self.adata.var_names)
+
+        adata_subset = self.adata[barcodes, var_names]
+        x = adata_subset.X.todense()
 
         return x
 
@@ -322,3 +349,16 @@ class SequencingDataContainer():
         disp.plot()
 
         return acc, con_mat, possible_labels
+
+    def get_top_genes(self, barcodes, obs_name_children, n_genes):
+        adata_subset = self.adata[barcodes, :].copy()
+        sc.pp.normalize_total(adata_subset)
+        sc.pp.log1p(adata_subset)
+        sc.tl.rank_genes_groups(adata_subset, obs_name_children, n_genes=n_genes)
+        total_top_genes = []
+        for label in adata_subset.obs[obs_name_children].unique():
+            for gene in list(adata_subset.uns['rank_genes_groups']['names'][label]):
+                if not gene in total_top_genes:
+                    total_top_genes.append(gene)
+
+        return total_top_genes
