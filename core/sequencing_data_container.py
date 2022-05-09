@@ -9,6 +9,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from imblearn.over_sampling import SMOTE, ADASYN
 from imblearn.under_sampling import TomekLinks, NearMiss
 from imblearn.tensorflow import balanced_batch_generator
+import matplotlib.pyplot as plt
 
 class SequencingDataContainer():
     """Add explanation
@@ -347,6 +348,7 @@ class SequencingDataContainer():
         print(f'Overall accuracy is {acc} %')
         disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
         disp.plot()
+        plt.show()
 
         return acc, con_mat, possible_labels
 

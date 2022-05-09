@@ -135,7 +135,7 @@ class HierarchyContainer():
         """Add explanation.
         """
 
-        self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y)
+        self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
         train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
         self.graph.nodes[node]['last_train_acc'] = train_acc
         self.graph.nodes[node]['last_train_con_mat'] = train_con_mat

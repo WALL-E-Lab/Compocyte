@@ -4,6 +4,8 @@ from sklearn.metrics import confusion_matrix
 from imblearn.over_sampling import SMOTE, ADASYN
 from imblearn.under_sampling import TomekLinks, NearMiss
 from imblearn.tensorflow import balanced_batch_generator
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 
 class NeuralNetwork():
     """Add explanation.
@@ -80,28 +82,46 @@ class NeuralNetwork():
                     self.dropout
                 ))
 
-    def train(self, x, y_onehot, **kwargs):
+    def train(self, x, y_onehot, y_int, **kwargs):
         """Train the NN using the x_training_data input and onehot encoded 
         y_training_onehot.
         """
 
         early_stopping_callback = keras.callbacks.EarlyStopping(
             monitor='val_loss', 
-            patience=3)
+            patience=5)
         self.optimizer = keras.optimizers.SGD(
             learning_rate = self.learning_rate, 
             momentum = self.momentum)
         self.model.compile(
             optimizer = self.optimizer, 
-            loss = self.loss_function)
+            loss = self.loss_function,
+            metrics=['accuracy'])
+        x_train, x_val, y_train, y_val = train_test_split(x, y_onehot, stratify=y_int, test_size=0.2, random_state=42)
         history = self.model.fit(
-            x,
-            y_onehot,
+            x_train,
+            y_train,
             batch_size=self.batch_size,
             epochs = self.epochs, 
             verbose = 0,
-            validation_split = .1,
+            validation_data=(x_val, y_val),
             callbacks=[early_stopping_callback])
+        # summarize history for accuracy
+        plt.plot(history.history['accuracy'])
+        plt.plot(history.history['val_accuracy'])
+        plt.title('model accuracy')
+        plt.ylabel('accuracy')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.show()
+        # summarize history for loss
+        plt.plot(history.history['loss'])
+        plt.plot(history.history['val_loss'])
+        plt.title('model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.show()
 
     def predict(self, input_vec):
         """Calculate and return label prediction of trained model for an input
