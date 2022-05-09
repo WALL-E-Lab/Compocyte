@@ -1,7 +1,9 @@
 import tensorflow.keras as keras
 import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
 
-class Neural_Network():
+class NeuralNetwork():
     """Add explanation.
     """
 
@@ -46,7 +48,7 @@ class Neural_Network():
                 dropout = self.dropout
 
             self.model.add(keras.layers.Dense(
-                input_shape=layer[0],
+                input_shape=(layer[0], ),
                 units=layer[1],
                 kernel_initializer='glorot_uniform',                                          
                 bias_initializer='zeros',
@@ -62,15 +64,17 @@ class Neural_Network():
             loss = self.loss_function,
             metrics=['accuracy'])
 
-    def train(self, x, y_onehot, y_int):
+    def train(self, x, y_onehot, y_int, **kwargs):
         early_stopping_callback = keras.callbacks.EarlyStopping(
             monitor='val_loss', 
             patience=10,
-            restore_best_weights=True)
+            restore_best_weights=True,
+            verbose=1)
         reduce_LR_plateau_callback = keras.callbacks.ReduceLROnPlateau(
             monitor='val_loss',
             patience=5,
-            factor=2)
+            factor=0.2,
+            verbose=1)
         x_train, x_val, y_train, y_val = train_test_split(
             x, 
             y_onehot, 

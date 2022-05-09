@@ -107,7 +107,7 @@ class HierarchyContainer():
                 self.graph.nodes[node]['local_classifier'] = self.graph.nodes[node]['preferred_classifier'](n_input=input_len, n_output=output_len, **kwargs)
 
             else:
-                self.graph.nodes[node]['local_classifier'] = classifier(len_of_input=input_len, len_of_output=output_len, **kwargs)
+                self.graph.nodes[node]['local_classifier'] = classifier(n_input=input_len, n_output=output_len, **kwargs)
 
         return type(self.graph.nodes[node]['local_classifier'])
 
