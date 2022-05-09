@@ -91,8 +91,8 @@ class HierarchyContainer():
 
         else:
             try:
-                current_input_len = self.graph.nodes[node]['local_classifier'].len_of_input
-                current_output_len = self.graph.nodes[node]['local_classifier'].len_of_output
+                current_input_len = self.graph.nodes[node]['local_classifier'].n_input
+                current_output_len = self.graph.nodes[node]['local_classifier'].n_output
                 if current_input_len != input_len or current_output_len != output_len:
                     # At some point (once changing the hierarchy becomes a thing) this should 
                     # change the layer structure, rather than overwriting it all together
@@ -104,7 +104,7 @@ class HierarchyContainer():
 
         if define_classifier:
             if 'preferred_classifier' in self.graph.nodes[node].keys():
-                self.graph.nodes[node]['local_classifier'] = self.graph.nodes[node]['preferred_classifier'](len_of_input=input_len, len_of_output=output_len, **kwargs)
+                self.graph.nodes[node]['local_classifier'] = self.graph.nodes[node]['preferred_classifier'](n_input=input_len, n_output=output_len, **kwargs)
 
             else:
                 self.graph.nodes[node]['local_classifier'] = classifier(len_of_input=input_len, len_of_output=output_len, **kwargs)
