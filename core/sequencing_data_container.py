@@ -346,7 +346,7 @@ class SequencingDataContainer():
             labels=possible_labels)
         acc = round(acc * 100, 2)
         print(f'Overall accuracy is {acc} %')
-        disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
+        disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels, xticks_rotation='vertical')
         disp.plot()
         plt.show()
 
