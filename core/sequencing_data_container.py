@@ -1,9 +1,15 @@
 import scvi
 import os
 import numpy as np
+import scanpy as sc
+import pandas as pd
 from datetime import datetime
 from classiFire.core.tools import is_counts
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from imblearn.over_sampling import SMOTE, ADASYN
+from imblearn.under_sampling import TomekLinks, NearMiss
+from imblearn.tensorflow import balanced_batch_generator
+import matplotlib.pyplot as plt
 
 class SequencingDataContainer():
     """Add explanation
@@ -54,7 +60,7 @@ class SequencingDataContainer():
         node,
         n_dimensions=10,
         barcodes=None, 
-        overwrite=False, 
+        overwrite=False,
         **kwargs):
         """This method ensures that scVI data is present as requested, i. e. for the specified
         barcodes, the specified node and the specified number of dimensions. Returns the obsm key
@@ -92,7 +98,7 @@ class SequencingDataContainer():
                     n_dimensions, 
                     key, 
                     barcodes=barcodes, 
-                    overwrite=overwrite, 
+                    overwrite=overwrite,
                     **kwargs)
 
         return key
@@ -102,7 +108,7 @@ class SequencingDataContainer():
         n_dimensions, 
         key, 
         barcodes=None, 
-        overwrite=False, 
+        overwrite=False,
         **kwargs):
         """Run scVI with parameters taken from the scvi-tools scANVI tutorial.
 
@@ -133,7 +139,7 @@ class SequencingDataContainer():
             relevant_adata = self.adata
 
         scvi.model.SCVI.setup_anndata(
-            relevant_adata, 
+            relevant_adata,
             batch_key=self.batch_key)
 
         save_model = False
@@ -149,7 +155,8 @@ class SequencingDataContainer():
                 use_batch_norm="none",
                 encode_covariates=True,
                 dropout_rate=0.2,
-                n_layers=2,)
+                n_layers=2,
+                n_latent=n_dimensions)
             vae = scvi.model.SCVI(
                 relevant_adata,
                 **arches_params)
@@ -157,6 +164,7 @@ class SequencingDataContainer():
         vae.train(
             early_stopping=True,
             early_stopping_patience=10)
+
         if save_model:
             self.scVI_model_prefix = datetime.now().isoformat(timespec='minutes')
             model_path = os.path.join(
@@ -184,17 +192,63 @@ class SequencingDataContainer():
         else:
             self.adata.obsm[key] = vae.get_latent_representation()
 
-    def get_x_y_untransformed(self, barcodes, scVI_key, obs_name_children):
+    def get_x_y_untransformed(self, barcodes, var_names, obs_name_children):
+        """Add explanation.
+        """
+
+        if type(var_names) == type(None):
+            var_names = list(self.adata.var_names)
+
+        adata_subset = self.adata[barcodes, var_names]
+        x = adata_subset.X.todense()
+        y = np.array(adata_subset.obs[obs_name_children])
+        sm = SMOTE(sampling_strategy='all')
+        x_res, y_res = sm.fit_resample(x, y)
+
+        return x_res, y_res
+
+    def get_x_y_untransformed_scVI(self, barcodes, scVI_key, obs_name_children):
         """Add explanation.
         """
 
         adata_subset = self.adata[barcodes, :]
         x = adata_subset.obsm[scVI_key]
         y = np.array(adata_subset.obs[obs_name_children])
+        sm = SMOTE(sampling_strategy='all')
+        x_res, y_res = sm.fit_resample(x, y)
 
-        return x, y
+        return x_res, y_res
 
-    def get_x_untransformed(self, barcodes, scVI_key):
+    def get_x_y_untransformed_normlog(self, barcodes, obs_name_children, var_names=None, for_NN=True):
+        """Add explanation.
+        """
+
+        if not 'normlog' in self.adata.layers:
+            self.adata.layers['normlog'] = self.adata.X
+            copy_adata = self.adata.copy()
+            sc.pp.normalize_total(copy_adata, target_sum=10000, layer='normlog')
+            sc.pp.log1p(copy_adata, layer='normlog')
+            self.adata.layers['normlog'] = copy_adata.layers['normlog']
+
+        if type(var_names) == type(None):
+            adata_subset = self.adata[barcodes, :].copy()
+
+        else:
+            adata_subset = self.adata[barcodes, var_names].copy()
+
+        adata_subset.X = adata_subset.layers['normlog']
+        sm = SMOTE(sampling_strategy='all')
+        x_res, y_res = sm.fit_resample(adata_subset.X.todense(), np.array(adata_subset.obs[obs_name_children]))
+        if for_NN == True:
+            return x_res, y_res
+
+        else:
+            adata_subset_res = sc.AnnData(x_res)
+            adata_subset_res.var = pd.DataFrame(index=adata_subset.var_names)
+            adata_subset_res.obs[obs_name_children] = y_res
+            return adata_subset_res, obs_name_children
+
+    def get_x_untransformed_scVI(self, barcodes, scVI_key):
         """Add explanation.
         """
 
@@ -202,6 +256,42 @@ class SequencingDataContainer():
         x = adata_subset.obsm[scVI_key]
 
         return x
+
+    def get_x_untransformed(self, barcodes, var_names):
+        """Add explanation.
+        """
+
+        if type(var_names) == type(None):
+            var_names = list(self.adata.var_names)
+
+        adata_subset = self.adata[barcodes, var_names]
+        x = adata_subset.X.todense()
+
+        return x
+
+    def get_x_untransformed_normlog(self, barcodes, var_names=None, for_NN=True):
+        """Add explanation.
+        """
+
+        if not 'normlog' in self.adata.layers:
+            # TODO
+            # this also normalizes/log1ps adata.X
+            self.adata.layers['normlog'] = self.adata.X
+            sc.pp.normalize_total(self.adata, target_sum=10000, layer='normlog')
+            sc.pp.log1p(self.adata, layer='normlog')
+
+        if type(var_names) == type(None):
+            adata_subset = self.adata[barcodes, :].copy()
+
+        else:
+            adata_subset = self.adata[barcodes, var_names].copy()
+
+        adata_subset.X = adata_subset.layers['normlog']
+        if for_NN == True:
+            return adata_subset.X.todense()
+
+        else:
+            return adata_subset
 
     def get_true_barcodes(self, obs_name_node, node, true_from=None):
         """Retrieves bar codes of the cells that match the node supplied in the obs column supplied.
@@ -246,7 +336,7 @@ class SequencingDataContainer():
 
         adata_subset = self.adata[self.adata.obs[obs_key] == child_node]
         if type(predicted_from) != type(None):
-            predicted_from = list(true_from)
+            predicted_from = list(predicted_from)
             predicted_barcodes = [b for b in adata_subset.obs_names if b in predicted_from]
 
         else:
@@ -272,6 +362,20 @@ class SequencingDataContainer():
         acc = round(acc * 100, 2)
         print(f'Overall accuracy is {acc} %')
         disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
-        disp.plot()
+        disp.plot(xticks_rotation='vertical')
+        plt.show()
 
-        return acc, con_mat
+        return acc, con_mat, possible_labels
+
+    def get_top_genes(self, barcodes, obs_name_children, n_genes):
+        adata_subset = self.adata[barcodes, :].copy()
+        sc.pp.normalize_total(adata_subset)
+        sc.pp.log1p(adata_subset)
+        sc.tl.rank_genes_groups(adata_subset, obs_name_children, n_genes=n_genes)
+        total_top_genes = []
+        for label in adata_subset.obs[obs_name_children].unique():
+            for gene in list(adata_subset.uns['rank_genes_groups']['names'][label]):
+                if not gene in total_top_genes:
+                    total_top_genes.append(gene)
+
+        return total_top_genes
