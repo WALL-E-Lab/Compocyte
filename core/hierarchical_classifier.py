@@ -41,6 +41,7 @@ class HierarchicalClassifier():
         node,
         barcodes,
         obs_name_children,
+        use_norm_X=True,
         scVI_key='',
         n_top_genes_per_class=300):
         """Gets untransformed input and target data for the training of a local classifier, 
@@ -74,7 +75,11 @@ class HierarchicalClassifier():
                 self.hierarchy_container.set_selected_var_names(node, var_names)
 
             print(f'Training with {len(var_names) if type(var_names) != type(None) else "all available"} genes')
-            x, y = self.data_container.get_x_y_untransformed(barcodes, var_names, obs_name_children)
+            if use_norm_X == True:
+                x, y = self.data_container.get_x_y_untransformed_normlog(barcodes, obs_name_children, var_names=var_names)
+
+            else:
+                x, y = self.data_container.get_x_y_untransformed(barcodes, var_names, obs_name_children)
 
         x = z_transform_properties(x)
         y_int, y_onehot = self.hierarchy_container.transform_y(node, y)
@@ -85,6 +90,7 @@ class HierarchicalClassifier():
         self, 
         node, 
         barcodes=None,
+        use_norm_X=True,
         type_classifier=NeuralNetwork):
         """Trains the local classifier stored at node.
 
@@ -121,7 +127,7 @@ class HierarchicalClassifier():
                 x, y_int, y_onehot, y = self.get_training_data(node, barcodes, obs_name_children, scVI_key=scVI_key)
 
             else:
-                x, y_int, y_onehot, y = self.get_training_data(node, barcodes, obs_name_children)
+                x, y_int, y_onehot, y = self.get_training_data(node, barcodes, obs_name_children, use_norm_X=use_norm_X)
 
         elif type_classifier == CellTypistWrapper:
             # TODO
@@ -187,6 +193,7 @@ class HierarchicalClassifier():
     def predict_single_node(
         self,
         node,
+        use_norm_X=True,
         barcodes=None):
         """Uses an existing classifier at node to assign one of the child labels to the cells
         specified by barcodes. The predictions are stored in self.data_container.adata.obs by calling
@@ -249,7 +256,11 @@ class HierarchicalClassifier():
             else:
                 var_names = self.hierarchy_container.get_selected_var_names(node)
                 print(f'Predicting with {len(var_names) if type(var_names) != type(None) else "all available"} genes')
-                x = self.data_container.get_x_untransformed(barcodes, var_names)
+                if use_norm_X == True:
+                    x = self.data_container.get_x_untransformed_normlog(barcodes, var_names=var_names)
+
+                else:
+                    x = self.data_container.get_x_untransformed(barcodes, var_names)
 
             x = z_transform_properties(x)
 
@@ -286,7 +297,7 @@ class HierarchicalClassifier():
         if type(test_barcodes) != type(None):
             current_barcodes = [b for b in current_barcodes if b in test_barcodes]
 
-        self.predict_single_node(current_node, current_barcodes)
+        self.predict_single_node(current_node, barcodes=current_barcodes)
         obs_key = self.hierarchy_container.get_children_obs_key(current_node)
         for child_node in self.hierarchy_container.get_child_nodes(current_node):
             if len(self.hierarchy_container.get_child_nodes(child_node)) == 0:
@@ -373,7 +384,7 @@ class HierarchicalClassifier():
             test_score_mean = ufloat(np.mean(accs), np.std(accs))
             print('Average con mat')
             disp = ConfusionMatrixDisplay(confusion_matrix=averaged_con_mat, display_labels=possible_labels)
-            disp.plot()
+            disp.plot(xticks_rotation='vertical')
             print(f'Test accuracy was {test_score_mean}')
 
     def set_classifier_type(self, node, preferred_classifier):

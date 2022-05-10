@@ -219,7 +219,7 @@ class SequencingDataContainer():
 
         return x_res, y_res
 
-    def get_x_y_untransformed_normlog(self, barcodes, obs_name_children):
+    def get_x_y_untransformed_normlog(self, barcodes, obs_name_children, var_names=None, for_NN=True):
         """Add explanation.
         """
 
@@ -230,16 +230,23 @@ class SequencingDataContainer():
             sc.pp.log1p(copy_adata, layer='normlog')
             self.adata.layers['normlog'] = copy_adata.layers['normlog']
 
-        adata_subset = self.adata[barcodes, :].copy()
+        if type(var_names) == type(None):
+            adata_subset = self.adata[barcodes, :].copy()
+
+        else:
+            adata_subset = self.adata[barcodes, var_names].copy()
+
         adata_subset.X = adata_subset.layers['normlog']
         sm = SMOTE(sampling_strategy='all')
-        x_res, y_res = sm.fit_resample(adata_subset.X, np.array(adata_subset.obs[obs_name_children]))
-        adata_subset_res = sc.AnnData(x_res)
-        adata_subset_res.var = pd.DataFrame(index=adata_subset.var_names)
-        adata_subset_res.obs[obs_name_children] = y_res
-        print(f'Resample from {pd.Series(adata_subset.obs[obs_name_children]).value_counts()} to {pd.Series(y_res).value_counts()}')        
+        x_res, y_res = sm.fit_resample(adata_subset.X.todense(), np.array(adata_subset.obs[obs_name_children]))
+        if for_NN == True:
+            return x_res, y_res
 
-        return adata_subset_res, obs_name_children
+        else:
+            adata_subset_res = sc.AnnData(x_res)
+            adata_subset_res.var = pd.DataFrame(index=adata_subset.var_names)
+            adata_subset_res.obs[obs_name_children] = y_res
+            return adata_subset_res, obs_name_children
 
     def get_x_untransformed_scVI(self, barcodes, scVI_key):
         """Add explanation.
@@ -262,7 +269,7 @@ class SequencingDataContainer():
 
         return x
 
-    def get_x_untransformed_normlog(self, barcodes):
+    def get_x_untransformed_normlog(self, barcodes, var_names=None, for_NN=True):
         """Add explanation.
         """
 
@@ -273,10 +280,18 @@ class SequencingDataContainer():
             sc.pp.normalize_total(self.adata, target_sum=10000, layer='normlog')
             sc.pp.log1p(self.adata, layer='normlog')
 
-        adata_subset = self.adata[barcodes, :]
-        adata_subset.X = adata_subset.layers['normlog']
+        if type(var_names) == type(None):
+            adata_subset = self.adata[barcodes, :].copy()
 
-        return adata_subset
+        else:
+            adata_subset = self.adata[barcodes, var_names].copy()
+
+        adata_subset.X = adata_subset.layers['normlog']
+        if for_NN == True:
+            return adata_subset.X.todense()
+
+        else:
+            return adata_subset
 
     def get_true_barcodes(self, obs_name_node, node, true_from=None):
         """Retrieves bar codes of the cells that match the node supplied in the obs column supplied.
@@ -346,8 +361,8 @@ class SequencingDataContainer():
             labels=possible_labels)
         acc = round(acc * 100, 2)
         print(f'Overall accuracy is {acc} %')
-        disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels, xticks_rotation='vertical')
-        disp.plot()
+        disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
+        disp.plot(xticks_rotation='vertical')
         plt.show()
 
         return acc, con_mat, possible_labels
