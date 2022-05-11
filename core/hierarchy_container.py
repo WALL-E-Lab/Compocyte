@@ -131,7 +131,7 @@ class HierarchyContainer():
 
         return y_int, y_onehot
 
-    def train_single_node(self, node, x, y_int=None, y_onehot=None, y=None, type_classifier=None):
+    def train_single_node(self, node, x, y_int=None, y_onehot=None, y=None):
         """Add explanation.
         """
 
@@ -146,14 +146,14 @@ class HierarchyContainer():
     def is_trained_at(self, node):
         return 'local_classifier' in self.graph.nodes[node].keys()
 
-    def predict_single_node(self, node, x, type_classifier):
+    def predict_single_node(self, node, x):
         """Add explanation.
         """
 
-        if type_classifier == CellTypistWrapper:
+        if type(self.graph.nodes[node]['local_classifier']) == CellTypistWrapper:
             y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
 
-        else: # type_classifier == type(NeuralNetwork):
+        else:
             y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
             y_pred = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred_int)
 
@@ -171,3 +171,10 @@ class HierarchyContainer():
 
     def set_selected_var_names(self, node, selected_var_names):
         self.graph.nodes[node]['selected_var_names'] = selected_var_names
+
+    def get_preferred_classifier(self, node):
+        if 'preferred_classifier' in self.graph.nodes[node].keys()
+            return self.graph.nodes[node]['preferred_classifier']
+
+        else:
+            return None
