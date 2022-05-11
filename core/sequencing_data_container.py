@@ -300,6 +300,30 @@ class SequencingDataContainer():
 
         print(f'children_obs_key: {children_obs_key}')
         print(f'parent_obs_key: {parent_obs_key}')
+
+        #DELETE ALL ENTRIES FROM PREVIOUS PREDICTIONS FOR CONSISTENCY TEST
+        try:
+            self.adata.obs['Level_1_pred'] = 'not in testset'
+        except:
+            print('didnt delete level 1 pred')
+        try:
+            self.adata.obs['Level_2_pred'] = 'not in testset'
+        except:
+            print('didnt delete level 2 pred')
+        try:
+            self.adata.obs['Level_3_pred'] = 'not in testset'
+        except:
+            print('didnt delete level 3 pred')
+        try:
+            self.adata.obs['Level_4_pred'] = 'not in testset'
+        except:
+            print('didnt delete level 4 pred')
+        try:
+            self.adata.obs['final_pred_obs_key'] = 'not in testset'
+        except:
+            print('didnt delete final_pred_obs_key')
+
+
         
         #with indices
         current_barcode_subset_idx = np.where(
@@ -334,7 +358,7 @@ class SequencingDataContainer():
         # 1.) set values where predictions were made
         try: 
             existing_annotations = self.adata.obs[f'{children_obs_key}_pred']
-            existing_annotations[barcodes_with_prediction] = y_pred_labels
+            existing_annotations.loc[barcodes_with_prediction] = y_pred_labels
         except KeyError:
             print(f'went to key error with prediction in node {node}')
             pred_template = np.empty(shape=len(self.adata))
@@ -351,9 +375,9 @@ class SequencingDataContainer():
         #excpet for the very first used level
         try: 
             existing_annotations = self.adata.obs[f'{parent_obs_key}_pred']
-            existing_annotations[barcodes_no_prediction] = f'{node}'
+            existing_annotations.loc[barcodes_no_prediction] = f'{node}'
         except KeyError:
-        print(f'went to key error no prediction in node {node}')
+            print(f'went to key error no prediction in node {node}')
 
             existing_annotations_template = np.empty(shape=len(self.adata))
             existing_annotations_template[:] = np.nan
@@ -368,8 +392,8 @@ class SequencingDataContainer():
         try: 
             existing_final_pred_vec = self.adata.obs[f'final_pred_obs_key']
             #use real cell label names instead of indices to avoid working on subsets
-            existing_final_pred_vec[barcodes_with_prediction] = f'{children_obs_key}'
-            existing_final_pred_vec[barcodes_no_prediction] = f'{parent_obs_key}'
+            existing_final_pred_vec.loc[barcodes_with_prediction] = f'{children_obs_key}'
+            existing_final_pred_vec.loc[barcodes_no_prediction] = f'{parent_obs_key}'
             self.adata.obs[f'final_pred_obs_key'] = existing_final_pred_vec
 
         except KeyError:
@@ -451,15 +475,18 @@ class SequencingDataContainer():
         possible_labels = np.concatenate((known_type, pred_type))
         possible_labels = np.unique(possible_labels)
         acc = np.sum(known_type == pred_type, axis = 0) / len(known_type)
-        con_mat = confusion_matrix(
-            y_true=known_type, 
-            y_pred=pred_type, 
-            normalize='true',
-            labels=possible_labels)
-        acc = round(acc * 100, 2)
-        print(f'Overall accuracy is {acc} %')
-        disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
-        disp.plot()
+        try:
+            con_mat = confusion_matrix(
+                y_true=known_type, 
+                y_pred=pred_type, 
+                normalize='true',
+                labels=possible_labels)
+            acc = round(acc * 100, 2)
+            print(f'Overall accuracy is {acc} %')
+            disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
+            disp.plot()
+        except:
+            return
 
 
         if overview_obs_key != None:
@@ -469,20 +496,24 @@ class SequencingDataContainer():
             #vector with all final decisions (could be quite slow for large datasets)
             for barcode in test_barcodes:
                 final_pred_level = adata_final_subset[barcode].obs.final_pred_obs_key
-                final_decision = adata_final_subset[barcode].obs.[f'{final_pred_level}_pred']
+                final_decision = adata_final_subset[barcode].obs[f'{final_pred_level}_pred']
                 y_pred.append(final_decision)
 
             possible_labels_overview = np.concatenate((known_type, pred_type))
             possible_labels_overview = np.unique(possible_labels)
-            con_mat_overview = confusion_matrix(
-                y_true=known_type, 
-                y_pred=pred_type, 
-                normalize='true',
-                labels=possible_labels)
-            disp = ConfusionMatrixDisplay(con_mat_overview, display_labels=possible_labels_overview)
-            disp.plot()
+            try:
+                con_mat_overview = confusion_matrix(
+                    y_true=known_type, 
+                    y_pred=pred_type, 
+                    normalize='true',
+                    labels=possible_labels)
+                disp = ConfusionMatrixDisplay(con_mat_overview, display_labels=possible_labels_overview)
+                disp.plot()
+                return acc, con_mat, possible_labels, con_mat_overview, possible_labels_overview
+            except:
+                'No plot for now'
             
-            return acc, con_mat, possible_labels, con_mat_overview, possible_labels_overview
+            
 
         else:
             return acc, con_mat, possible_labels
