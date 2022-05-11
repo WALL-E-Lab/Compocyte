@@ -47,7 +47,7 @@ class HierarchicalClassifier():
         if type(sampling_method) != type(None):
             self.data_container.init_resampling(sampling_method, sampling_strategy)
 
-    def get_selected_var_names(self, node, barcodes, obs_name_children):
+    def get_selected_var_names(self, node, barcodes, obs_name_children=None):
         if self.use_scVI == True:
             return None
 
@@ -89,7 +89,7 @@ class HierarchicalClassifier():
         """
 
         var_names = self.get_selected_var_names(node, barcodes, obs_name_children)
-        if use_scVI == True:
+        if self.use_scVI == True:
             data = 'scVI'
 
         elif self.use_norm_X == True:
@@ -99,7 +99,7 @@ class HierarchicalClassifier():
             data = 'counts'
 
         return_adata = False
-        if self.hierarchy_container.get_preffered_classifier(node) == CellTypistWrapper:
+        if self.hierarchy_container.get_preferred_classifier(node) == CellTypistWrapper:
             return_adata = True
 
         x, y = self.data_container.get_x_y_untransformed(
@@ -145,7 +145,7 @@ class HierarchicalClassifier():
         obs_name_children = self.hierarchy_container.get_children_obs_key(node)
         var_names = self.get_selected_var_names(node, barcodes, obs_name_children)
         self.hierarchy_container.ensure_existence_label_encoder(node)
-        type_classifier = self.hierarchy_container.get_preffered_classifier(node)
+        type_classifier = self.hierarchy_container.get_preferred_classifier(node)
         if type(type_classifier) == type(None):
             type_classifier = NeuralNetwork
 
@@ -215,7 +215,7 @@ class HierarchicalClassifier():
 
     def get_prediction_data(self, node, barcodes, scVI_key=None):
         var_names = self.get_selected_var_names(node, barcodes, obs_name_children)
-        if use_scVI == True:
+        if self.use_scVI == True:
             data = 'scVI'
 
         elif self.use_norm_X == True:
@@ -225,7 +225,7 @@ class HierarchicalClassifier():
             data = 'counts'
 
         return_adata = False
-        if self.hierarchy_container.get_preffered_classifier(node) == CellTypistWrapper:
+        if self.hierarchy_container.get_preferred_classifier(node) == CellTypistWrapper:
             return_adata = True
 
         x = self.data_container.get_x_untransformed(barcodes, data=data, var_names=var_names, scVI_key=scVI_key, return_adata=return_adata)
@@ -274,8 +274,8 @@ class HierarchicalClassifier():
                 n_dimensions=self.n_dimensions_scVI,
                 barcodes=barcodes)
 
-        var_names = self.get_selected_var_names(node, barcodes, obs_name_children)
-        if use_scVI == True:
+        var_names = self.get_selected_var_names(node, barcodes)
+        if self.use_scVI == True:
             data = 'scVI'
 
         elif self.use_norm_X == True:
@@ -286,7 +286,7 @@ class HierarchicalClassifier():
 
         print(f'Predicting with {len(var_names) if type(var_names) != type(None) else "all available"} genes')
         return_adata = False
-        if self.hierarchy_container.get_preffered_classifier(node) == CellTypistWrapper:
+        if self.hierarchy_container.get_preferred_classifier(node) == CellTypistWrapper:
             return_adata = True
 
         x = self.data_container.get_x_untransformed(barcodes, data=data, var_names=var_names, scVI_key=scVI_key, return_adata=return_adata)
@@ -422,4 +422,4 @@ class HierarchicalClassifier():
                 self.hierarchy_container.set_preferred_classifier(n, preferred_classifier)
 
         else:
-            self.hierarchy_container.set_preferred_classifier(node, preferred_classifier)'''
+            self.hierarchy_container.set_preferred_classifier(node, preferred_classifier)

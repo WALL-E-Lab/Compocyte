@@ -228,11 +228,11 @@ class SequencingDataContainer():
         else:
             raise Exception('Please specify the type of data you want to supply to the classifier. Options are: "scVI", "counts" and "normlog".')
 
-        if type(x) == sparse.csr_matrix:
-                x = x.todense()
+        if hasattr(x, 'todense'):
+            x = x.todense()
 
         y = np.array(adata_subset.obs[obs_name_children])
-        if hasattr(self, sampling_method) and type(self.sampling_method) != type(None):
+        if hasattr(self, 'sampling_method') and type(self.sampling_method) != type(None):
             res = self.sampling_method(sampling_strategy=self.sampling_strategy)
             x_res, y_res = res.fit_resample(x, y)
 
@@ -281,7 +281,7 @@ class SequencingDataContainer():
         else:
             raise Exception('Please specify the type of data you want to supply to the classifier. Options are: "scVI", "counts" and "normlog".')
 
-        if type(x) == sparse.csr_matrix:
+        if hasattr(x, 'todense'):
             x = x.todense()
 
         if return_adata == False:
