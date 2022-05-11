@@ -117,8 +117,6 @@ class NeuralNetwork():
         """Calculate and return probabilities of label predictions of trained model for an input
         vector input_vec (dtype=int)"""
 
-        # Returns only absolute decisions, nothing known about the difference 
-        # in prediction confidence 
         proba_pred_vec = self.model.predict(input_vec)
 
         return proba_pred_vec

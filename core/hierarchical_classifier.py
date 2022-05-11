@@ -120,10 +120,7 @@ class HierarchicalClassifier():
             x, y = self.data_container.get_x_y_untransformed_normlog(barcodes, obs_name_children)
             self.hierarchy_container.train_single_node(node, x=x, y=y, type_classifier=type_classifier)
 
-        elif type_classifier == LogRegWrapper:
-            #use same input data for normal logreg, still needs feature selection?
-            x, y = self.data_container.get_x_y_untransformed_normlog(barcodes, obs_name_children)
-            self.hierarchy_container.train_single_node(node, x=x, y=y, type_classifier=type_classifier)
+
 
     def train_all_child_nodes(
         self,
@@ -201,9 +198,6 @@ class HierarchicalClassifier():
         if type_classifier == CellTypistWrapper:
             x = self.data_container.get_x_untransformed_normlog(barcodes)
 
-        elif type_classifier == LogRegWrapper:
-            x = self.data_container.get_x_untransformed_normlog(barcodes)
-
         else: # type_classifier == type(NeuralNetwork):
             # Choose the most cell-type specific scVI dimensions available.
             scVI_node = self.hierarchy_container.node_to_scVI[node]
@@ -230,7 +224,6 @@ class HierarchicalClassifier():
             #child_obs_key says at which hierarchy level the predictions have to be saved
             child_obs_key = self.hierarchy_container.get_children_obs_key(node) 
             parent_obs_key = self.hierarchy_container.get_parent_obs_key(node)
-            #TODO
             self.data_container.set_prob_based_predictions(child_obs_key, parent_obs_key, barcodes, y_pred, fitted_label_encoder=self.hierarchy_container.graph.nodes[node]['label_encoder'])
 
 

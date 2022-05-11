@@ -292,7 +292,7 @@ class SequencingDataContainer():
             pred_template[barcodes_np_index] = y_pred
             self.adata.obs[f'{obs_key}_pred'] = pred_template
 
-    def set_prob_based_predictions(self, children_obs_key, parent_obs_key, barcodes, y_pred, fitted_label_encoder):
+    def set_prob_based_predictions(self, node, children_obs_key, parent_obs_key, barcodes, y_pred, fitted_label_encoder):
         """Set predicitons where confidence is high enough
             REMEMBER currently only implemented with NeuralNetwork (y_pred is integer_vector! 
             has to be inverse transformed after nans are eliminated)
@@ -307,24 +307,26 @@ class SequencingDataContainer():
                         barcodes))[0]
         #real barcode names to avoid conflicts with indices when assigning predicted and non predicted cells
         current_barcode_subset = np.array(self.adata.obs_names)[current_barcode_subset_idx]
+
+        print(f'current_barcode_subset (should be obs names): {current_barcode_subset}')
         
         #check where predictions were made and where not
         barcodes_with_prediction_idx = np.argwhere(~np.isnan(y_pred)).flatten()
         barcodes_no_prediction_idx = np.argwhere(np.isnan(y_pred)).flatten()
 
-        #set predictions where preds were made, set entries to np.nan where no prediction was made
-
-        barcodes_with_prediction = current_barcode_subset[barcodes_with_prediction_idx.flatten()]
-        barcodes_no_prediction = current_barcode_subset[barcodes_no_prediction_idx.flatten()]
+        #row names instead of indices
+        barcodes_with_prediction = current_barcode_subset[barcodes_with_prediction_idx]
+        barcodes_no_prediction = current_barcode_subset[barcodes_no_prediction_idx]
 
         
-        #make y_pred contain string labels of cells (only where entry != nan)
-        print(barcodes_with_prediction_idx.flatten()[:15])
+        
+        print(barcodes_with_prediction_idx[:15])
         print(y_pred[:15])
-        print(np.array(y_pred)[barcodes_with_prediction_idx.flatten()][:15])
-        print(fitted_label_encoder.inverse_transform(np.array(y_pred)[barcodes_with_prediction_idx.flatten()].astype(int)))
+        print(np.array(y_pred)[barcodes_with_prediction_idx][:15])
+        print(fitted_label_encoder.inverse_transform(np.array(y_pred)[barcodes_with_prediction_idx].astype(int)))
 
-        y_pred_labels = fitted_label_encoder.inverse_transform(np.array(y_pred)[barcodes_with_prediction_idx.flatten()].astype(int))
+        #make y_pred contain string labels of cells (only where entry != nan)
+        y_pred_labels = fitted_label_encoder.inverse_transform(np.array(y_pred)[barcodes_with_prediction_idx].astype(int))
 
 
         #write predictions/non preds in Andnata, TODO SAVE FINAL PRED LEVEL IN ANOTHER OBS
@@ -334,6 +336,7 @@ class SequencingDataContainer():
             existing_annotations = self.adata.obs[f'{children_obs_key}_pred']
             existing_annotations[barcodes_with_prediction] = y_pred_labels
         except KeyError:
+            print(f'went to key error with prediction in node {node}')
             pred_template = np.empty(shape=len(self.adata))
             pred_template[:] = np.nan            
             # NEED TO TEST IF CONVERSION OF NP.NAN TO STR CREATES PROBLEMS
@@ -343,16 +346,20 @@ class SequencingDataContainer():
             self.adata.obs[f'{children_obs_key}_pred'] = pred_template
             
 
-        # 2.) set values where no prediction was made to np.nan
+        # 2.) set values where no prediction was made to current label (node of current classifier)
+        #SHOULDN'T BE NECESSARY; cells are already subsetted to this node, thus have this annotation already,
+        #excpet for the very first used level
         try: 
             existing_annotations = self.adata.obs[f'{parent_obs_key}_pred']
-            existing_annotations[barcodes_no_prediction] = np.nan
+            existing_annotations[barcodes_no_prediction] = f'{node}'
         except KeyError:
+        print(f'went to key error no prediction in node {node}')
+
             existing_annotations_template = np.empty(shape=len(self.adata))
             existing_annotations_template[:] = np.nan
             existing_annotations_template = existing_annotations_template.astype(str)
             
-            existing_annotations_template[barcodes_no_prediction_idx] = np.nan
+            existing_annotations_template[barcodes_no_prediction_idx] = f'{node}'
             self.adata.obs[f'{parent_obs_key}_pred'] = existing_annotations_template
 
 
@@ -366,9 +373,9 @@ class SequencingDataContainer():
             self.adata.obs[f'final_pred_obs_key'] = existing_final_pred_vec
 
         except KeyError:
+            print(f'went to key error final prediction obs_key in node {node}')
             final_pred_template = np.empty(shape=len(self.adata))
             final_pred_template[:] = np.nan            
-            # NEED TO TEST IF CONVERSION OF NP.NAN TO STR CREATES PROBLEMS
             final_pred_template = final_pred_template.astype(str)
             final_pred_template[barcodes_with_prediction_idx] = f'{children_obs_key}'
             try:
@@ -376,7 +383,7 @@ class SequencingDataContainer():
             except:
                 #exception in case parent_obs_key not defined, should only happen for 
                 #first classifier, in that case should really set first node in hierarchy
-                final_pred_template[barcodes_no_prediction_idx] = np.nan
+                final_pred_template[barcodes_no_prediction_idx] = 'funny things happening'
 
             self.adata.obs[f'final_pred_obs_key'] = final_pred_template
 
