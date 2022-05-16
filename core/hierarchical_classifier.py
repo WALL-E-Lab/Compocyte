@@ -266,10 +266,10 @@ class HierarchicalClassifier():
                 continue
 
             child_node_barcodes = self.data_container.get_predicted_barcodes(
-                obs_key, 
+                f'{obs_key}_pred', 
                 child_node,
                 predicted_from=test_barcodes)
-            self.predict_all_child_nodes(child_node, child_node_barcodes)
+            self.predict_all_child_nodes(child_node, child_node_barcodes)#, test_barcodes)
 
     def train_child_nodes_with_validation(
         self, 
@@ -338,10 +338,10 @@ class HierarchicalClassifier():
                 barcodes_test = barcodes[barcodes_test_idx]
                 self.train_all_child_nodes(starting_node, barcodes_train)
                 self.predict_all_child_nodes(starting_node, test_barcodes=barcodes_test)
-                # acc, con_mat, possible_labels = self.data_container.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
-                acc, con_mat, possible_labels, con_mat_overview, possible_labels_overview = self.data_container.get_hierarchical_accuracy(test_barcodes=barcodes_test, level_obs_keys=self.hierarchy_container.obs_names, all_labels=self.hierarchy_container.all_nodes, overview_obs_key = 'Level_2')
+                acc, con_mat, possible_labels = self.data_container.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
+                # acc, con_mat, possible_labels, con_mat_overview, possible_labels_overview = self.data_container.get_hierarchical_accuracy(test_barcodes=barcodes_test, level_obs_keys=self.hierarchy_container.obs_names, all_labels=self.hierarchy_container.all_nodes, overview_obs_key = 'Level_2')
                 con_mats.append(con_mat)
-                con_mats.append(con_mat_overview)
+                # con_mats.append(con_mat_overview)
                 accs.append(acc)
                 if isolate_test_network:
                     self.hierarchy_container = deepcopy(self.hierarchy_container_copy)

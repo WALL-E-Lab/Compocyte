@@ -16,6 +16,8 @@ class HierarchyContainer():
         """Add explanation
         """
 
+        print('DONE')
+
         self.dict_of_cell_relations = dict_of_cell_relations
         self.obs_names = obs_names
 

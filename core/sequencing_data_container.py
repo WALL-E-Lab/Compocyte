@@ -301,53 +301,34 @@ class SequencingDataContainer():
         print(f'children_obs_key: {children_obs_key}')
         print(f'parent_obs_key: {parent_obs_key}')
 
-        #DELETE ALL ENTRIES FROM PREVIOUS PREDICTIONS FOR CONSISTENCY TEST
-        try:
-            self.adata.obs['Level_1_pred'] = 'not in testset'
-        except:
-            print('didnt delete level 1 pred')
-        try:
-            self.adata.obs['Level_2_pred'] = 'not in testset'
-        except:
-            print('didnt delete level 2 pred')
-        try:
-            self.adata.obs['Level_3_pred'] = 'not in testset'
-        except:
-            print('didnt delete level 3 pred')
-        try:
-            self.adata.obs['Level_4_pred'] = 'not in testset'
-        except:
-            print('didnt delete level 4 pred')
-        try:
-            self.adata.obs['final_pred_obs_key'] = 'not in testset'
-        except:
-            print('didnt delete final_pred_obs_key')
-
 
         
-        #with indices
-        current_barcode_subset_idx = np.where(
-                np.isin(np.array(self.adata.obs_names), 
-                        barcodes))[0]
-        #real barcode names to avoid conflicts with indices when assigning predicted and non predicted cells
-        current_barcode_subset = np.array(self.adata.obs_names)[current_barcode_subset_idx]
+        # #with indices
+        # current_barcode_subset_idx = np.where(
+        #         np.isin(np.array(self.adata.obs_names), 
+        #                 barcodes))[0]
+        # #real barcode names to avoid conflicts with indices when assigning predicted and non predicted cells
+        # current_barcode_subset = np.array(self.adata.obs_names)[current_barcode_subset_idx]
 
-        print(f'current_barcode_subset (should be obs names): {current_barcode_subset}')
+        # print(f'current_barcode_subset (should be obs names): {current_barcode_subset}')
         
         #check where predictions were made and where not
         barcodes_with_prediction_idx = np.argwhere(~np.isnan(y_pred)).flatten()
         barcodes_no_prediction_idx = np.argwhere(np.isnan(y_pred)).flatten()
 
         #row names instead of indices
-        barcodes_with_prediction = current_barcode_subset[barcodes_with_prediction_idx]
-        barcodes_no_prediction = current_barcode_subset[barcodes_no_prediction_idx]
+        barcodes_with_prediction = np.array(barcodes)[barcodes_with_prediction_idx]
+        barcodes_no_prediction = np.array(barcodes)[barcodes_no_prediction_idx]
 
+
+        print(f'consistency_check: len(with_pred) + len(no_pred): {len(barcodes_with_prediction_idx) + len(barcodes_no_prediction_idx)} sould = len(y_pred): {len(y_pred)}\n')
+        print(f'and should be equal to len(current_barcode_subset): {len(barcodes)}')
         
         
-        print(barcodes_with_prediction_idx[:15])
-        print(y_pred[:15])
-        print(np.array(y_pred)[barcodes_with_prediction_idx][:15])
-        print(fitted_label_encoder.inverse_transform(np.array(y_pred)[barcodes_with_prediction_idx].astype(int)))
+        # print(barcodes_with_prediction_idx[:15])
+        # print(y_pred[:15])
+        # print(np.array(y_pred)[barcodes_with_prediction_idx][:15])
+        # print(fitted_label_encoder.inverse_transform(np.array(y_pred)[barcodes_with_prediction_idx].astype(int)))
 
         #make y_pred contain string labels of cells (only where entry != nan)
         y_pred_labels = fitted_label_encoder.inverse_transform(np.array(y_pred)[barcodes_with_prediction_idx].astype(int))
@@ -357,8 +338,12 @@ class SequencingDataContainer():
 
         # 1.) set values where predictions were made
         try: 
+            print(f'adata.obs."children_obs_key_pred" value counts vor setzen der y_preds mit prediction aus "try":') 
+            print(self.adata.obs[f'{children_obs_key}_pred'][barcodes].value_counts())
             existing_annotations = self.adata.obs[f'{children_obs_key}_pred']
             existing_annotations.loc[barcodes_with_prediction] = y_pred_labels
+            print(f'adata.obs."children_obs_key_pred" value counts nach setzen der y_preds mit prediction aus "try":') 
+            print(self.adata.obs[f'{children_obs_key}_pred'][barcodes].value_counts())
         except KeyError:
             print(f'went to key error with prediction in node {node}')
             pred_template = np.empty(shape=len(self.adata))
@@ -368,14 +353,20 @@ class SequencingDataContainer():
 
             pred_template[barcodes_with_prediction_idx] = y_pred_labels
             self.adata.obs[f'{children_obs_key}_pred'] = pred_template
+            print(f'adata.obs."children_obs_key_pred" value counts nach setzen der y_preds mit prediction aus "except":') 
+            print(self.adata.obs[f'{children_obs_key}_pred'][barcodes].value_counts())
             
 
         # 2.) set values where no prediction was made to current label (node of current classifier)
         #SHOULDN'T BE NECESSARY; cells are already subsetted to this node, thus have this annotation already,
         #excpet for the very first used level
         try: 
+            print(f'adata.obs."parent_obs_key_pred" value counts vor setzen der y_preds ohne prediction aus "try":') 
+            print(self.adata.obs[f'{parent_obs_key}_pred'][barcodes].value_counts())
             existing_annotations = self.adata.obs[f'{parent_obs_key}_pred']
             existing_annotations.loc[barcodes_no_prediction] = f'{node}'
+            print(f'adata.obs."parent_obs_key_pred" value counts nach setzen der y_preds ohne prediction aus "try":') 
+            print(self.adata.obs[f'{parent_obs_key}_pred'][barcodes].value_counts())
         except KeyError:
             print(f'went to key error no prediction in node {node}')
 
@@ -385,16 +376,22 @@ class SequencingDataContainer():
             
             existing_annotations_template[barcodes_no_prediction_idx] = f'{node}'
             self.adata.obs[f'{parent_obs_key}_pred'] = existing_annotations_template
+            print(f'adata.obs."parent_obs_key_pred" value counts nach setzen der y_preds ohne prediction aus "except":') 
+            print(self.adata.obs[f'{parent_obs_key}_pred'][barcodes].value_counts())
 
 
         #write where the last annotation level for a cell is currently saved (i.e. write the current obs_key for a cell 
         #in 'final_pred_obs_key' - will be the last for that cell when not overwritten by next level classifier)
         try: 
+            print(f'adata.obs."final_pred_obs_key" value counts vor setzen der final_preds prediction aus "try":') 
+            print(self.adata.obs[f'final_pred_obs_key'][barcodes].value_counts())
             existing_final_pred_vec = self.adata.obs[f'final_pred_obs_key']
             #use real cell label names instead of indices to avoid working on subsets
             existing_final_pred_vec.loc[barcodes_with_prediction] = f'{children_obs_key}'
             existing_final_pred_vec.loc[barcodes_no_prediction] = f'{parent_obs_key}'
             self.adata.obs[f'final_pred_obs_key'] = existing_final_pred_vec
+            print(f'adata.obs."final_pred_obs_key" value counts nach setzen der final_preds prediction aus "try":') 
+            print(self.adata.obs[f'final_pred_obs_key'][barcodes].value_counts())
 
         except KeyError:
             print(f'went to key error final prediction obs_key in node {node}')
@@ -410,6 +407,8 @@ class SequencingDataContainer():
                 final_pred_template[barcodes_no_prediction_idx] = 'funny things happening'
 
             self.adata.obs[f'final_pred_obs_key'] = final_pred_template
+            print(f'adata.obs."final_pred_obs_key" value counts nach setzen der final_preds prediction aus "try":') 
+            print(self.adata.obs[f'final_pred_obs_key'][barcodes].value_counts())
 
 
     def get_predicted_barcodes(self, obs_key, child_node, predicted_from=None):
@@ -465,7 +464,7 @@ class SequencingDataContainer():
             overview_obs_key: sets the level for which finest labels are supposed to be compared with
             '''
         adata_subset = self.adata[test_barcodes, :]
-        final_obs_key = level_obs_keys[0]
+        final_obs_key = level_obs_keys[-1]
         adata_final_subset = adata_subset[adata_subset.obs.final_pred_obs_key == f'{final_obs_key}', :]
 
         #calculate accuray matrix only for those cells that really did reach the final level 
@@ -491,7 +490,7 @@ class SequencingDataContainer():
 
         if overview_obs_key != None:
 
-            y_known = adata_subset.obs[f'overview_obs_key']
+            y_known = adata_subset.obs[f'{overview_obs_key}']
             y_pred = []
             #vector with all final decisions (could be quite slow for large datasets)
             for barcode in test_barcodes:
