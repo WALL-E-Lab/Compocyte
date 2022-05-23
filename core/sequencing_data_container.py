@@ -336,7 +336,7 @@ class SequencingDataContainer():
         """Add explanation.
         """
 
-        adata_subset = self.adata[self.adata.obs[obs_key] == child_node]
+        adata_subset = self.adata[self.adata.obs[f'{obs_key}_pred'] == child_node]
         if type(predicted_from) != type(None):
             predicted_from = list(predicted_from)
             predicted_barcodes = [b for b in adata_subset.obs_names if b in predicted_from]
