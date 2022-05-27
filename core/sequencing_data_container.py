@@ -491,32 +491,69 @@ class SequencingDataContainer():
             disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
             disp.plot()
         except:
+            print('something didnt work')
             return
-
 
         if overview_obs_key != None:
 
-            y_known = adata_subset.obs[f'{overview_obs_key}']
-            y_pred = []
-            #vector with all final decisions (could be quite slow for large datasets)
-            for barcode in test_barcodes:
-                final_pred_level = adata_final_subset[barcode].obs.final_pred_obs_key
-                final_decision = adata_final_subset[barcode].obs[f'{final_pred_level}_pred']
-                y_pred.append(final_decision)
+            print('in overview_obs part')
 
-            possible_labels_overview = np.concatenate((known_type, pred_type))
-            possible_labels_overview = np.unique(possible_labels)
+            adata_subset = self.adata[test_barcodes, :]
+            final_obs_key = overview_obs_key
+            # adata_final_subset = adata_subset[adata_subset.obs.final_pred_obs_key == f'{final_obs_key}', :]
+            known_type = adata_subset.obs[final_obs_key]
+            #calculate accuray matrix only for those cells that really did reach the final level 
+    
+            # known_type = np.array(adata_final_subset.obs[final_obs_key])
+
+            final_pred_levels = adata_subset.obs['final_pred_obs_key']
+            pred_type = []
+            for obs_name, final_pred_level in zip(adata_subset.obs_names,final_pred_levels):
+                pred_type.append(adata_subset.obs[f'{final_pred_level}_pred'].loc[obs_name])
+
+            # pred_type = np.array(adata_final_subset.obs[f'{final_obs_key}_pred'])
+            possible_labels = np.concatenate((known_type, pred_type))
+            possible_labels = np.unique(possible_labels)
+            acc = np.sum(known_type == pred_type, axis = 0) / len(known_type)
             try:
-                con_mat_overview = confusion_matrix(
+                con_mat = confusion_matrix(
                     y_true=known_type, 
                     y_pred=pred_type, 
                     normalize='true',
                     labels=possible_labels)
-                disp = ConfusionMatrixDisplay(con_mat_overview, display_labels=possible_labels_overview)
+                acc = round(acc * 100, 2)
+                print(f'Overall accuracy is {acc} %')
+                disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
                 disp.plot()
-                return acc, con_mat, possible_labels, con_mat_overview, possible_labels_overview
             except:
-                'No plot for now'
+                print('something didnt work')
+                return
+
+
+
+        # if overview_obs_key != None:
+
+        #     y_known = adata_subset.obs[f'{overview_obs_key}']
+        #     y_pred = []
+        #     #vector with all final decisions (could be quite slow for large datasets)
+        #     for barcode in test_barcodes:
+        #         final_pred_level = adata_final_subset[barcode].obs.final_pred_obs_key
+        #         final_decision = adata_final_subset[barcode].obs[f'{final_pred_level}_pred']
+        #         y_pred.append(final_decision)
+
+        #     possible_labels_overview = np.concatenate((known_type, pred_type))
+        #     possible_labels_overview = np.unique(possible_labels)
+        #     try:
+        #         con_mat_overview = confusion_matrix(
+        #             y_true=known_type, 
+        #             y_pred=pred_type, 
+        #             normalize='true',
+        #             labels=possible_labels)
+        #         disp = ConfusionMatrixDisplay(con_mat_overview, display_labels=possible_labels_overview)
+        #         disp.plot()
+        #         return acc, con_mat, possible_labels, con_mat_overview, possible_labels_overview
+        #     except:
+        #         'No plot for now'
             
             
 
