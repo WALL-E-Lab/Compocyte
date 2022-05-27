@@ -465,12 +465,18 @@ class SequencingDataContainer():
             '''
         adata_subset = self.adata[test_barcodes, :]
         final_obs_key = level_obs_keys[-1]
-        adata_final_subset = adata_subset[adata_subset.obs.final_pred_obs_key == f'{final_obs_key}', :]
-
+        # adata_final_subset = adata_subset[adata_subset.obs.final_pred_obs_key == f'{final_obs_key}', :]
+        known_type = adata_subset.obs[final_obs_key]
         #calculate accuray matrix only for those cells that really did reach the final level 
-        
-        known_type = np.array(adata_final_subset.obs[final_obs_key])
-        pred_type = np.array(adata_final_subset.obs[f'{final_obs_key}_pred'])
+    
+        # known_type = np.array(adata_final_subset.obs[final_obs_key])
+
+        final_pred_levels = adata_subset.obs['final_pred_obs_key']
+        pred_type = []
+        for obs_name, final_pred_level in zip(adata_subset.obs_names,final_pred_levels):
+            pred_type.append(adata_subset.obs[f'{final_pred_level}_pred'].loc[obs_name])
+
+        # pred_type = np.array(adata_final_subset.obs[f'{final_obs_key}_pred'])
         possible_labels = np.concatenate((known_type, pred_type))
         possible_labels = np.unique(possible_labels)
         acc = np.sum(known_type == pred_type, axis = 0) / len(known_type)
