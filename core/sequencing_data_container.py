@@ -265,6 +265,22 @@ class SequencingDataContainer():
         if type(var_names) == type(None):
             var_names = self.adata.var_names
 
+        # !!!! TODO: ERROR PREVENTION
+        # Initialize unknown, but expected, vars as 0
+        new_var_names = [v for v in var_names if not v in self.adata.var_names]
+        if len(new_var_names) > 0:
+            new_values = np.empty(
+                (len(self.adata.obs_names), len(new_var_names))
+            )
+            new_values[:] = 0
+            new_X = np.append(self.adata.X.todense(), new_values, axis=-1)
+            new_var = pd.DataFrame(index=list(self.adata.var_names) + new_var_names)
+            self.adata = sc.AnnData(
+                X=sparse.csr_matrix(new_X), 
+                var=new_var, 
+                obs=self.adata.obs)
+            self.ensure_normlog()
+
         adata_subset = self.adata[barcodes, var_names]
         if data == 'normlog':
             x = adata_subset.layers['normlog']
@@ -388,3 +404,6 @@ class SequencingDataContainer():
     def init_resampling(self, sampling_method, sampling_strategy='auto'):
         self.sampling_method = sampling_method
         self.sampling_strategy = sampling_strategy
+
+    def load_new_adata(self, adata):
+        self.adata = adata
