@@ -166,7 +166,7 @@ class HierarchicalClassifier():
 
         x, y, y_int, y_onehot = self.get_training_data(node, barcodes, obs_name_children, scVI_key=scVI_key)
         if self.use_scVI:
-            input_n_classifier = n_dimensions_scVI
+            input_n_classifier = self.n_dimensions_scVI
 
         elif type(var_names) == type(None):
             input_n_classifier = len(self.data_container.adata.var_names)

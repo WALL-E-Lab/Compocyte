@@ -124,12 +124,25 @@ class SequencingDataContainer():
         """
 
         # Check if scVI has previously been trained for this node and number of dimensions
-        model_path = os.path.join(
+
+        #### TODO: Robust model saving and loading
+        models = [model for model in os.listdir(os.path.join(
             self.save_path, 
             'models', 
+            'scvi')) if model.endswith(key)]
+        if len(models) > 0:
+            model = models[-1]
+            model_exists = True
+
+        else:
+            model = f'{self.scVI_model_prefix}_{key}'
+            model_exists = False
+
+        model_path = os.path.join(self.save_path,
+            'models',
             'scvi', 
-            f'{self.scVI_model_prefix}_{key}')        
-        model_exists = os.path.exists(model_path)
+            model)        
+        #model_exists = os.path.exists(model_path)
         if type(barcodes) != type(None):
             relevant_adata = self.adata[barcodes, :].copy()
 
