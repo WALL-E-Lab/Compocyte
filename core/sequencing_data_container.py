@@ -125,11 +125,15 @@ class SequencingDataContainer():
 
         # Check if scVI has previously been trained for this node and number of dimensions
 
-        #### TODO: Robust model saving and loading
-        models = [model for model in os.listdir(os.path.join(
+        scvi_save_path = os.path.join(
             self.save_path, 
             'models', 
-            'scvi')) if model.endswith(key)]
+            'scvi')
+        if not os.path.exists(scvi_save_path):
+            os.makedirs(scvi_save_path)
+
+        #### TODO: Robust model saving and loading
+        models = [model for model in os.listdir(scvi_save_path) if model.endswith(key)]
         if len(models) > 0:
             model = models[-1]
             model_exists = True
@@ -286,7 +290,8 @@ class SequencingDataContainer():
                 (len(self.adata.obs_names), len(new_var_names))
             )
             new_values[:] = 0
-            new_X = np.append(self.adata.X.todense(), new_values, axis=-1)
+            new_X = sparse.csr_matrix(
+                sparse.hstack([self.adata.X, sparse.csr_matrix(new_values)]))
             new_var = pd.DataFrame(index=list(self.adata.var_names) + new_var_names)
             self.adata = sc.AnnData(
                 X=sparse.csr_matrix(new_X), 
