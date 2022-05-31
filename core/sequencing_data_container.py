@@ -10,6 +10,8 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 # from imblearn.under_sampling import TomekLinks, NearMiss
 # from imblearn.tensorflow import balanced_batch_generator
 from sklearn.preprocessing import StandardScaler
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
 
 class SequencingDataContainer():
     """Add explanation
@@ -229,6 +231,31 @@ class SequencingDataContainer():
         # print(f'Resample from {pd.Series(adata_subset.obs[obs_name_children]).value_counts()} to {pd.Series(y_res).value_counts()}')        
 
         return adata_subset, obs_name_children
+
+    
+    def set_chi2_features(self, current_node, barcodes, children_obs_key):
+        """
+        Params: 
+        -------------------------------------
+        current_node: node of current local classifier 
+        barcodes: current barcodes 
+        children_obs_key: e.g. 'Level_4' (see list with hierarchical labels in init of hierarchical classifier)
+
+        CAVE: 50 best features hard encoded
+
+        """
+        
+        X = self.adata[barcodes].X 
+        y = self.adata.obs[f'{children_obs_key}']
+
+        X_chi2 = SelectKBest(chi2, k=50).fit_transform(X,y)
+
+        return X_chi2
+
+        # self.adata.obsm[f'X_chi2_{current_node}'] = X_chi2
+
+
+
 
     def get_x_untransformed_scVI(self, barcodes, scVI_key):
         """Add explanation.

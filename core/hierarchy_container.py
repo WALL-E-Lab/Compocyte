@@ -137,7 +137,10 @@ class HierarchyContainer():
         """Add explanation.
         """
 
-        self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y)
+        if type_classifier != LogRegWrapper:
+            self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y)
+        else:
+            self.graph.nodes[node]['local_classifier'].train(x=x, y=y)
         train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
         self.graph.nodes[node]['last_train_acc'] = train_acc
         self.graph.nodes[node]['last_train_con_mat'] = train_con_mat
@@ -155,9 +158,12 @@ class HierarchyContainer():
         if type_classifier == CellTypistWrapper:
             y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
 
-        else: # type_classifier == type(NeuralNetwork):
+        elif type_classifier == type(NeuralNetwork):
             y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
             y_pred = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred_int)
+
+        elif type_classifier == LogRegWrapper:
+            y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
 
         return y_pred
 
