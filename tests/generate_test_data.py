@@ -60,7 +60,8 @@ def generate_random_anndata(
     n_genes=20000, 
     n_cells=2000, 
     min_counts=0, 
-    max_counts=80):
+    max_counts=80,
+    batch_key='batch'):
 
     gene_names = generate_random_names(
         n_genes,
@@ -91,12 +92,9 @@ def generate_random_anndata(
         for n, path_element in enumerate(paths_to_leaf_nodes[node]):
             test_adata.obs.loc[relevant_barcodes, obs_names[n]] = path_element
 
-    if leaf_nodes_mandatory:
-        test_adata = test_adata[test_adata.obs[obs_names[-1]] != np.nan]
-        test_adata = test_adata[test_adata.obs[obs_names[-1]] != 'nan']
-        test_adata = test_adata[test_adata.obs[obs_names[-1]] == test_adata.obs[obs_names[-1]]]
-
     for obs_name in obs_names:
         test_adata.obs[obs_name] = pd.Categorical(test_adata.obs[obs_name])
+
+    test_adata.obs[batch_key] = 'batch_1'
 
     return test_adata.copy()
