@@ -27,7 +27,7 @@ class SequencingDataContainer():
         """
 
         if self.adata.is_view:
-            self.adata = adata.copy()
+            self.adata = self.adata.copy()
 
         else:
             pass
