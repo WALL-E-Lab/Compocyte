@@ -6,6 +6,9 @@ import pandas as pd
 from datetime import datetime
 from classiFire.core.tools import is_counts
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.preprocessing import StandardScaler
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
 from scipy import sparse
 import matplotlib.pyplot as plt
 
@@ -224,7 +227,6 @@ class SequencingDataContainer():
         return_adata=False):
         """Add explanation
         """
-
         if type(var_names) == type(None):
             var_names = list(self.adata.var_names)
 
@@ -239,12 +241,12 @@ class SequencingDataContainer():
         elif data == 'scVI':
             if type(scVI_key) == type(None):
                 raise Exception('You are trying to use scVI data as training data, please supply a valid obsm key.')
-
+                
             x = adata_subset.obsm[scVI_key]
 
         else:
             raise Exception('Please specify the type of data you want to supply to the classifier. Options are: "scVI", "counts" and "normlog".')
-
+            
         if hasattr(x, 'todense'):
             x = x.todense()
 
@@ -267,8 +269,28 @@ class SequencingDataContainer():
 
         else:
             raise Exception('Returning an AnnData object is not compatible with scVI data.')
+    
+    # def set_chi2_features(self, current_node, barcodes, children_obs_key):
+    #     """
+    #     Params: 
+    #     -------------------------------------
+    #     current_node: node of current local classifier 
+    #     barcodes: current barcodes 
+    #     children_obs_key: e.g. 'Level_4' (see list with hierarchical labels in init of hierarchical classifier)
 
+    #     CAVE: 50 best features hard encoded
 
+    #     """
+        
+    #     X = self.adata[barcodes].X 
+    #     y = self.adata.obs[f'{children_obs_key}']
+
+    #     X_chi2 = SelectKBest(chi2, k=50).fit_transform(X,y)
+
+    #     return X_chi2
+
+    #     # self.adata.obsm[f'X_chi2_{current_node}'] = X_chi2
+    
     def get_x_untransformed(
         self, 
         barcodes, 
@@ -366,6 +388,125 @@ class SequencingDataContainer():
             pred_template[barcodes_np_index] = y_pred
             self.adata.obs[f'{obs_key}_pred'] = pred_template
 
+    def set_prob_based_predictions(self, node, children_obs_key, parent_obs_key, barcodes, y_pred, fitted_label_encoder):
+        """Set predicitons where confidence is high enough
+            REMEMBER currently only implemented with NeuralNetwork (y_pred is integer_vector! 
+            has to be inverse transformed after nans are eliminated)
+        """
+
+        print(f'children_obs_key: {children_obs_key}')
+        print(f'parent_obs_key: {parent_obs_key}')
+
+
+        
+        # #with indices
+        # current_barcode_subset_idx = np.where(
+        #         np.isin(np.array(self.adata.obs_names), 
+        #                 barcodes))[0]
+        # #real barcode names to avoid conflicts with indices when assigning predicted and non predicted cells
+        # current_barcode_subset = np.array(self.adata.obs_names)[current_barcode_subset_idx]
+
+        # print(f'current_barcode_subset (should be obs names): {current_barcode_subset}')
+        
+        #check where predictions were made and where not
+        barcodes_with_prediction_idx = np.argwhere(~np.isnan(y_pred)).flatten()
+        barcodes_no_prediction_idx = np.argwhere(np.isnan(y_pred)).flatten()
+
+        #row names instead of indices
+        barcodes_with_prediction = np.array(barcodes)[barcodes_with_prediction_idx]
+        barcodes_no_prediction = np.array(barcodes)[barcodes_no_prediction_idx]
+
+
+        print(f'consistency_check: len(with_pred) + len(no_pred): {len(barcodes_with_prediction_idx) + len(barcodes_no_prediction_idx)} sould = len(y_pred): {len(y_pred)}\n')
+        print(f'and should be equal to len(current_barcode_subset): {len(barcodes)}')
+        
+        
+        # print(barcodes_with_prediction_idx[:15])
+        # print(y_pred[:15])
+        # print(np.array(y_pred)[barcodes_with_prediction_idx][:15])
+        # print(fitted_label_encoder.inverse_transform(np.array(y_pred)[barcodes_with_prediction_idx].astype(int)))
+
+        #make y_pred contain string labels of cells (only where entry != nan)
+        y_pred_labels = fitted_label_encoder.inverse_transform(np.array(y_pred)[barcodes_with_prediction_idx].astype(int))
+
+
+        #write predictions/non preds in Andnata, TODO SAVE FINAL PRED LEVEL IN ANOTHER OBS
+
+        # 1.) set values where predictions were made
+        try: 
+            print(f'adata.obs."children_obs_key_pred" value counts vor setzen der y_preds mit prediction aus "try":') 
+            print(self.adata.obs[f'{children_obs_key}_pred'][barcodes].value_counts())
+            existing_annotations = self.adata.obs[f'{children_obs_key}_pred']
+            existing_annotations.loc[barcodes_with_prediction] = y_pred_labels
+            print(f'adata.obs."children_obs_key_pred" value counts nach setzen der y_preds mit prediction aus "try":') 
+            print(self.adata.obs[f'{children_obs_key}_pred'][barcodes].value_counts())
+        except KeyError:
+            print(f'went to key error with prediction in node {node}')
+            pred_template = np.empty(shape=len(self.adata))
+            pred_template[:] = np.nan            
+            # NEED TO TEST IF CONVERSION OF NP.NAN TO STR CREATES PROBLEMS
+            pred_template = pred_template.astype(str)
+
+            pred_template[barcodes_with_prediction_idx] = y_pred_labels
+            self.adata.obs[f'{children_obs_key}_pred'] = pred_template
+            print(f'adata.obs."children_obs_key_pred" value counts nach setzen der y_preds mit prediction aus "except":') 
+            print(self.adata.obs[f'{children_obs_key}_pred'][barcodes].value_counts())
+            
+
+        # 2.) set values where no prediction was made to current label (node of current classifier)
+        #SHOULDN'T BE NECESSARY; cells are already subsetted to this node, thus have this annotation already,
+        #excpet for the very first used level
+        try: 
+            print(f'adata.obs."parent_obs_key_pred" value counts vor setzen der y_preds ohne prediction aus "try":') 
+            print(self.adata.obs[f'{parent_obs_key}_pred'][barcodes].value_counts())
+            existing_annotations = self.adata.obs[f'{parent_obs_key}_pred']
+            existing_annotations.loc[barcodes_no_prediction] = f'{node}'
+            print(f'adata.obs."parent_obs_key_pred" value counts nach setzen der y_preds ohne prediction aus "try":') 
+            print(self.adata.obs[f'{parent_obs_key}_pred'][barcodes].value_counts())
+        except KeyError:
+            print(f'went to key error no prediction in node {node}')
+
+            existing_annotations_template = np.empty(shape=len(self.adata))
+            existing_annotations_template[:] = np.nan
+            existing_annotations_template = existing_annotations_template.astype(str)
+            
+            existing_annotations_template[barcodes_no_prediction_idx] = f'{node}'
+            self.adata.obs[f'{parent_obs_key}_pred'] = existing_annotations_template
+            print(f'adata.obs."parent_obs_key_pred" value counts nach setzen der y_preds ohne prediction aus "except":') 
+            print(self.adata.obs[f'{parent_obs_key}_pred'][barcodes].value_counts())
+
+
+        #write where the last annotation level for a cell is currently saved (i.e. write the current obs_key for a cell 
+        #in 'final_pred_obs_key' - will be the last for that cell when not overwritten by next level classifier)
+        try: 
+            print(f'adata.obs."final_pred_obs_key" value counts vor setzen der final_preds prediction aus "try":') 
+            print(self.adata.obs[f'final_pred_obs_key'][barcodes].value_counts())
+            existing_final_pred_vec = self.adata.obs[f'final_pred_obs_key']
+            #use real cell label names instead of indices to avoid working on subsets
+            existing_final_pred_vec.loc[barcodes_with_prediction] = f'{children_obs_key}'
+            existing_final_pred_vec.loc[barcodes_no_prediction] = f'{parent_obs_key}'
+            self.adata.obs[f'final_pred_obs_key'] = existing_final_pred_vec
+            print(f'adata.obs."final_pred_obs_key" value counts nach setzen der final_preds prediction aus "try":') 
+            print(self.adata.obs[f'final_pred_obs_key'][barcodes].value_counts())
+
+        except KeyError:
+            print(f'went to key error final prediction obs_key in node {node}')
+            final_pred_template = np.empty(shape=len(self.adata))
+            final_pred_template[:] = np.nan            
+            final_pred_template = final_pred_template.astype(str)
+            final_pred_template[barcodes_with_prediction_idx] = f'{children_obs_key}'
+            try:
+                final_pred_template[barcodes_no_prediction_idx] = f'{parent_obs_key}' 
+            except:
+                #exception in case parent_obs_key not defined, should only happen for 
+                #first classifier, in that case should really set first node in hierarchy
+                final_pred_template[barcodes_no_prediction_idx] = 'funny things happening'
+
+            self.adata.obs[f'final_pred_obs_key'] = final_pred_template
+            print(f'adata.obs."final_pred_obs_key" value counts nach setzen der final_preds prediction aus "try":') 
+            print(self.adata.obs[f'final_pred_obs_key'][barcodes].value_counts())
+
+
     def get_predicted_barcodes(self, obs_key, child_node, predicted_from=None):
         """Add explanation.
         """
@@ -403,6 +544,119 @@ class SequencingDataContainer():
 
         return acc, con_mat, possible_labels
 
+    def get_hierarchical_accuracy(self, test_barcodes, level_obs_keys, all_labels, overview_obs_key = None):
+        '''Calculate conmats and accuracy with respect to the actually reached levels 
+            in the non- obligatory leaf hierachical classifier
+            
+            Params:
+            -------------------------------------------------------------------------
+            test_barcodes: only calculate results for cells that were used for testing
+            
+            level_obs_keys: (array-like) obs_keys for the levels of the hierarchy, specified in 
+            hierarchy container constructor
+
+            all_labels: array-like of all labels in the hierarchy 
+            (should be called with Hierarchical_classifier.hierachry_container.all_nodes)
+
+            overview_obs_key: sets the level for which finest labels are supposed to be compared with
+            '''
+        adata_subset = self.adata[test_barcodes, :]
+        final_obs_key = level_obs_keys[-1]
+        # adata_final_subset = adata_subset[adata_subset.obs.final_pred_obs_key == f'{final_obs_key}', :]
+        known_type = adata_subset.obs[final_obs_key]
+        #calculate accuray matrix only for those cells that really did reach the final level 
+    
+        # known_type = np.array(adata_final_subset.obs[final_obs_key])
+
+        final_pred_levels = adata_subset.obs['final_pred_obs_key']
+        pred_type = []
+        for obs_name, final_pred_level in zip(adata_subset.obs_names,final_pred_levels):
+            pred_type.append(adata_subset.obs[f'{final_pred_level}_pred'].loc[obs_name])
+
+        # pred_type = np.array(adata_final_subset.obs[f'{final_obs_key}_pred'])
+        possible_labels = np.concatenate((known_type, pred_type))
+        possible_labels = np.unique(possible_labels)
+        acc = np.sum(known_type == pred_type, axis = 0) / len(known_type)
+        try:
+            con_mat = confusion_matrix(
+                y_true=known_type, 
+                y_pred=pred_type, 
+                normalize='true',
+                labels=possible_labels)
+            acc = round(acc * 100, 2)
+            print(f'Overall accuracy is {acc} %')
+            disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
+            disp.plot()
+        except:
+            print('something didnt work')
+            return
+
+        if overview_obs_key != None:
+
+            print('in overview_obs part')
+
+            adata_subset = self.adata[test_barcodes, :]
+            final_obs_key = overview_obs_key
+            # adata_final_subset = adata_subset[adata_subset.obs.final_pred_obs_key == f'{final_obs_key}', :]
+            known_type = adata_subset.obs[final_obs_key]
+            #calculate accuray matrix only for those cells that really did reach the final level 
+    
+            # known_type = np.array(adata_final_subset.obs[final_obs_key])
+
+            final_pred_levels = adata_subset.obs['final_pred_obs_key']
+            pred_type = []
+            for obs_name, final_pred_level in zip(adata_subset.obs_names,final_pred_levels):
+                pred_type.append(adata_subset.obs[f'{final_pred_level}_pred'].loc[obs_name])
+
+            # pred_type = np.array(adata_final_subset.obs[f'{final_obs_key}_pred'])
+            possible_labels = np.concatenate((known_type, pred_type))
+            possible_labels = np.unique(possible_labels)
+            acc = np.sum(known_type == pred_type, axis = 0) / len(known_type)
+            try:
+                con_mat = confusion_matrix(
+                    y_true=known_type, 
+                    y_pred=pred_type, 
+                    normalize='true',
+                    labels=possible_labels)
+                acc = round(acc * 100, 2)
+                print(f'Overall accuracy is {acc} %')
+                disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
+                disp.plot()
+            except:
+                print('something didnt work')
+                return
+
+
+
+        # if overview_obs_key != None:
+
+        #     y_known = adata_subset.obs[f'{overview_obs_key}']
+        #     y_pred = []
+        #     #vector with all final decisions (could be quite slow for large datasets)
+        #     for barcode in test_barcodes:
+        #         final_pred_level = adata_final_subset[barcode].obs.final_pred_obs_key
+        #         final_decision = adata_final_subset[barcode].obs[f'{final_pred_level}_pred']
+        #         y_pred.append(final_decision)
+
+        #     possible_labels_overview = np.concatenate((known_type, pred_type))
+        #     possible_labels_overview = np.unique(possible_labels)
+        #     try:
+        #         con_mat_overview = confusion_matrix(
+        #             y_true=known_type, 
+        #             y_pred=pred_type, 
+        #             normalize='true',
+        #             labels=possible_labels)
+        #         disp = ConfusionMatrixDisplay(con_mat_overview, display_labels=possible_labels_overview)
+        #         disp.plot()
+        #         return acc, con_mat, possible_labels, con_mat_overview, possible_labels_overview
+        #     except:
+        #         'No plot for now'
+            
+            
+
+        else:
+            return acc, con_mat, possible_labels
+       
     def get_top_genes(self, barcodes, obs_name_children, n_genes):
         if type(barcodes) == type(None):
             barcodes = self.adata.obs_names

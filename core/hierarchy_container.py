@@ -7,6 +7,9 @@ from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_uniq
     make_graph_from_edges, set_node_to_depth, set_node_to_scVI
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
+from classiFire.core.models.logreg import LogRegWrapper
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
 
 class HierarchyContainer():
     """Add explanation
@@ -15,6 +18,8 @@ class HierarchyContainer():
     def __init__(self, dict_of_cell_relations, obs_names):
         """Add explanation
         """
+
+        print('DONE')
 
         self.dict_of_cell_relations = dict_of_cell_relations
         self.obs_names = obs_names
@@ -78,6 +83,25 @@ class HierarchyContainer():
         depth_parent = self.node_to_depth[parent_node]
 
         return self.obs_names[depth_parent]
+
+    def set_chi2_feature_selecter(self, node, number_features=50):
+        """save chi2 feature selecter in one node, train only once""" 
+
+        self.graph.nodes[node]['chi2_feature_selecter'] = SelectKBest(chi2, k = number_features)
+        self.graph.nodes[node]['chi2_feature_selecter_trained'] = False
+
+    def fit_chi2_feature_selecter(self, node, x_feature_fit, y_feature_fit):
+        """fit chi2 feature selecter once, i.e. only with one trainings dataset"""
+
+        if self.graph.nodes[node]['chi2_feature_selecter_trained'] == False:
+            self.graph.nodes[node]['chi2_feature_selecter'].fit(x_feature_fit, y_feature_fit)
+            self.graph.nodes[node]['chi2_feature_selecter_trained'] = True
+        
+        else: 
+            print('Chi2 Feature selecter already trained, using trained selecter!')
+
+    
+
 
     def ensure_existence_classifier(self, node, input_len, classifier=NeuralNetwork, **kwargs):
         """Ensure that for the specified node in the graph, a local classifier exists under the
@@ -152,12 +176,58 @@ class HierarchyContainer():
 
         if type(self.graph.nodes[node]['local_classifier']) == CellTypistWrapper:
             y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
-
-        else:
+            
+        elif type_classifier == type(NeuralNetwork):
             y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
             y_pred = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred_int)
 
+        elif type_classifier == LogRegWrapper:
+            y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
+            
+        else:
+            raise Exception()
+
         return y_pred
+
+    def predict_single_node_proba(self, node, x, type_classifier):
+        """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
+        
+        threshold = 0.9
+
+        print(f'type_classifier from predict_.._proba: {type_classifier}')
+
+        if type_classifier == NeuralNetwork:
+            y_pred_proba = self.graph.nodes[node]['local_classifier'].predict_proba(x)
+            #y_pred_proba array_like with length of predictable classes, entries of form x element [0,1]
+            #with sum(y_pred) = 1 along axis 1 (for one cell)
+
+            print(f'y_pred_proba: {y_pred_proba[:10]}')
+            print(f'y_pred_proba.shape: {y_pred_proba.shape}')
+
+            #test if probability for one class is larger than threshold 
+            largest_idx = np.argmax(y_pred_proba, axis = -1)
+
+            print(f'largest_idx: {largest_idx[:10]}')
+
+            #y_pred is real prediction vector, with possible nans (else case)!
+            y_pred = []
+            for cell_idx, label_idx in enumerate(largest_idx):
+                if y_pred_proba[cell_idx][label_idx] > threshold:
+                    #in this case: set prediction and move on to next classifier
+                    y_pred.append(label_idx) #label_idx = class per definition
+                else: 
+                    #otherwise, set no new prediction, predition from superior node shall be set as 
+                    #the last prediction
+                    y_pred.append(np.nan)
+
+        else:
+            raise ValueError('Not yet supported probability classification classifier type')
+        
+        return y_pred
+
+
+
+
 
     def set_preferred_classifier(self, node, type_classifier):
         self.graph.nodes[node]['preferred_classifier'] = type_classifier
