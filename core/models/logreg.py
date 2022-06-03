@@ -7,11 +7,10 @@ import scipy
 
 class LogRegWrapper():
 
-    def __init__():
-        pass 
+    def __init__(self, **kwargs):
+        self.LR = LogisticRegression(class_weight='balanced', random_state=1, max_iter=1e4)
 
     def train(self, x, y):
-        self.LR = LogisticRegression(class_weight='balanced', random_state=1, max_iter=1e4)
         self.LR.fit(x, y)
 
     
