@@ -1,6 +1,7 @@
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
+from classiFire.core.models.logreg import LogRegWrapper
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import ConfusionMatrixDisplay
 from uncertainties import ufloat
@@ -126,7 +127,7 @@ class HierarchicalClassifier():
 
             x_unfitted = self.data_container.adata[barcodes].X
 
-            y = self.data_container.obs[f'{obs_name_children}']
+            y = self.data_container.adata[barcodes].obs[f'{obs_name_children}']
 
             self.hierarchy_container.fit_chi2_feature_selecter(node, x_unfitted, y)
 

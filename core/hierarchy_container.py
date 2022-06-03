@@ -7,6 +7,7 @@ from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_uniq
     make_graph_from_edges, set_node_to_depth, set_node_to_scVI
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
+from classiFire.core.models.logreg import LogRegWrapper
 from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import chi2
 
