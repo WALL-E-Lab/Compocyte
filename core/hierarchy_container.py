@@ -7,6 +7,8 @@ from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_uniq
     make_graph_from_edges, set_node_to_depth, set_node_to_scVI
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
 
 class HierarchyContainer():
     """Add explanation
@@ -80,6 +82,25 @@ class HierarchyContainer():
         depth_parent = self.node_to_depth[parent_node]
 
         return self.obs_names[depth_parent]
+
+    def set_chi2_feature_selecter(self, node, number_features=50):
+        """save chi2 feature selecter in one node, train only once""" 
+
+        self.graph.nodes[node]['chi2_feature_selecter'] = SelectKBest(chi2, k = number_features)
+        self.graph.nodes[node]['chi2_feature_selecter_trained'] = False
+
+    def fit_chi2_feature_selecter(self, node, x_feature_fit, y_feature_fit):
+        """fit chi2 feature selecter once, i.e. only with one trainings dataset"""
+
+        if self.graph.nodes[node]['chi2_feature_selecter_trained'] == False:
+            self.graph.nodes[node]['chi2_feature_selecter'].fit(x_feature_fit, y_feature_fit)
+            self.graph.nodes[node]['chi2_feature_selecter_trained'] = True
+        
+        else: 
+            print('Chi2 Feature selecter already trained, using trained selecter!')
+
+    
+
 
     def ensure_existence_classifier(self, node, input_len, classifier=NeuralNetwork, **kwargs):
         """Ensure that for the specified node in the graph, a local classifier exists under the

@@ -233,26 +233,26 @@ class SequencingDataContainer():
         return adata_subset, obs_name_children
 
     
-    def set_chi2_features(self, current_node, barcodes, children_obs_key):
-        """
-        Params: 
-        -------------------------------------
-        current_node: node of current local classifier 
-        barcodes: current barcodes 
-        children_obs_key: e.g. 'Level_4' (see list with hierarchical labels in init of hierarchical classifier)
+    # def set_chi2_features(self, current_node, barcodes, children_obs_key):
+    #     """
+    #     Params: 
+    #     -------------------------------------
+    #     current_node: node of current local classifier 
+    #     barcodes: current barcodes 
+    #     children_obs_key: e.g. 'Level_4' (see list with hierarchical labels in init of hierarchical classifier)
 
-        CAVE: 50 best features hard encoded
+    #     CAVE: 50 best features hard encoded
 
-        """
+    #     """
         
-        X = self.adata[barcodes].X 
-        y = self.adata.obs[f'{children_obs_key}']
+    #     X = self.adata[barcodes].X 
+    #     y = self.adata.obs[f'{children_obs_key}']
 
-        X_chi2 = SelectKBest(chi2, k=50).fit_transform(X,y)
+    #     X_chi2 = SelectKBest(chi2, k=50).fit_transform(X,y)
 
-        return X_chi2
+    #     return X_chi2
 
-        # self.adata.obsm[f'X_chi2_{current_node}'] = X_chi2
+    #     # self.adata.obsm[f'X_chi2_{current_node}'] = X_chi2
 
 
 

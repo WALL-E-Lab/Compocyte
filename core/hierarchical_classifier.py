@@ -101,6 +101,8 @@ class HierarchicalClassifier():
             classifier=CellTypistWrapper)
         obs_name_children = self.hierarchy_container.get_children_obs_key(node)
         self.hierarchy_container.ensure_existence_label_encoder(node)
+        self.hierarchy_container.set_chi2_feature_selecter(node)
+
         if type(barcodes) == type(None):
             barcodes = self.data_container.adata.obs_names
 
@@ -122,8 +124,14 @@ class HierarchicalClassifier():
 
         elif type_classifier == LogRegWrapper:
 
-            x = self.data_container.get_chi2_features(node, barcodes, obs_name_children)
+            x_unfitted = self.data_container.adata[barcodes].X
+
             y = self.data_container.obs[f'{obs_name_children}']
+
+            self.hierarchy_container.fit_chi2_feature_selecter(node, x_unfitted, y)
+
+            x = self.hierarchy_container.graph.nodes[node]['chi2_feature_selecter'].transform(x_unfitted)
+            
 
             self.hierarchy_container.train_single_node(node, x=x, y=y, type_classifier=type_classifier)
 
@@ -219,7 +227,12 @@ class HierarchicalClassifier():
             x = z_transform_properties(x)
 
         elif type_classifier == LogRegWrapper:
-            x = self.data_container.get_chi2_features(node, barcodes, self.hierachry_container.get_children_obs_key(node))
+
+            x_untransformed = self.data_container.adata[barcodes].X
+
+            x = self.hierarchy_container.graph.nodes[node]['chi2_feature_selecter'].transform(x_untransformed)
+
+            # x = self.data_container.get_chi2_features(node, barcodes, self.hierarchy_container.get_children_obs_key(node))
             # x = self.data_container.obsm[f'X_chi2_{node}']
 
         if not self.prob_based_stopping:
@@ -336,7 +349,7 @@ class HierarchicalClassifier():
             self.predict_all_child_nodes(starting_node, test_barcodes=barcodes_test)
             self.data_container.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
             #integrate preliminary hierarchical confusion matrix
-            # self.data_container.get_hierarchical_accuracy(test_barcodes=barcodes_test, level_obs_keys=self.hierachry_container.obs_names, all_labels = self.hierachry_container.all_nodes, overview_obs_key = 'Level_2' )
+            # self.data_container.get_hierarchical_accuracy(test_barcodes=barcodes_test, level_obs_keys=self.hierarchy_container.obs_names, all_labels = self.hierarchy_container.all_nodes, overview_obs_key = 'Level_2' )
             if isolate_test_network:
                 self.hierarchy_container = deepcopy(self.hierarchy_container_copy)
 
