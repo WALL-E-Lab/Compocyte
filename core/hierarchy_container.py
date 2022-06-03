@@ -115,8 +115,8 @@ class HierarchyContainer():
 
         else:
             try:
-                current_input_len = self.graph.nodes[node]['local_classifier'].len_of_input
-                current_output_len = self.graph.nodes[node]['local_classifier'].len_of_output
+                current_input_len = self.graph.nodes[node]['local_classifier'].n_input
+                current_output_len = self.graph.nodes[node]['local_classifier'].n_output
                 if current_input_len != input_len or current_output_len != output_len:
                     # At some point (once changing the hierarchy becomes a thing) this should 
                     # change the layer structure, rather than overwriting it all together
@@ -128,10 +128,10 @@ class HierarchyContainer():
 
         if define_classifier:
             if 'preferred_classifier' in self.graph.nodes[node].keys():
-                self.graph.nodes[node]['local_classifier'] = self.graph.nodes[node]['preferred_classifier'](len_of_input=input_len, len_of_output=output_len, **kwargs)
+                self.graph.nodes[node]['local_classifier'] = self.graph.nodes[node]['preferred_classifier'](n_input=input_len, n_output=output_len, **kwargs)
 
             else:
-                self.graph.nodes[node]['local_classifier'] = classifier(len_of_input=input_len, len_of_output=output_len, **kwargs)
+                self.graph.nodes[node]['local_classifier'] = classifier(n_input=input_len, n_output=output_len, **kwargs)
 
         return type(self.graph.nodes[node]['local_classifier'])
 
@@ -155,14 +155,11 @@ class HierarchyContainer():
 
         return y_int, y_onehot
 
-    def train_single_node(self, node, x, y_int=None, y_onehot=None, y=None, type_classifier=None):
+    def train_single_node(self, node, x, y_int=None, y_onehot=None, y=None):
         """Add explanation.
         """
 
-        if type_classifier != LogRegWrapper:
-            self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y)
-        else:
-            self.graph.nodes[node]['local_classifier'].train(x=x, y=y)
+        self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
         train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
         self.graph.nodes[node]['last_train_acc'] = train_acc
         self.graph.nodes[node]['last_train_con_mat'] = train_con_mat
@@ -173,19 +170,22 @@ class HierarchyContainer():
     def is_trained_at(self, node):
         return 'local_classifier' in self.graph.nodes[node].keys()
 
-    def predict_single_node(self, node, x, type_classifier):
+    def predict_single_node(self, node, x):
         """Add explanation.
         """
 
-        if type_classifier == CellTypistWrapper:
+        if type(self.graph.nodes[node]['local_classifier']) == CellTypistWrapper:
             y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
-
+            
         elif type_classifier == type(NeuralNetwork):
             y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
             y_pred = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred_int)
 
         elif type_classifier == LogRegWrapper:
             y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
+            
+        else:
+            raise Exception()
 
         return y_pred
 
@@ -231,3 +231,20 @@ class HierarchyContainer():
 
     def set_preferred_classifier(self, node, type_classifier):
         self.graph.nodes[node]['preferred_classifier'] = type_classifier
+
+    def get_selected_var_names(self, node):
+        if not 'selected_var_names' in self.graph.nodes[node].keys():
+            return None
+
+        else:
+            return self.graph.nodes[node]['selected_var_names']
+
+    def set_selected_var_names(self, node, selected_var_names):
+        self.graph.nodes[node]['selected_var_names'] = selected_var_names
+
+    def get_preferred_classifier(self, node):
+        if 'preferred_classifier' in self.graph.nodes[node].keys():
+            return self.graph.nodes[node]['preferred_classifier']
+
+        else:
+            return None

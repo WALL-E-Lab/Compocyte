@@ -6,12 +6,11 @@ import pandas as pd
 from datetime import datetime
 from classiFire.core.tools import is_counts
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-# from imblearn.over_sampling import SMOTE, ADASYN
-# from imblearn.under_sampling import TomekLinks, NearMiss
-# from imblearn.tensorflow import balanced_batch_generator
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import chi2
+from scipy import sparse
+import matplotlib.pyplot as plt
 
 class SequencingDataContainer():
     """Add explanation
@@ -128,12 +127,29 @@ class SequencingDataContainer():
         """
 
         # Check if scVI has previously been trained for this node and number of dimensions
-        model_path = os.path.join(
+
+        scvi_save_path = os.path.join(
             self.save_path, 
             'models', 
+            'scvi')
+        if not os.path.exists(scvi_save_path):
+            os.makedirs(scvi_save_path)
+
+        #### TODO: Robust model saving and loading
+        models = [model for model in os.listdir(scvi_save_path) if model.endswith(key)]
+        if len(models) > 0:
+            model = models[-1]
+            model_exists = True
+
+        else:
+            model = f'{self.scVI_model_prefix}_{key}'
+            model_exists = False
+
+        model_path = os.path.join(self.save_path,
+            'models',
             'scvi', 
-            f'{self.scVI_model_prefix}_{key}')        
-        model_exists = os.path.exists(model_path)
+            model)        
+        #model_exists = os.path.exists(model_path)
         if type(barcodes) != type(None):
             relevant_adata = self.adata[barcodes, :].copy()
 
@@ -194,44 +210,65 @@ class SequencingDataContainer():
         else:
             self.adata.obsm[key] = vae.get_latent_representation()
 
-    def get_x_y_untransformed_scVI(self, barcodes, scVI_key, obs_name_children):
-        """Add explanation.
-        """
-
-        adata_subset = self.adata[barcodes, :]
-        x = adata_subset.obsm[scVI_key]
-        y = np.array(adata_subset.obs[obs_name_children])
-        # nm = NearMiss(sampling_strategy='all')
-        # x_res, y_res = nm.fit_resample(x, y)
-
-        return x, y
-
-    def get_x_y_hvg_standard(self, barcodes, obs_names_children):
-        """select HVG and scale to standard distribution"""
-        pass
-
-    def get_x_y_untransformed_normlog(self, barcodes, obs_name_children):
-        """Add explanation.
-        """
-
-        if not 'normlog' in self.adata.layers:
-            self.adata.layers['normlog'] = self.adata.X
+    def ensure_normlog(self):
+        if not 'normlog' in self.adata.layers:            
             copy_adata = self.adata.copy()
-            sc.pp.normalize_total(copy_adata, target_sum=10000, layer='normlog')
-            sc.pp.log1p(copy_adata, layer='normlog')
-            self.adata.layers['normlog'] = copy_adata.layers['normlog']
+            sc.pp.normalize_total(copy_adata, target_sum=10000)
+            sc.pp.log1p(copy_adata)
+            self.adata.layers['normlog'] = copy_adata.X
 
-        adata_subset = self.adata[barcodes, :].copy()
-        adata_subset.X = adata_subset.layers['normlog']
-        # sm = SMOTE(sampling_strategy='all')
-        # x_res, y_res = sm.fit_resample(adata_subset.X, np.array(adata_subset.obs[obs_name_children]))
-        # adata_subset_res = sc.AnnData(x_res)
-        # adata_subset_res.var = pd.DataFrame(index=adata_subset.var_names)
-        # adata_subset_res.obs[obs_name_children] = y_res
-        # print(f'Resample from {pd.Series(adata_subset.obs[obs_name_children]).value_counts()} to {pd.Series(y_res).value_counts()}')        
+    def get_x_y_untransformed(
+        self, 
+        barcodes, 
+        obs_name_children, 
+        data='normlog',
+        var_names=None,
+        scVI_key=None,
+        return_adata=False):
+        """Add explanation
+        """
+        if type(var_names) == type(None):
+            var_names = list(self.adata.var_names)
 
-        return adata_subset, obs_name_children
+        self.ensure_normlog()
+        adata_subset = self.adata[barcodes, var_names]
+        if data == 'normlog':
+            x = adata_subset.layers['normlog']
 
+        elif data == 'counts':
+            x = adata_subset.X
+
+        elif data == 'scVI':
+            if type(scVI_key) == type(None):
+                raise Exception('You are trying to use scVI data as training data, please supply a valid obsm key.')
+                
+            x = adata_subset.obsm[scVI_key]
+
+        else:
+            raise Exception('Please specify the type of data you want to supply to the classifier. Options are: "scVI", "counts" and "normlog".')
+            
+        if hasattr(x, 'todense'):
+            x = x.todense()
+
+        y = np.array(adata_subset.obs[obs_name_children])
+        if hasattr(self, 'sampling_method') and type(self.sampling_method) != type(None):
+            res = self.sampling_method(sampling_strategy=self.sampling_strategy)
+            x_res, y_res = res.fit_resample(x, y)
+
+        else:
+            x_res, y_res = x, y
+
+        if return_adata == False:
+            return x_res, y_res
+
+        elif data != 'scVI':
+            adata_subset_res = sc.AnnData(x_res)
+            adata_subset_res.var = pd.DataFrame(index=adata_subset.var_names)
+            adata_subset_res.obs[obs_name_children] = y_res
+            return adata_subset_res, obs_name_children
+
+        else:
+            raise Exception('Returning an AnnData object is not compatible with scVI data.')
     
     # def set_chi2_features(self, current_node, barcodes, children_obs_key):
     #     """
@@ -253,34 +290,66 @@ class SequencingDataContainer():
     #     return X_chi2
 
     #     # self.adata.obsm[f'X_chi2_{current_node}'] = X_chi2
-
-
-
-
-    def get_x_untransformed_scVI(self, barcodes, scVI_key):
+    
+    def get_x_untransformed(
+        self, 
+        barcodes, 
+        data='normlog', 
+        var_names=None, 
+        scVI_key=None, 
+        return_adata=False):
         """Add explanation.
         """
+        
+        if type(var_names) == type(None):
+            var_names = self.adata.var_names
 
-        adata_subset = self.adata[barcodes, :]
-        x = adata_subset.obsm[scVI_key]
+        # !!!! TODO: ERROR PREVENTION
+        # Initialize unknown, but expected, vars as 0
+        new_var_names = [v for v in var_names if not v in self.adata.var_names]
+        if len(new_var_names) > 0:
+            new_values = np.empty(
+                (len(self.adata.obs_names), len(new_var_names))
+            )
+            new_values[:] = 0
+            new_X = sparse.csr_matrix(
+                sparse.hstack([self.adata.X, sparse.csr_matrix(new_values)]))
+            new_var = pd.DataFrame(index=list(self.adata.var_names) + new_var_names)
+            self.adata = sc.AnnData(
+                X=sparse.csr_matrix(new_X), 
+                var=new_var, 
+                obs=self.adata.obs)
+            self.ensure_normlog()
 
-        return x
+        adata_subset = self.adata[barcodes, var_names]
+        if data == 'normlog':
+            x = adata_subset.layers['normlog']
 
-    def get_x_untransformed_normlog(self, barcodes):
-        """Add explanation.
-        """
+        elif data == 'counts':
+            x = adata_subset.X
 
-        if not 'normlog' in self.adata.layers:
-            # TODO
-            # this also normalizes/log1ps adata.X
-            self.adata.layers['normlog'] = self.adata.X
-            sc.pp.normalize_total(self.adata, target_sum=10000, layer='normlog')
-            sc.pp.log1p(self.adata, layer='normlog')
+        elif data == 'scVI':
+            if type(scVI_key) == type(None):
+                raise Exception('You are trying to use scVI data as training data, please supply a valid obsm key.')
 
-        adata_subset = self.adata[barcodes, :]
-        adata_subset.X = adata_subset.layers['normlog']
+            x = adata_subset.obsm[scVI_key]
 
-        return adata_subset
+        else:
+            raise Exception('Please specify the type of data you want to supply to the classifier. Options are: "scVI", "counts" and "normlog".')
+
+        if hasattr(x, 'todense'):
+            x = x.todense()
+
+        if return_adata == False:
+            return x
+
+        elif data != 'scVI':
+            adata_subset_selected = sc.AnnData(x)
+            adata_subset_selected.var = pd.DataFrame(index=adata_subset.var_names)
+            return adata_subset_selected
+
+        else:
+            raise Exception('Returning an AnnData object is not compatible with scVI data.')
 
     def get_true_barcodes(self, obs_name_node, node, true_from=None):
         """Retrieves bar codes of the cells that match the node supplied in the obs column supplied.
@@ -442,7 +511,7 @@ class SequencingDataContainer():
         """Add explanation.
         """
 
-        adata_subset = self.adata[self.adata.obs[obs_key] == child_node]
+        adata_subset = self.adata[self.adata.obs[f'{obs_key}_pred'] == child_node]
         if type(predicted_from) != type(None):
             predicted_from = list(predicted_from)
             predicted_barcodes = [b for b in adata_subset.obs_names if b in predicted_from]
@@ -470,7 +539,8 @@ class SequencingDataContainer():
         acc = round(acc * 100, 2)
         print(f'Overall accuracy is {acc} %')
         disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
-        disp.plot()
+        disp.plot(xticks_rotation='vertical')
+        plt.show()
 
         return acc, con_mat, possible_labels
 
@@ -586,5 +656,26 @@ class SequencingDataContainer():
 
         else:
             return acc, con_mat, possible_labels
-        
+       
+    def get_top_genes(self, barcodes, obs_name_children, n_genes):
+        if type(barcodes) == type(None):
+            barcodes = self.adata.obs_names
 
+        adata_subset = self.adata[barcodes, :].copy()
+        sc.pp.normalize_total(adata_subset)
+        sc.pp.log1p(adata_subset)
+        sc.tl.rank_genes_groups(adata_subset, obs_name_children, n_genes=n_genes)
+        total_top_genes = []
+        for label in adata_subset.obs[obs_name_children].unique():
+            for gene in list(adata_subset.uns['rank_genes_groups']['names'][label]):
+                if not gene in total_top_genes:
+                    total_top_genes.append(gene)
+
+        return total_top_genes
+
+    def init_resampling(self, sampling_method, sampling_strategy='auto'):
+        self.sampling_method = sampling_method
+        self.sampling_strategy = sampling_strategy
+
+    def load_new_adata(self, adata):
+        self.adata = adata
