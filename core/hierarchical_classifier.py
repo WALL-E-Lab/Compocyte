@@ -296,7 +296,7 @@ class HierarchicalClassifier():
             x = self.hierarchy_container.graph.nodes[node]['chi2_feature_selecter'].transform(x)
 
         if not self.prob_based_stopping:
-            y_pred = self.hierarchy_container.predict_single_node(node, x, type_classifier=type_classifier)
+            y_pred = self.hierarchy_container.predict_single_node(node, x)
             obs_key = self.hierarchy_container.get_children_obs_key(node)
             self.data_container.set_predictions(obs_key, barcodes, y_pred)
 
@@ -305,7 +305,7 @@ class HierarchicalClassifier():
         #%--------------------------------------------------------------------------------------------------------------------------------------------%#
 
         elif self.prob_based_stopping:
-            y_pred = self.hierarchy_container.predict_single_node_proba(node, x, type_classifier=type_classifier)
+            y_pred = self.hierarchy_container.predict_single_node_proba(node, x)
             #child_obs_key says at which hierarchy level the predictions have to be saved
             child_obs_key = self.hierarchy_container.get_children_obs_key(node) 
             parent_obs_key = self.hierarchy_container.get_parent_obs_key(node)
