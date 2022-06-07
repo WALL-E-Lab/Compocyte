@@ -1,6 +1,6 @@
 from classiFire.core.base.data_base import DataBase
 from classiFire.core.base.hierarchy_base import HierarchyBase
-from classiFire.core.tools import z_transform_properties
+from classiFire.core.tools import z_transform_properties, flatten_dict, set_node_to_depth, set_node_to_scVI
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
 from classiFire.core.models.logreg import LogRegWrapper
@@ -298,7 +298,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             else:
                 y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
                 y_pred = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred_int)
-                
+
             obs_key = self.get_children_obs_key(node)
             self.set_predictions(obs_key, barcodes, y_pred)
 

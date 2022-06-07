@@ -202,13 +202,6 @@ class HierarchyBase():
 
         return var_names
 
-    def get_selected_var_names(self, node):
-        if not 'selected_var_names' in self.graph.nodes[node].keys():
-            return None
-
-        else:
-            return self.graph.nodes[node]['selected_var_names']
-
     def set_selected_var_names(self, node, selected_var_names):
         self.graph.nodes[node]['selected_var_names'] = selected_var_names
 
