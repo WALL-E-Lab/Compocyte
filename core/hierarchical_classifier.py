@@ -35,7 +35,7 @@ class HierarchicalClassifier():
         use_norm_X=True,
         use_feature_selection=True,
         n_top_genes_per_class=300,
-        sampling_method=SMOTE,
+        sampling_method=None,
         sampling_strategy='auto'):
 
         self.data_container = data_container
