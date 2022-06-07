@@ -13,14 +13,47 @@ class DataBase():
     """Add explanation
     """
 
-    def __init__(self, adata, save_path, batch_key='batch', scVI_model_prefix=None):
-        self.adata = adata
-        self.save_path = save_path
-        self.batch_key = batch_key
-        self.scVI_model_prefix = scVI_model_prefix
-        self.ensure_not_view()
-        self.check_for_counts()
-        self.ensure_batch_assignment()
+    def load_adata(
+        self,
+        adata,
+        batch_key='batch_key'):
+
+        if type(self.adata) != type(None): # Load new adata for transfer learning/prediction
+            if batch_key != self.batch_key:
+                raise Exception('Batch key must match previously used batch key.')
+
+            self.adata = self.ensure_variable_match(adata)
+            self.ensure_not_view()
+            self.check_for_counts()
+            self.ensure_batch_assignment()
+
+        else:
+            self.adata = adata
+            self.ensure_not_view()
+            self.batch_key = batch_key
+            self.check_for_counts()
+            self.ensure_batch_assignment()
+
+    def ensure_variable_match(
+        self, 
+        new_adata):
+
+        new_var_names = [v for v in self.adata.var_names if not v in new_adata.var_names]
+        if len(new_var_names) > 0:
+            new_values = np.empty(
+                (len(new_adata.obs_names), len(new_var_names))
+            )
+            new_values[:] = 0
+            new_X = sparse.csr_matrix(
+                sparse.hstack(
+                    [new_adata.X, sparse.csr_matrix(new_values)]))
+            new_var = pd.DataFrame(index=list(new_adata.var_names) + new_var_names)
+            new_adata = sc.AnnData(
+                X=new_X, 
+                var=new_var, 
+                obs=new_adata.obs)[:, self.adata.var_names]
+
+        return new_adata
 
     def ensure_not_view(self):
         """Ensures that the AnnData object saved within is not a view.
@@ -282,25 +315,9 @@ class DataBase():
         if type(var_names) == type(None):
             var_names = self.adata.var_names
 
-        # !!!! TODO: ERROR PREVENTION
-        # Initialize unknown, but expected, vars as 0
-        new_var_names = [v for v in var_names if not v in self.adata.var_names]
-        if len(new_var_names) > 0:
-            new_values = np.empty(
-                (len(self.adata.obs_names), len(new_var_names))
-            )
-            new_values[:] = 0
-            new_X = sparse.csr_matrix(
-                sparse.hstack([self.adata.X, sparse.csr_matrix(new_values)]))
-            new_var = pd.DataFrame(index=list(self.adata.var_names) + new_var_names)
-            self.adata = sc.AnnData(
-                X=sparse.csr_matrix(new_X), 
-                var=new_var, 
-                obs=self.adata.obs)
-            self.ensure_normlog()
-
         adata_subset = self.adata[barcodes, var_names]
         if data == 'normlog':
+            self.ensure_normlog()
             x = adata_subset.layers['normlog']
 
         elif data == 'counts':

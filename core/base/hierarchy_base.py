@@ -14,6 +14,23 @@ class HierarchyBase():
     """Add explanation
     """
 
+    def set_cell_relations(self, dict_of_cell_relations, obs_names):
+        """Once set, cell relations can only be changed one node at a time, using supplied methods,
+        not by simply calling defining new cell relations
+        """
+
+        if type(self.dict_of_cell_relations) != type(None) and type(self.obs_names) != type(None):
+            raise Exception('Cannot redefine cell relations after initialization.')
+
+        self.dict_of_cell_relations = dict_of_cell_relations
+        self.obs_names = obs_names
+        self.ensure_depth_match()
+        self.ensure_unique_nodes()
+        self.all_nodes = flatten_dict(self.dict_of_cell_relations)
+        self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
+        self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
+        self.make_classifier_graph()
+
     def ensure_depth_match(self):
         """Check if the annotations supplied in .obs under obs_names are sufficiently deep to work 
         with the hierarchy provided.

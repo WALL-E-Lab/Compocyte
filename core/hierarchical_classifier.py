@@ -18,9 +18,9 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
     def __init__(
         self,
         save_path,
-        adata,
-        dict_of_cell_relations, 
-        obs_names,
+        adata = None,
+        dict_of_cell_relations=None, 
+        obs_names=None,
         n_dimensions_scVI=30,
         prob_based_stopping = False,
         use_scVI=False,
@@ -39,23 +39,15 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         self.use_norm_X = use_norm_X
         self.use_feature_selection = use_feature_selection
         self.n_top_genes_per_class = n_top_genes_per_class
+        self.scVI_model_prefix = scVI_model_prefix     
         if type(sampling_method) != type(None):
             self.init_resampling(sampling_method, sampling_strategy)
 
-        self.adata = adata
-        self.batch_key = batch_key
-        self.scVI_model_prefix = scVI_model_prefix
-        self.ensure_not_view()
-        self.check_for_counts()
-        self.ensure_batch_assignment()
-        self.dict_of_cell_relations = dict_of_cell_relations
-        self.obs_names = obs_names
-        self.ensure_depth_match()
-        self.ensure_unique_nodes()
-        self.all_nodes = flatten_dict(self.dict_of_cell_relations)
-        self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
-        self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
-        self.make_classifier_graph()
+        if type(adata) != type(None):
+            self.load_adata(adata)
+
+        if type(dict_of_cell_relations) != type(None) and type(obs_names) != type(None):
+            self.set_cell_relations(dict_of_cell_relations, obs_names)       
 
     def get_training_data(
         self, 
