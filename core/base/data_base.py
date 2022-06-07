@@ -16,7 +16,7 @@ class DataBase():
     def load_adata(
         self,
         adata,
-        batch_key='batch_key'):
+        batch_key='batch'):
 
         if type(self.adata) != type(None): # Load new adata for transfer learning/prediction
             if batch_key != self.batch_key:

@@ -39,12 +39,15 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         self.use_norm_X = use_norm_X
         self.use_feature_selection = use_feature_selection
         self.n_top_genes_per_class = n_top_genes_per_class
-        self.scVI_model_prefix = scVI_model_prefix     
+        self.scVI_model_prefix = scVI_model_prefix
+        self.adata = None
+        self.dict_of_cell_relations = None
+        self.obs_names = None
         if type(sampling_method) != type(None):
             self.init_resampling(sampling_method, sampling_strategy)
 
         if type(adata) != type(None):
-            self.load_adata(adata)
+            self.load_adata(adata, batch_key)
 
         if type(dict_of_cell_relations) != type(None) and type(obs_names) != type(None):
             self.set_cell_relations(dict_of_cell_relations, obs_names)       
