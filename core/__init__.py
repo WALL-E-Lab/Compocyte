@@ -1,1 +1,1 @@
-from classiFire.core import hierarchical_classifier, tools, hierarchy_container, sequencing_data_container, models
+from classiFire.core import hierarchical_classifier, tools, models, base

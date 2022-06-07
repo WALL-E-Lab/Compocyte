@@ -9,7 +9,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from scipy import sparse
 import matplotlib.pyplot as plt
 
-class SequencingDataContainer():
+class DataBase():
     """Add explanation
     """
 

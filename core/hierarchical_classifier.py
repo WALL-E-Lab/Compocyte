@@ -1,3 +1,5 @@
+from classiFire.core.base.data_base import DataBase
+from classiFire.core.base.hierarchy_base import HierarchyBase
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
@@ -9,26 +11,16 @@ from copy import deepcopy
 from imblearn.over_sampling import SMOTE
 import numpy as np
 
-class HierarchicalClassifier():
-    """This class coordinates the passing of information between the cell label hierarchy (in
-    HierarchyContainer), the sequencing and cell-level data (in SequencingDataContainer) and the
-    local classifiers making classification decisions for single nodes in the cell label hierarchy.
-
-    Parameters
-    ----------
-    data_container
-        Object of type classiFire.core.sequencing_data_container.SequencingDataContainer.
-    hierarchy_container
-        Object of type classiFire.core.hierarchy_container.HierarchyContainer.
-    save_path
-        Path to save model states and other information processed by this class.
-    """ 
+class HierarchicalClassifier(DataBase, HierarchyBase):
+    """Add explanation
+    """
 
     def __init__(
-        self, 
-        data_container, 
-        hierarchy_container, 
+        self,
         save_path,
+        adata,
+        dict_of_cell_relations, 
+        obs_names,
         n_dimensions_scVI=30,
         prob_based_stopping = False,
         use_scVI=False,
@@ -36,10 +28,10 @@ class HierarchicalClassifier():
         use_feature_selection=True,
         n_top_genes_per_class=300,
         sampling_method=None,
-        sampling_strategy='auto'):
+        sampling_strategy='auto',
+        batch_key='batch', 
+        scVI_model_prefix=None):
 
-        self.data_container = data_container
-        self.hierarchy_container = hierarchy_container
         self.save_path = save_path
         self.n_dimensions_scVI = n_dimensions_scVI
         self.prob_based_stopping = prob_based_stopping
@@ -48,21 +40,22 @@ class HierarchicalClassifier():
         self.use_feature_selection = use_feature_selection
         self.n_top_genes_per_class = n_top_genes_per_class
         if type(sampling_method) != type(None):
-            self.data_container.init_resampling(sampling_method, sampling_strategy)
+            self.init_resampling(sampling_method, sampling_strategy)
 
-    def get_selected_var_names(self, node, barcodes, obs_name_children=None):
-        if self.use_scVI == True:
-            return None
-
-        var_names = self.hierarchy_container.get_selected_var_names(node)
-        if type(var_names) == type(None) and self.use_feature_selection == True:
-            var_names = self.data_container.get_top_genes(
-                barcodes, 
-                obs_name_children, 
-                self.n_top_genes_per_class)
-            self.hierarchy_container.set_selected_var_names(node, var_names)
-
-        return var_names
+        self.adata = adata
+        self.batch_key = batch_key
+        self.scVI_model_prefix = scVI_model_prefix
+        self.ensure_not_view()
+        self.check_for_counts()
+        self.ensure_batch_assignment()
+        self.dict_of_cell_relations = dict_of_cell_relations
+        self.obs_names = obs_names
+        self.ensure_depth_match()
+        self.ensure_unique_nodes()
+        self.all_nodes = flatten_dict(self.dict_of_cell_relations)
+        self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
+        self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
+        self.make_classifier_graph()
 
     def get_training_data(
         self, 
@@ -73,14 +66,14 @@ class HierarchicalClassifier():
         use_counts=False):
         """Gets untransformed input and target data for the training of a local classifier, 
         z-transforms the input data (scVI dimensions in the case of NeuralNetwork), calls upon
-        self.hierarchy_container to encode the cell type labels into onehot and integer format using
+        self to encode the cell type labels into onehot and integer format using
         the label encoder at the local node.
 
         Parameters
         ----------
         node
             Specifies which local classifier is currently being trained. This information is
-            used to access the relevant label encoder in self.hierarchy_container.transform_y.
+            used to access the relevant label encoder in self.transform_y.
         barcodes
             Specifies which cells should be used for training, enabling the retrieval of input
             and target data for these cells only.
@@ -106,10 +99,10 @@ class HierarchicalClassifier():
             data = 'counts'
 
         return_adata = False
-        if self.hierarchy_container.get_preferred_classifier(node) == CellTypistWrapper:
+        if self.get_preferred_classifier(node) == CellTypistWrapper:
             return_adata = True
 
-        x, y = self.data_container.get_x_y_untransformed(
+        x, y = self.get_x_y_untransformed(
             barcodes=barcodes, 
             obs_name_children=obs_name_children, 
             data=data, 
@@ -118,14 +111,14 @@ class HierarchicalClassifier():
             return_adata=return_adata)
 
         if return_adata == False:
-            if self.hierarchy_container.get_preferred_classifier(node) != LogRegWrapper:
+            if self.get_preferred_classifier(node) != LogRegWrapper:
                 x = z_transform_properties(x)
 
             else:
-                self.hierarchy_container.fit_chi2_feature_selecter(node, x, y)
-                x = self.hierarchy_container.graph.nodes[node]['chi2_feature_selecter'].transform(x)
+                self.fit_chi2_feature_selecter(node, x, y)
+                x = self.graph.nodes[node]['chi2_feature_selecter'].transform(x)
 
-            y_int, y_onehot = self.hierarchy_container.transform_y(node, y)
+            y_int, y_onehot = self.transform_y(node, y)
 
             return x, y, y_int, y_onehot
 
@@ -153,13 +146,13 @@ class HierarchicalClassifier():
             ' designation as training data.')
 
         else:
-            barcodes = self.data_container.adata.obs_names
+            barcodes = self.adata.obs_names
 
-        obs_name_children = self.hierarchy_container.get_children_obs_key(node)
+        obs_name_children = self.get_children_obs_key(node)
         var_names = self.get_selected_var_names(node, barcodes, obs_name_children)
-        self.hierarchy_container.ensure_existence_label_encoder(node)
-        self.hierarchy_container.set_chi2_feature_selecter(node)
-        type_classifier = self.hierarchy_container.get_preferred_classifier(node)
+        self.ensure_existence_label_encoder(node)
+        self.set_chi2_feature_selecter(node)
+        type_classifier = self.get_preferred_classifier(node)
         if type(type_classifier) == type(None):
             type_classifier = NeuralNetwork
 
@@ -167,8 +160,8 @@ class HierarchicalClassifier():
         use_counts = False
         if type_classifier == NeuralNetwork:
             if self.use_scVI == True:
-                scVI_node = self.hierarchy_container.node_to_scVI[node]
-                scVI_key = self.data_container.get_scVI_key(
+                scVI_node = self.node_to_scVI[node]
+                scVI_key = self.get_scVI_key(
                     node=scVI_node, 
                     n_dimensions=self.n_dimensions_scVI,
                     barcodes=barcodes)
@@ -187,16 +180,19 @@ class HierarchicalClassifier():
             input_n_classifier = self.n_dimensions_scVI
 
         elif type(var_names) == type(None):
-            input_n_classifier = len(self.data_container.adata.var_names)
+            input_n_classifier = len(self.adata.var_names)
 
         else:
             input_n_classifier = len(var_names)
 
-        self.hierarchy_container.ensure_existence_classifier(
+        self.ensure_existence_classifier(
             node, 
             input_n_classifier,
             classifier=type_classifier)
-        self.hierarchy_container.train_single_node(node, x=x, y_int=y_int, y_onehot=y_onehot, y=y)
+        self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
+        train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
+        self.graph.nodes[node]['last_train_acc'] = train_acc
+        self.graph.nodes[node]['last_train_con_mat'] = train_con_mat
 
     def train_all_child_nodes(
         self,
@@ -219,14 +215,14 @@ class HierarchicalClassifier():
             classifier. Necessary to enable separation of training and test data for cross-validation.
         """
 
-        obs_name_parent = self.hierarchy_container.get_parent_obs_key(current_node)
-        true_barcodes = self.data_container.get_true_barcodes(
+        obs_name_parent = self.get_parent_obs_key(current_node)
+        true_barcodes = self.get_true_barcodes(
             obs_name_parent, 
             current_node, 
             true_from=train_barcodes)
         self.train_single_node(current_node, true_barcodes)
-        for child_node in self.hierarchy_container.get_child_nodes(current_node):
-            if len(self.hierarchy_container.get_child_nodes(child_node)) == 0:
+        for child_node in self.get_child_nodes(current_node):
+            if len(self.get_child_nodes(child_node)) == 0:
                 continue
 
             self.train_all_child_nodes(child_node, train_barcodes=train_barcodes)
@@ -236,8 +232,8 @@ class HierarchicalClassifier():
         node,
         barcodes=None):
         """Uses an existing classifier at node to assign one of the child labels to the cells
-        specified by barcodes. The predictions are stored in self.data_container.adata.obs by calling
-        self.data_container.set_predictions under f'{obs_key}_pred' where obs_key is the key under
+        specified by barcodes. The predictions are stored in self.adata.obs by calling
+        self.set_predictions under f'{obs_key}_pred' where obs_key is the key under
         which the annotations as one of the child labels are stored. If train_barcodes is not None, only cells within
         that subset are used for training.
 
@@ -252,19 +248,19 @@ class HierarchicalClassifier():
 
         print(f'Predicting cells at {node}.')
         if type(barcodes) == type(None):
-            barcodes = self.data_container.adata.obs_names
+            barcodes = self.adata.obs_names
 
         print(f'Making prediction for {len(barcodes)} cells based on node assignment and'\
             ' designation as prediction data.')
-        if not self.hierarchy_container.is_trained_at(node):
+        if not self.is_trained_at(node):
             raise Exception(f'Must train local classifier for {node} before trying to predict cell'\
                 ' types')
 
         scVI_key = None
         if self.use_scVI == True:
             # Choose the most cell-type specific scVI dimensions available.
-            scVI_node = self.hierarchy_container.node_to_scVI[node]
-            scVI_key = self.data_container.get_scVI_key(
+            scVI_node = self.node_to_scVI[node]
+            scVI_key = self.get_scVI_key(
                 node=scVI_node, 
                 n_dimensions=self.n_dimensions_scVI,
                 barcodes=barcodes)
@@ -281,35 +277,41 @@ class HierarchicalClassifier():
 
         print(f'Predicting with {len(var_names) if type(var_names) != type(None) else "all available"} genes')
         return_adata = False
-        type_classifier = self.hierarchy_container.get_preferred_classifier(node)
+        type_classifier = self.get_preferred_classifier(node)
         if type_classifier == CellTypistWrapper:
             return_adata = True
 
         elif type_classifier == LogRegWrapper:
             data = 'counts'
 
-        x = self.data_container.get_x_untransformed(barcodes, data=data, var_names=var_names, scVI_key=scVI_key, return_adata=return_adata)
+        x = self.get_x_untransformed(barcodes, data=data, var_names=var_names, scVI_key=scVI_key, return_adata=return_adata)
         if return_adata == False and not type_classifier == LogRegWrapper:
             x = z_transform_properties(x)
 
         elif type_classifier == LogRegWrapper:
-            x = self.hierarchy_container.graph.nodes[node]['chi2_feature_selecter'].transform(x)
+            x = self.graph.nodes[node]['chi2_feature_selecter'].transform(x)
 
         if not self.prob_based_stopping:
-            y_pred = self.hierarchy_container.predict_single_node(node, x)
-            obs_key = self.hierarchy_container.get_children_obs_key(node)
-            self.data_container.set_predictions(obs_key, barcodes, y_pred)
+            if type(self.graph.nodes[node]['local_classifier']) in [CellTypistWrapper, LogRegWrapper]:
+                y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
+
+            else:
+                y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
+                y_pred = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred_int)
+                
+            obs_key = self.get_children_obs_key(node)
+            self.set_predictions(obs_key, barcodes, y_pred)
 
         #%--------------------------------------------------------------------------------------------------------------------------------------------%#       
         #belongs somewhere in the prediction methds, not sure where yet because of test/training problem
         #%--------------------------------------------------------------------------------------------------------------------------------------------%#
 
         elif self.prob_based_stopping:
-            y_pred = self.hierarchy_container.predict_single_node_proba(node, x)
+            y_pred = self.predict_single_node_proba(node, x)
             #child_obs_key says at which hierarchy level the predictions have to be saved
-            child_obs_key = self.hierarchy_container.get_children_obs_key(node) 
-            parent_obs_key = self.hierarchy_container.get_parent_obs_key(node)
-            self.data_container.set_prob_based_predictions(node, child_obs_key, parent_obs_key, barcodes, y_pred, fitted_label_encoder=self.hierarchy_container.graph.nodes[node]['label_encoder'])
+            child_obs_key = self.get_children_obs_key(node) 
+            parent_obs_key = self.get_parent_obs_key(node)
+            self.set_prob_based_predictions(node, child_obs_key, parent_obs_key, barcodes, y_pred, fitted_label_encoder=self.graph.nodes[node]['label_encoder'])
 
     def predict_all_child_nodes(
         self,
@@ -335,18 +337,18 @@ class HierarchicalClassifier():
         """
 
         if type(current_barcodes) == type(None):
-            current_barcodes = self.data_container.adata.obs_names
+            current_barcodes = self.adata.obs_names
 
         if type(test_barcodes) != type(None):
             current_barcodes = [b for b in current_barcodes if b in test_barcodes]
 
         self.predict_single_node(current_node, barcodes=current_barcodes)
-        obs_key = self.hierarchy_container.get_children_obs_key(current_node)
-        for child_node in self.hierarchy_container.get_child_nodes(current_node):
-            if len(self.hierarchy_container.get_child_nodes(child_node)) == 0:
+        obs_key = self.get_children_obs_key(current_node)
+        for child_node in self.get_child_nodes(current_node):
+            if len(self.get_child_nodes(child_node)) == 0:
                 continue
 
-            child_node_barcodes = self.data_container.get_predicted_barcodes(
+            child_node_barcodes = self.get_predicted_barcodes(
                 obs_key, 
                 child_node,
                 predicted_from=test_barcodes)
@@ -388,24 +390,24 @@ class HierarchicalClassifier():
         """
 
         if type(y_obs) == type(None):
-            y_obs = self.hierarchy_container.obs_names[-1]
+            y_obs = self.obs_names[-1]
         
-        y = self.data_container.adata.obs[y_obs]
+        y = self.adata.obs[y_obs]
         if type(barcodes) == type(None):
-            barcodes = self.data_container.adata.obs_names
+            barcodes = self.adata.obs_names
 
         if type(k) == type(None):
             if isolate_test_network:
-                self.hierarchy_container_copy = deepcopy(self.hierarchy_container)
+                self_copy = deepcopy(self)
 
             barcodes_train, barcodes_test = train_test_split(barcodes, test_size=test_size, stratify = y)
             self.train_all_child_nodes(starting_node, barcodes_train)
             self.predict_all_child_nodes(starting_node, test_barcodes=barcodes_test)
-            self.data_container.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
+            self.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
             #integrate preliminary hierarchical confusion matrix
-            # self.data_container.get_hierarchical_accuracy(test_barcodes=barcodes_test, level_obs_keys=self.hierarchy_container.obs_names, all_labels = self.hierarchy_container.all_nodes, overview_obs_key = 'Level_2' )
+            # self.get_hierarchical_accuracy(test_barcodes=barcodes_test, level_obs_keys=self.obs_names, all_labels = self.all_nodes, overview_obs_key = 'Level_2' )
             if isolate_test_network:
-                self.hierarchy_container = deepcopy(self.hierarchy_container_copy)
+                self = deepcopy(self_copy)
 
         else:
             skf = StratifiedKFold(n_splits=k)
@@ -413,19 +415,19 @@ class HierarchicalClassifier():
             accs = []
             for barcodes_train_idx, barcodes_test_idx in skf.split(barcodes, y):
                 if isolate_test_network:
-                    self.hierarchy_container_copy = deepcopy(self.hierarchy_container)
+                    self_copy = deepcopy(self)
 
                 barcodes_train = barcodes[barcodes_train_idx]
                 barcodes_test = barcodes[barcodes_test_idx]
                 self.train_all_child_nodes(starting_node, barcodes_train)
                 self.predict_all_child_nodes(starting_node, test_barcodes=barcodes_test)
-                acc, con_mat, possible_labels = self.data_container.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
-                # acc, con_mat, possible_labels, con_mat_overview, possible_labels_overview = self.data_container.get_hierarchical_accuracy(test_barcodes=barcodes_test, level_obs_keys=self.hierarchy_container.obs_names, all_labels=self.hierarchy_container.all_nodes, overview_obs_key = 'Level_2')
+                acc, con_mat, possible_labels = self.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
+                # acc, con_mat, possible_labels, con_mat_overview, possible_labels_overview = self.get_hierarchical_accuracy(test_barcodes=barcodes_test, level_obs_keys=self.obs_names, all_labels=self.all_nodes, overview_obs_key = 'Level_2')
                 con_mats.append(con_mat)
                 # con_mats.append(con_mat_overview)
                 accs.append(acc)
                 if isolate_test_network:
-                    self.hierarchy_container = deepcopy(self.hierarchy_container_copy)
+                    self = deepcopy(self_copy)
 
             averaged_con_mat = np.sum(con_mats, axis=0) / np.sum(np.sum(con_mats, axis=0), axis=1)
             test_score_mean = ufloat(np.mean(accs), np.std(accs))
@@ -437,7 +439,7 @@ class HierarchicalClassifier():
     def set_classifier_type(self, node, preferred_classifier):
         if type(node) == list:
             for n in node:
-                self.hierarchy_container.set_preferred_classifier(n, preferred_classifier)
+                self.set_preferred_classifier(n, preferred_classifier)
 
         else:
-            self.hierarchy_container.set_preferred_classifier(node, preferred_classifier)
+            self.set_preferred_classifier(node, preferred_classifier)

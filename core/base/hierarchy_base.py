@@ -10,25 +10,9 @@ from classiFire.core.models.celltypist import CellTypistWrapper
 from classiFire.core.models.logreg import LogRegWrapper
 from sklearn.feature_selection import SelectKBest, chi2
 
-class HierarchyContainer():
+class HierarchyBase():
     """Add explanation
     """
-
-    def __init__(self, dict_of_cell_relations, obs_names):
-        """Add explanation
-        """
-
-        self.dict_of_cell_relations = dict_of_cell_relations
-        self.obs_names = obs_names
-
-        # Basic validation
-        self.ensure_depth_match()
-        self.ensure_unique_nodes()
-
-        self.all_nodes = flatten_dict(self.dict_of_cell_relations)
-        self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
-        self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
-        self.make_classifier_graph()
 
     def ensure_depth_match(self):
         """Check if the annotations supplied in .obs under obs_names are sufficiently deep to work 
@@ -153,33 +137,11 @@ class HierarchyContainer():
 
         return y_int, y_onehot
 
-    def train_single_node(self, node, x, y_int=None, y_onehot=None, y=None):
-        """Add explanation.
-        """
-
-        self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
-        train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
-        self.graph.nodes[node]['last_train_acc'] = train_acc
-        self.graph.nodes[node]['last_train_con_mat'] = train_con_mat
-
     def get_child_nodes(self, node):
         return self.graph.adj[node].keys()
 
     def is_trained_at(self, node):
         return 'local_classifier' in self.graph.nodes[node].keys()
-
-    def predict_single_node(self, node, x):
-        """Add explanation.
-        """
-
-        if type(self.graph.nodes[node]['local_classifier']) in [CellTypistWrapper, LogRegWrapper]:
-            y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
-
-        else:
-            y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
-            y_pred = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred_int)
-
-        return y_pred
 
     def predict_single_node_proba(self, node, x):
         """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
@@ -220,6 +182,25 @@ class HierarchyContainer():
 
     def set_preferred_classifier(self, node, type_classifier):
         self.graph.nodes[node]['preferred_classifier'] = type_classifier
+
+    def get_selected_var_names(self, node, barcodes, obs_name_children=None):
+        if self.use_scVI == True:
+            return None
+
+        if not 'selected_var_names' in self.graph.nodes[node].keys():
+            var_names = None
+
+        else:
+            var_names = self.graph.nodes[node]['selected_var_names']
+
+        if type(var_names) == type(None) and self.use_feature_selection == True:
+            var_names = self.get_top_genes(
+                barcodes, 
+                obs_name_children, 
+                self.n_top_genes_per_class)
+            self.set_selected_var_names(node, var_names)
+
+        return var_names
 
     def get_selected_var_names(self, node):
         if not 'selected_var_names' in self.graph.nodes[node].keys():
