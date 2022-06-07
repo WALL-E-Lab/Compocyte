@@ -22,7 +22,7 @@ class DataBase():
             if batch_key != self.batch_key:
                 raise Exception('Batch key must match previously used batch key.')
 
-            self.adata = self.ensure_variable_match(adata)
+            self.adata = self.variable_match_adata(adata)
             self.ensure_not_view()
             self.check_for_counts()
             self.ensure_batch_assignment()
@@ -34,7 +34,16 @@ class DataBase():
             self.check_for_counts()
             self.ensure_batch_assignment()
 
-    def ensure_variable_match(
+            if hasattr(self, 'hv_genes') and self.hv_genes > 0:
+                sc.pp.highly_variable_genes(
+                    self.adata, 
+                    inplace=True, 
+                    flavor='seurat_v3', 
+                    n_top_genes=self.hv_genes)
+                self.adata = self.adata[:, self.adata.var['highly_variable']]
+                self.ensure_not_view()
+
+    def variable_match_adata(
         self, 
         new_adata):
 
@@ -247,6 +256,14 @@ class DataBase():
             sc.pp.log1p(copy_adata)
             self.adata.layers['normlog'] = copy_adata.X
 
+    def throw_out_nan(self, adata):
+        adata = adata[adata.obs[obs_name_children] != '']
+        adata = adata[adata.obs[obs_name_children] != 'nan']
+        adata = adata[adata.obs[obs_name_children] != np.nan]
+        adata = adata[(adata.obs[obs_name_children] != adata.obs[obs_name_children]) != True]
+
+        return adata
+
     def get_x_y_untransformed(
         self, 
         barcodes, 
@@ -263,6 +280,10 @@ class DataBase():
 
         self.ensure_normlog()
         adata_subset = self.adata[barcodes, var_names]
+        if hasattr(self, 'prob_based_stopping') and self.prob_based_stopping == False:
+            # If leaf node prediction is mandatory, make sure that all cells have a valid cell type label in the target level
+            adata_subset = self.throw_out_nan(adata_subset)
+
         if data == 'normlog':
             x = adata_subset.layers['normlog']
 
@@ -402,6 +423,7 @@ class DataBase():
         """
 
         adata_subset = self.adata[test_barcodes, :]
+        adata_subset = self.throw_out_nan(adata_subset)
         known_type = np.array(adata_subset.obs[obs_key])
         pred_type = np.array(adata_subset.obs[f'{obs_key}_pred'])
         possible_labels = np.concatenate((known_type, pred_type))
@@ -415,7 +437,8 @@ class DataBase():
         acc = round(acc * 100, 2)
         print(f'Overall accuracy is {acc} %')
         disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
-        disp.plot(xticks_rotation='vertical')
+        fig, ax = plt.subplots(figsize=(10, 10))
+        disp.plot(xticks_rotation='vertical', ax=ax, values_format='.2f')
         plt.show()
 
         return acc, con_mat, possible_labels

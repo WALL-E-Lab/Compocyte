@@ -27,6 +27,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         use_norm_X=True,
         use_feature_selection=True,
         n_top_genes_per_class=300,
+        hv_genes=-1,
         sampling_method=None,
         sampling_strategy='auto',
         batch_key='batch', 
@@ -43,6 +44,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         self.adata = None
         self.dict_of_cell_relations = None
         self.obs_names = None
+        self.hv_genes = hv_genes
         if type(sampling_method) != type(None):
             self.init_resampling(sampling_method, sampling_strategy)
 
