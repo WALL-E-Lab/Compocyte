@@ -8,6 +8,10 @@ class CellTypistWrapper():
     """Add explanation.
     """
 
+    possible_data_types = ['normlog']
+    data_type = 'normlog'
+    input_as_adata = True
+
     def __init__(self, **kwargs):
         """Add explanation.
         """

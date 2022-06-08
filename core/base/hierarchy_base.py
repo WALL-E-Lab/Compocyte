@@ -117,7 +117,7 @@ class HierarchyBase():
                 current_input_len = self.graph.nodes[node]['local_classifier'].n_input
                 current_output_len = self.graph.nodes[node]['local_classifier'].n_output
                 if current_input_len != input_len or current_output_len != output_len:
-                    # At some point (once changing the hierarchy becomes a thing) this should 
+                    # To do: At some point (once changing the hierarchy becomes a thing) this should 
                     # change the layer structure, rather than overwriting it all together
                     define_classifier = True
 
@@ -131,6 +131,9 @@ class HierarchyBase():
 
             else:
                 self.graph.nodes[node]['local_classifier'] = classifier(n_input=input_len, n_output=output_len, **kwargs)
+
+        if hasattr(self, 'default_input_data') and self.default_input_data in self.graph.nodes[node]['local_classifier'].possible_data_types:
+            self.graph.nodes[node]['local_classifier'].data_type = self.default_input_data
 
         return type(self.graph.nodes[node]['local_classifier'])
 

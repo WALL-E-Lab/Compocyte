@@ -8,6 +8,10 @@ class NeuralNetwork():
     """Add explanation.
     """
 
+    possible_data_types = ['counts', 'normlog', 'scVI']
+    data_type = 'normlog'
+    input_as_adata = False
+
     def __init__(
         self, 
         n_input, 

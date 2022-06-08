@@ -23,8 +23,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         obs_names=None,
         n_dimensions_scVI=30,
         prob_based_stopping = False,
-        use_scVI=False,
-        use_norm_X=True,
+        default_input_data='normlog',
         use_feature_selection=True,
         n_top_genes_per_class=300,
         hv_genes=-1,
@@ -36,8 +35,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         self.save_path = save_path
         self.n_dimensions_scVI = n_dimensions_scVI
         self.prob_based_stopping = prob_based_stopping
-        self.use_scVI = use_scVI
-        self.use_norm_X = use_norm_X
+        self.default_input_data = default_input_data
         self.use_feature_selection = use_feature_selection
         self.n_top_genes_per_class = n_top_genes_per_class
         self.scVI_model_prefix = scVI_model_prefix
@@ -59,8 +57,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         node,
         barcodes,
         obs_name_children,
-        scVI_key=None,
-        use_counts=False):
+        scVI_key=None):
         """Gets untransformed input and target data for the training of a local classifier, 
         z-transforms the input data (scVI dimensions in the case of NeuralNetwork), calls upon
         self to encode the cell type labels into onehot and integer format using
@@ -83,22 +80,8 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         """
 
         var_names = self.get_selected_var_names(node, barcodes, obs_name_children)
-        if self.use_scVI == True:
-            data = 'scVI'
-
-        elif self.use_norm_X == True:
-            data = 'normlog'
-
-        else:
-            data = 'counts'
-
-        if use_counts:
-            data = 'counts'
-
-        return_adata = False
-        if self.get_preferred_classifier(node) == CellTypistWrapper:
-            return_adata = True
-
+        data = self.graph.nodes[node]['local_classifier'].data_type
+        return_adata = self.graph.nodes[node]['local_classifier'].input_as_adata
         x, y = self.get_x_y_untransformed(
             barcodes=barcodes, 
             obs_name_children=obs_name_children, 
@@ -154,26 +137,15 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             type_classifier = NeuralNetwork
 
         scVI_key = None
-        use_counts = False
-        if type_classifier == NeuralNetwork:
-            if self.use_scVI == True:
-                scVI_node = self.node_to_scVI[node]
-                scVI_key = self.get_scVI_key(
-                    node=scVI_node, 
-                    n_dimensions=self.n_dimensions_scVI,
-                    barcodes=barcodes)
+        if self.graph.nodes[node]['local_classifier'].data_type == 'scVI':
+            scVI_node = self.node_to_scVI[node]
+            scVI_key = self.get_scVI_key(
+                node=scVI_node, 
+                n_dimensions=self.n_dimensions_scVI,
+                barcodes=barcodes)
 
-        elif type_classifier == CellTypistWrapper:
-            pass
-
-        elif type_classifier == LogRegWrapper:
-            use_counts = True
-
-        else:
-            raise Exception('The local classifier type you have chosen is not currently implemented.')
-
-        x, y, y_int, y_onehot = self.get_training_data(node, barcodes, obs_name_children, scVI_key=scVI_key, use_counts=use_counts)
-        if self.use_scVI:
+        x, y, y_int, y_onehot = self.get_training_data(node, barcodes, obs_name_children, scVI_key=scVI_key)
+        if self.graph.nodes[node]['local_classifier'].data_type == 'scVI':
             input_n_classifier = self.n_dimensions_scVI
 
         elif type(var_names) == type(None):
@@ -254,8 +226,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                 ' types')
 
         scVI_key = None
-        if self.use_scVI == True:
-            # Choose the most cell-type specific scVI dimensions available.
+        if self.graph.nodes[node]['local_classifier'].data_type == 'scVI':
             scVI_node = self.node_to_scVI[node]
             scVI_key = self.get_scVI_key(
                 node=scVI_node, 
@@ -263,24 +234,10 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                 barcodes=barcodes)
 
         var_names = self.get_selected_var_names(node, barcodes)
-        if self.use_scVI == True:
-            data = 'scVI'
-
-        elif self.use_norm_X == True:
-            data = 'normlog'
-
-        else:
-            data = 'counts'
-
+        data = self.graph.nodes[node]['local_classifier'].data_type
+        return_adata = self.graph.nodes[node]['local_classifier'].input_as_adata
         print(f'Predicting with {len(var_names) if type(var_names) != type(None) else "all available"} genes')
-        return_adata = False
         type_classifier = self.get_preferred_classifier(node)
-        if type_classifier == CellTypistWrapper:
-            return_adata = True
-
-        elif type_classifier == LogRegWrapper:
-            data = 'counts'
-
         x = self.get_x_untransformed(barcodes, data=data, var_names=var_names, scVI_key=scVI_key, return_adata=return_adata)
         if return_adata == False and not type_classifier == LogRegWrapper:
             x = z_transform_properties(x)
