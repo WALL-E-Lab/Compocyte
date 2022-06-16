@@ -8,6 +8,7 @@ from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_uniq
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
 from classiFire.core.models.logreg import LogRegWrapper
+from classiFire.core.models.single_assignment import SingleAssignment
 from sklearn.feature_selection import SelectKBest, chi2
 
 class HierarchyBase():
@@ -109,7 +110,7 @@ class HierarchyBase():
         
         output_len = len(list(self.graph.adj[node].keys()))
         define_classifier = False
-        if not 'local_classifier' in self.graph.nodes[node].keys():
+        if not 'local_classifier' in self.graph.nodes[node].keys() or type(self.graph.nodes[node]['local_classifier']) == SingleAssignment:
             define_classifier = True
 
         else:
@@ -135,6 +136,7 @@ class HierarchyBase():
         if hasattr(self, 'default_input_data') and self.default_input_data in self.graph.nodes[node]['local_classifier'].possible_data_types:
             self.graph.nodes[node]['local_classifier'].data_type = self.default_input_data
 
+        print(f'Data type for {node} set to {self.graph.nodes[node]["local_classifier"].data_type}')
         return type(self.graph.nodes[node]['local_classifier'])
 
     def ensure_existence_label_encoder(self, node):
@@ -203,8 +205,8 @@ class HierarchyBase():
     def set_preferred_classifier(self, node, type_classifier):
         self.graph.nodes[node]['preferred_classifier'] = type_classifier
 
-    def get_selected_var_names(self, node, barcodes, obs_name_children=None):
-        if self.use_scVI == True:
+    def get_selected_var_names(self, node, barcodes, obs_name_children=None, data_type='normlog'):
+        if data_type == 'scVI':
             return None
 
         if not 'selected_var_names' in self.graph.nodes[node].keys():

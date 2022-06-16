@@ -256,11 +256,11 @@ class DataBase():
             sc.pp.log1p(copy_adata)
             self.adata.layers['normlog'] = copy_adata.X
 
-    def throw_out_nan(self, adata):
-        adata = adata[adata.obs[obs_name_children] != '']
-        adata = adata[adata.obs[obs_name_children] != 'nan']
-        adata = adata[adata.obs[obs_name_children] != np.nan]
-        adata = adata[(adata.obs[obs_name_children] != adata.obs[obs_name_children]) != True]
+    def throw_out_nan(self, adata, obs_key):
+        adata = adata[adata.obs[obs_key] != '']
+        adata = adata[adata.obs[obs_key] != 'nan']
+        adata = adata[adata.obs[obs_key] != np.nan]
+        adata = adata[(adata.obs[obs_key] != adata.obs[obs_key]) != True]
 
         return adata
 
@@ -282,7 +282,7 @@ class DataBase():
         adata_subset = self.adata[barcodes, var_names]
         if hasattr(self, 'prob_based_stopping') and self.prob_based_stopping == False:
             # If leaf node prediction is mandatory, make sure that all cells have a valid cell type label in the target level
-            adata_subset = self.throw_out_nan(adata_subset)
+            adata_subset = self.throw_out_nan(adata_subset, obs_name_children)
 
         if data == 'normlog':
             x = adata_subset.layers['normlog']
@@ -423,7 +423,7 @@ class DataBase():
         """
 
         adata_subset = self.adata[test_barcodes, :]
-        adata_subset = self.throw_out_nan(adata_subset)
+        adata_subset = self.throw_out_nan(adata_subset, obs_key)
         known_type = np.array(adata_subset.obs[obs_key])
         pred_type = np.array(adata_subset.obs[f'{obs_key}_pred'])
         possible_labels = np.concatenate((known_type, pred_type))
@@ -462,6 +462,3 @@ class DataBase():
     def init_resampling(self, sampling_method, sampling_strategy='auto'):
         self.sampling_method = sampling_method
         self.sampling_strategy = sampling_strategy
-
-    def load_new_adata(self, adata):
-        self.adata = adata

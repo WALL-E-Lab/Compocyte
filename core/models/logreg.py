@@ -7,9 +7,9 @@ import scipy
 
 class LogRegWrapper():
 
-	possible_data_types = ['counts']
-	data_type = 'counts'
-	input_as_adata = False
+    possible_data_types = ['counts']
+    data_type = 'counts'
+    input_as_adata = False
 
     def __init__(self, **kwargs):
         self.LR = LogisticRegression(class_weight='balanced', random_state=1, max_iter=1e4)

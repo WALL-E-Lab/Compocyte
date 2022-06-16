@@ -4,6 +4,7 @@ from classiFire.core.tools import z_transform_properties, flatten_dict, set_node
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
 from classiFire.core.models.logreg import LogRegWrapper
+from classiFire.core.models.single_assignment import SingleAssignment
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import ConfusionMatrixDisplay
 from uncertainties import ufloat
@@ -129,23 +130,40 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             barcodes = self.adata.obs_names
 
         obs_name_children = self.get_children_obs_key(node)
-        var_names = self.get_selected_var_names(node, barcodes, obs_name_children)
+        # To do: permanent solution, currently circumventing binary decisions being trained
+        # when only one type of child is available in the data
+        child_types_in_data = self.adata[barcodes, :].obs[obs_name_children].unique()
+        corrector = 1 if self.adata[barcodes, :].obs[obs_name_children].hasnans else 0
+        if len(child_types_in_data) - corrector == 1:
+            self.graph.nodes[node]['local_classifier'] = SingleAssignment(child_types_in_data[0])
+            return
+
+        if len(child_types_in_data) - corrector == 0:
+            return
+
         self.ensure_existence_label_encoder(node)
         self.set_chi2_feature_selecter(node)
         type_classifier = self.get_preferred_classifier(node)
         if type(type_classifier) == type(None):
             type_classifier = NeuralNetwork
 
+        if self.default_input_data in type_classifier.possible_data_types:
+            data_type = self.default_input_data
+
+        else:
+            data_type = type_classifier.possible_data_types[0]
+
+        # To do: add vars if new cell type is encountered
+        var_names = self.get_selected_var_names(node, barcodes, obs_name_children, data_type=data_type)
         scVI_key = None
-        if self.graph.nodes[node]['local_classifier'].data_type == 'scVI':
+        if data_type == 'scVI':
             scVI_node = self.node_to_scVI[node]
             scVI_key = self.get_scVI_key(
                 node=scVI_node, 
                 n_dimensions=self.n_dimensions_scVI,
                 barcodes=barcodes)
 
-        x, y, y_int, y_onehot = self.get_training_data(node, barcodes, obs_name_children, scVI_key=scVI_key)
-        if self.graph.nodes[node]['local_classifier'].data_type == 'scVI':
+        if data_type == 'scVI':
             input_n_classifier = self.n_dimensions_scVI
 
         elif type(var_names) == type(None):
@@ -158,6 +176,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             node, 
             input_n_classifier,
             classifier=type_classifier)
+        x, y, y_int, y_onehot = self.get_training_data(node, barcodes, obs_name_children, scVI_key=scVI_key)        
         self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
         train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
         self.graph.nodes[node]['last_train_acc'] = train_acc
@@ -221,6 +240,9 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
 
         print(f'Making prediction for {len(barcodes)} cells based on node assignment and'\
             ' designation as prediction data.')
+        if len(barcodes) == 0:
+            return
+
         if not self.is_trained_at(node):
             raise Exception(f'Must train local classifier for {node} before trying to predict cell'\
                 ' types')
@@ -232,6 +254,12 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                 node=scVI_node, 
                 n_dimensions=self.n_dimensions_scVI,
                 barcodes=barcodes)
+
+        if type(self.graph.nodes[node]['local_classifier']) == SingleAssignment:
+            y_pred = self.graph.nodes[node]['local_classifier'].predict(barcodes)
+            obs_key = self.get_children_obs_key(node)
+            self.set_predictions(obs_key, barcodes, y_pred)
+            return
 
         var_names = self.get_selected_var_names(node, barcodes)
         data = self.graph.nodes[node]['local_classifier'].data_type
