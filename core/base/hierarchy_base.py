@@ -8,23 +8,25 @@ from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_uniq
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
 from classiFire.core.models.logreg import LogRegWrapper
+from classiFire.core.models.single_assignment import SingleAssignment
 from sklearn.feature_selection import SelectKBest, chi2
 
-class HierarchyContainer():
+class HierarchyBase():
     """Add explanation
     """
 
-    def __init__(self, dict_of_cell_relations, obs_names):
-        """Add explanation
+    def set_cell_relations(self, dict_of_cell_relations, obs_names):
+        """Once set, cell relations can only be changed one node at a time, using supplied methods,
+        not by simply calling defining new cell relations
         """
+
+        if type(self.dict_of_cell_relations) != type(None) and type(self.obs_names) != type(None):
+            raise Exception('Cannot redefine cell relations after initialization.')
 
         self.dict_of_cell_relations = dict_of_cell_relations
         self.obs_names = obs_names
-
-        # Basic validation
         self.ensure_depth_match()
         self.ensure_unique_nodes()
-
         self.all_nodes = flatten_dict(self.dict_of_cell_relations)
         self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
         self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
@@ -108,7 +110,7 @@ class HierarchyContainer():
         
         output_len = len(list(self.graph.adj[node].keys()))
         define_classifier = False
-        if not 'local_classifier' in self.graph.nodes[node].keys():
+        if not 'local_classifier' in self.graph.nodes[node].keys() or type(self.graph.nodes[node]['local_classifier']) == SingleAssignment:
             define_classifier = True
 
         else:
@@ -116,7 +118,7 @@ class HierarchyContainer():
                 current_input_len = self.graph.nodes[node]['local_classifier'].n_input
                 current_output_len = self.graph.nodes[node]['local_classifier'].n_output
                 if current_input_len != input_len or current_output_len != output_len:
-                    # At some point (once changing the hierarchy becomes a thing) this should 
+                    # To do: At some point (once changing the hierarchy becomes a thing) this should 
                     # change the layer structure, rather than overwriting it all together
                     define_classifier = True
 
@@ -131,6 +133,10 @@ class HierarchyContainer():
             else:
                 self.graph.nodes[node]['local_classifier'] = classifier(n_input=input_len, n_output=output_len, **kwargs)
 
+        if hasattr(self, 'default_input_data') and self.default_input_data in self.graph.nodes[node]['local_classifier'].possible_data_types:
+            self.graph.nodes[node]['local_classifier'].data_type = self.default_input_data
+
+        print(f'Data type for {node} set to {self.graph.nodes[node]["local_classifier"].data_type}')
         return type(self.graph.nodes[node]['local_classifier'])
 
     def ensure_existence_label_encoder(self, node):
@@ -153,33 +159,11 @@ class HierarchyContainer():
 
         return y_int, y_onehot
 
-    def train_single_node(self, node, x, y_int=None, y_onehot=None, y=None):
-        """Add explanation.
-        """
-
-        self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
-        train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
-        self.graph.nodes[node]['last_train_acc'] = train_acc
-        self.graph.nodes[node]['last_train_con_mat'] = train_con_mat
-
     def get_child_nodes(self, node):
         return self.graph.adj[node].keys()
 
     def is_trained_at(self, node):
         return 'local_classifier' in self.graph.nodes[node].keys()
-
-    def predict_single_node(self, node, x):
-        """Add explanation.
-        """
-
-        if type(self.graph.nodes[node]['local_classifier']) in [CellTypistWrapper, LogRegWrapper]:
-            y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
-
-        else:
-            y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
-            y_pred = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred_int)
-
-        return y_pred
 
     def predict_single_node_proba(self, node, x):
         """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
@@ -221,12 +205,24 @@ class HierarchyContainer():
     def set_preferred_classifier(self, node, type_classifier):
         self.graph.nodes[node]['preferred_classifier'] = type_classifier
 
-    def get_selected_var_names(self, node):
-        if not 'selected_var_names' in self.graph.nodes[node].keys():
+    def get_selected_var_names(self, node, barcodes, obs_name_children=None, data_type='normlog'):
+        if data_type == 'scVI':
             return None
 
+        if not 'selected_var_names' in self.graph.nodes[node].keys():
+            var_names = None
+
         else:
-            return self.graph.nodes[node]['selected_var_names']
+            var_names = self.graph.nodes[node]['selected_var_names']
+
+        if type(var_names) == type(None) and self.use_feature_selection == True:
+            var_names = self.get_top_genes(
+                barcodes, 
+                obs_name_children, 
+                self.n_top_genes_per_class)
+            self.set_selected_var_names(node, var_names)
+
+        return var_names
 
     def set_selected_var_names(self, node, selected_var_names):
         self.graph.nodes[node]['selected_var_names'] = selected_var_names
