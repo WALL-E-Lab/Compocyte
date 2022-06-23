@@ -233,3 +233,10 @@ class HierarchyBase():
 
         else:
             return None
+
+    def get_leaf_nodes(self):
+        return [
+            x for x in self.graph.nodes() \
+            if self.graph.out_degree(x) == 0 \
+            and self.grpah.in_degree(x) == 1
+        ]
