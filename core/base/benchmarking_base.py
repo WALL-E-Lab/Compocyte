@@ -73,8 +73,34 @@ class BenchmarkingBase():
         avg_distance = sum(distances) / len(distances)
         return avg_distance
 
-    def amount_missing_annotations(self):
-        pass
+    def amount_missing_annotations(self, obs_names=None, value='pct'):
+        if obs_names is None:
+            obs_names = self.obs_names
+
+        leaf_nodes = self.get_leaf_nodes()
+        root_node = self.dict_of_cell_relations.keys()[0]
+        obs_df = self.get_last_annotation(obs_names, barcodes, true_enough=True)
+        n_total = len(obs_df)
+        no_leaf_annotation_df = obs_df[obs_df['true_last'].isin(leaf_nodes) != True]
+        n_no_leaf_annotation = len(no_leaf_annotation_df)
+        amount = n_no_leaf_annotation / n_total
+        if value == 'pct':
+            amount = round(amount * 100, 2)
+
+        label_to_degree_missing_annotation = {}
+        for true_label in no_leaf_annotation_df['true_last'].unique():
+            label_to_degree_missing_annotation[true_label] = len(nx.shortest_path(self.graph, root_node, node)) - 1
+
+        for pred_label in no_leaf_annotation_df['pred_last'].unique():
+            if not pred_label in label_to_degree_missing_annotation.keys():
+                label_to_degree_missing_annotation[pred_label] = len(nx.shortest_path(self.graph, root_node, node)) - 1
+
+        no_leaf_annotation_df['level_true_last'] = no_leaf_annotation_df['true_last'].map(label_to_degree_missing_annotation)
+        no_leaf_annotation_df['level_pred_last'] = no_leaf_annotation_df['pred_last'].map(label_to_degree_missing_annotation)
+        no_leaf_annotation_df['diff_levels_pred_test'] = no_leaf_annotation_df['level_true_last'] - no_leaf_annotation_df['level_pred_last']
+        degree = np.mean(no_leaf_annotation_df.obs['diff_levels_pred_test'].values)
+
+        return amount, degree
 
     def correct_annotations(self, obs_names=None, barcodes=None, value='pct'):
         """Use the deepest level for which existing annotations and existing predictions both exist to calculate
