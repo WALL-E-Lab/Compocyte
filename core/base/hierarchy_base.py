@@ -238,5 +238,5 @@ class HierarchyBase():
         return [
             x for x in self.graph.nodes() \
             if self.graph.out_degree(x) == 0 \
-            and self.grpah.in_degree(x) == 1
+            and self.graph.in_degree(x) == 1
         ]
