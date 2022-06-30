@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow.keras as keras
 from scipy.sparse.csr import csr_matrix
+import networkx as nx
 
 def set_node_to_depth(dictionary, depth=0, node_to_depth={}):
     for node in dictionary.keys():
@@ -133,7 +134,7 @@ def list_subgraph_nodes(g, parent_node):
 
     return list_of_nodes
 
-def get_last_annotation(obs_names, adata, barcodes=None, pred_enough=False, true_enough=False):
+def get_last_annotation(obs_names, adata, barcodes=None):
     if barcodes is None:
         barcodes = adata.obs_names
         
@@ -148,15 +149,14 @@ def get_last_annotation(obs_names, adata, barcodes=None, pred_enough=False, true
 
         else:
             obs_df_level = adata.obs.loc[barcodes, [true_key, pred_key]]
-            if !pred_enough:
-                obs_df_level = obs_df_level[obs_df_level[true_key].isin([np.nan, '', 'nan']) != True]
-
-            if !true_enough:
-                obs_df_level = obs_df_level[obs_df_level[pred_key].isin([np.nan, '', 'nan']) != True]
             obs_df_level.rename(columns={true_key: 'true_last', pred_key: 'pred_last'}, inplace=True)   
             obs_df_level = obs_df_level.astype(str)
-            level_barcodes = [x for x in obs_df_level.index if x in obs_df.index]
-            obs_df.loc[level_barcodes, ['true_last', 'pred_last']] = obs_df_level.loc[level_barcodes, ['true_last', 'pred_last']]
+            obs_df_level_true = obs_df_level[obs_df_level['true_last'].isin([np.nan, '', 'nan']) != True]
+            obs_df_level_pred = obs_df_level[obs_df_level['pred_last'].isin([np.nan, '', 'nan']) != True]            
+            level_barcodes_true = [x for x in obs_df_level_true.index if x in obs_df.index]
+            level_barcodes_pred = [x for x in obs_df_level_pred.index if x in obs_df.index]
+            obs_df.loc[level_barcodes_true, 'true_last'] = obs_df_level_true.loc[level_barcodes_true, 'true_last']
+            obs_df.loc[level_barcodes_pred, 'pred_last'] = obs_df_level_pred.loc[level_barcodes_pred, 'pred_last']
 
     return obs_df
 
@@ -166,10 +166,14 @@ def weighted_accuracy(dict_of_cell_relations, adata, graph, obs_names, value='pc
     true label is predicted correctly and whatever prediction is made beyond that can not be verified.
     """
 
-    root_node = dict_of_cell_relations.keys()[0]
-    last_annotation_df = get_last_annotation(true_enough=True, pred_enough=True)
+    root_node = list(dict_of_cell_relations.keys())[0]
+    last_annotation_df = get_last_annotation(obs_names, adata)
+    graph = graph.to_undirected()
     for true_node in graph.nodes():
         for pred_node in graph.nodes():
+            if not ((last_annotation_df['true_last'] == true_node) & (last_annotation_df['pred_last'] == pred_node)).any():
+                continue
+
             shortest_path = nx.shortest_path(graph, true_node, pred_node)
             n_edges_between = len(shortest_path) - 1
             accuracy_weight = 0.5 ** max(n_edges_between, 0)
@@ -178,8 +182,8 @@ def weighted_accuracy(dict_of_cell_relations, adata, graph, obs_names, value='pc
                 accuracy_weight = 1
 
             last_annotation_df.loc[
-                last_annotation_df['true_last'] == true_node \
-                and last_annotation_df['pred_last'] == pred_node,
+                (last_annotation_df['true_last'] == true_node) \
+                & (last_annotation_df['pred_last'] == pred_node),
                 'accuracy_weight'] = accuracy_weight
 
     weighted_accuracy = np.mean(last_annotation_df['accuracy_weight'])
