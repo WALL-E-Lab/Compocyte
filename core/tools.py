@@ -132,3 +132,58 @@ def list_subgraph_nodes(g, parent_node):
             list_of_nodes.append(node)
 
     return list_of_nodes
+
+def get_last_annotation(obs_names, adata, barcodes=None, pred_enough=False, true_enough=False):
+    if barcodes is None:
+        barcodes = adata.obs_names
+        
+    obs_names_pred = [f'{x}_pred' for x in obs_names]
+    for i, (true_key, pred_key) in enumerate(zip(obs_names, obs_names_pred)):
+        if i == 0:
+            obs_df = adata.obs.loc[barcodes, [true_key, pred_key]]
+            obs_df = obs_df[obs_df[true_key].isin([np.nan, '', 'nan']) != True]
+            obs_df = obs_df[obs_df[pred_key].isin([np.nan, '', 'nan']) != True]
+            obs_df.rename(columns={true_key: 'true_last', pred_key: 'pred_last'}, inplace=True)
+            obs_df = obs_df.astype(str)     
+
+        else:
+            obs_df_level = adata.obs.loc[barcodes, [true_key, pred_key]]
+            if !pred_enough:
+                obs_df_level = obs_df_level[obs_df_level[true_key].isin([np.nan, '', 'nan']) != True]
+
+            if !true_enough:
+                obs_df_level = obs_df_level[obs_df_level[pred_key].isin([np.nan, '', 'nan']) != True]
+            obs_df_level.rename(columns={true_key: 'true_last', pred_key: 'pred_last'}, inplace=True)   
+            obs_df_level = obs_df_level.astype(str)
+            level_barcodes = [x for x in obs_df_level.index if x in obs_df.index]
+            obs_df.loc[level_barcodes, ['true_last', 'pred_last']] = obs_df_level.loc[level_barcodes, ['true_last', 'pred_last']]
+
+    return obs_df
+
+def weighted_accuracy(dict_of_cell_relations, adata, graph, obs_names, value='pct', is_flat=False):
+    """Implement accuracy metric that takes into account the distance between predicted and true label.
+    Over-specialization errors are not penalized as they are, in this case, not really errors. The last known
+    true label is predicted correctly and whatever prediction is made beyond that can not be verified.
+    """
+
+    root_node = dict_of_cell_relations.keys()[0]
+    last_annotation_df = get_last_annotation(true_enough=True, pred_enough=True)
+    for true_node in graph.nodes():
+        for pred_node in graph.nodes():
+            shortest_path = nx.shortest_path(graph, true_node, pred_node)
+            n_edges_between = len(shortest_path) - 1
+            accuracy_weight = 0.5 ** max(n_edges_between, 0)
+            # Avoid penalizing over-specialization
+            if true_node in nx.shortest_path(graph, root_node, pred_node):
+                accuracy_weight = 1
+
+            last_annotation_df.loc[
+                last_annotation_df['true_last'] == true_node \
+                and last_annotation_df['pred_last'] == pred_node,
+                'accuracy_weight'] = accuracy_weight
+
+    weighted_accuracy = np.mean(last_annotation_df['accuracy_weight'])
+    if value == 'pct':
+        weighted_accuracy = round(weighted_accuracy * 100, 2)
+
+    return weighted_accuracy
