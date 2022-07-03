@@ -59,8 +59,9 @@ class HierarchyBase():
         """Plot hierarchical cell labels.
         """
 
-        pos = nx.drawing.nx_agraph.graphviz_layout(self.graph, prog='dot')
-        nx.draw(self.graph, pos, with_labels=True, arrows=False)
+        fig, ax = plt.subplots(figsize=(10, 10))
+        pos = nx.drawing.nx_agraph.graphviz_layout(self.graph, prog='twopi')
+        nx.draw(self.graph, pos, with_labels=True, arrows=True, ax=ax)
 
     def get_children_obs_key(self, parent_node):
         """Get the obs key under which labels for the following level in the hierarchy are saved.

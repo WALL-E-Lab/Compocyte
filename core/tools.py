@@ -2,6 +2,8 @@ import numpy as np
 import tensorflow.keras as keras
 from scipy.sparse.csr import csr_matrix
 import networkx as nx
+from sklearn.metrics import ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
 
 def set_node_to_depth(dictionary, depth=0, node_to_depth={}):
     for node in dictionary.keys():
@@ -160,14 +162,27 @@ def get_last_annotation(obs_names, adata, barcodes=None):
 
     return obs_df
 
-def weighted_accuracy(dict_of_cell_relations, adata, graph, obs_names, value='pct', is_flat=False):
+def weighted_accuracy(dict_of_cell_relations, adata, graph, obs_names, test_barcodes, value='pct', is_flat=False):
     """Implement accuracy metric that takes into account the distance between predicted and true label.
     Over-specialization errors are not penalized as they are, in this case, not really errors. The last known
     true label is predicted correctly and whatever prediction is made beyond that can not be verified.
     """
 
     root_node = list(dict_of_cell_relations.keys())[0]
-    last_annotation_df = get_last_annotation(obs_names, adata)
+    adata = adata[test_barcodes, :].copy()
+    if is_flat:
+        if type(obs_names) == list and len(obs_names) > 1:
+            raise Exception()
+
+        elif type(obs_names) == list:
+            obs_names = obs_names[0]
+
+        last_annotation_df = adata.obs.loc[:, [obs_names, f'{obs_names}_pred']]
+        obs_df.rename(columns={obs_names: 'true_last', f'{obs_names}_pred': 'pred_last'}, inplace=True)
+
+    else:
+        last_annotation_df = get_last_annotation(obs_names, adata)
+
     graph = graph.to_undirected()
     for true_node in graph.nodes():
         for pred_node in graph.nodes():
@@ -191,3 +206,79 @@ def weighted_accuracy(dict_of_cell_relations, adata, graph, obs_names, value='pc
         weighted_accuracy = round(weighted_accuracy * 100, 2)
 
     return weighted_accuracy
+
+def get_leaf_nodes(hierarchy):
+    leaf_nodes = []
+    for node in hierarchy.keys():
+        if len(hierarchy[node].keys()) != 0:
+            leaf_nodes += get_leaf_nodes(hierarchy[node])
+
+        else:
+            leaf_nodes += [node]
+
+    return leaf_nodes
+
+def generate_node_level_list(hierarchy, hierarchy_list, level=0):
+    for key in hierarchy.keys():
+        hierarchy_list.append((key, level))
+        generate_node_level_list(hierarchy[key], hierarchy_list, level+1)    
+
+def con_mat_leaf_nodes(hierarchy, adata, graph, obs_names, fig_size=(10, 10), plot=True):
+    leaf_nodes = get_leaf_nodes(hierarchy)
+    pred_names = [f'{x}_pred' for x in obs_names]
+    pred_df_true = adata.obs[obs_names].values
+    pred_df_pred = adata.obs[pred_names].values
+    side_by_side_true_pred = np.dstack([pred_df_true, pred_df_pred])
+    hierarchy_list = []
+    generate_node_level_list(hierarchy, hierarchy_list)
+    true_cells = np.zeros((len(hierarchy_list), 1))
+    con_mat = np.zeros((len(hierarchy_list), len(hierarchy_list)))
+    for i_true, (key_true, level_true) in enumerate(hierarchy_list[1:]):
+        idx_true = np.where(side_by_side_true_pred[:, level_true - 1, 0] == key_true)
+        n_true = len(idx_true[0])
+        true_cells[i_true + 1, 0] = n_true
+        for i_pred, (key_pred, level_pred) in enumerate(hierarchy_list[1:]):
+            idx_pred = np.where(side_by_side_true_pred[:, level_pred - 1, 1] == key_pred)
+            n_true_pred = len(np.intersect1d(idx_true, idx_pred))
+            con_mat[i_true + 1, i_pred + 1] = n_true_pred
+
+    true_cells[np.where(true_cells[:, 0] == 0), 0] = 1
+    # Divide by total number of cells truly belonging to each cell type to get proportion of cells
+    # of that type assigned to pred label
+    con_mat = con_mat / true_cells
+    if plot:
+        idx_leaf_nodes = np.where(np.isin(np.array(hierarchy_list)[:, 0], leaf_nodes))[0]
+        disp = ConfusionMatrixDisplay(con_mat[idx_leaf_nodes, :][:, idx_leaf_nodes], display_labels=np.array(hierarchy_list)[idx_leaf_nodes, 0])
+        fig, ax = plt.subplots(figsize=fig_size)
+        disp.plot(xticks_rotation='vertical', ax=ax, values_format='.2f')
+
+    return con_mat
+
+def is_pred_parent_or_child_or_equal(graph, true_label, pred_label, root_node):
+    if pred_label in nx.shortest_path(graph, root_node, true_label) or \
+    true_label in nx.shortest_path(graph, root_node, pred_label):
+        return True
+
+    else:
+        return False
+
+def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names):
+    con_mat = con_mat_leaf_nodes(hierarchy, adata, graph, obs_names, plot=False)
+    graph_weights = graph.copy()
+    # Get each confusion affecting more than 20 % of cells truly belonging to a given cell type
+    # Confusions across all levels and trees of the hierarchy
+    for confusion in np.dstack(np.where(con_mat > 0.2))[0]:
+        true_label = hierarchy_list[confusion[0]][0]
+        pred_label = hierarchy_list[confusion[1]][0]
+        # If confusions are unexpected, i. e. the predicted label is not an ancestor or descendant
+        # of the true label, add an edge with the adequate weight to the graph for plotting
+        # Replaces multiple confusion matrices as more straight forward and more condensed way
+        # to get an overview of relevant confusions
+        if not is_pred_parent_or_child_or_equal(graph, true_label, pred_label, 'Blood'):
+            graph_weights.add_edge(true_label, pred_label, weight=round(con_mat[confusion[0], confusion[1]] * 100, 1))
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+    pos = nx.drawing.nx_agraph.graphviz_layout(graph, prog='twopi')
+    nx.draw(graph_weights, pos, with_labels=True, arrows=True, ax=ax)
+    labels = nx.get_edge_attributes(graph_weights, 'weight')
+    nx.draw_networkx_edge_labels(graph_weights, pos, edge_labels=labels)
