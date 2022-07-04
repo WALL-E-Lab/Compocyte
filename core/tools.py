@@ -4,6 +4,8 @@ from scipy.sparse.csr import csr_matrix
 import networkx as nx
 from sklearn.metrics import ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
+import scanpy as sc
+import pandas as pd
 
 def set_node_to_depth(dictionary, depth=0, node_to_depth={}):
     for node in dictionary.keys():
@@ -226,8 +228,17 @@ def generate_node_level_list(hierarchy, hierarchy_list, level=0):
 def con_mat_leaf_nodes(hierarchy, adata, graph, obs_names, fig_size=(10, 10), plot=True):
     leaf_nodes = get_leaf_nodes(hierarchy)
     pred_names = [f'{x}_pred' for x in obs_names]
-    pred_df_true = adata.obs[obs_names].values
-    pred_df_pred = adata.obs[pred_names].values
+    if type(adata) == sc.AnnData:
+        pred_df_true = adata.obs[obs_names].values
+        pred_df_pred = adata.obs[pred_names].values
+
+    elif type(adata) == pd.DataFrame:
+        pred_df_true = adata[obs_names].values
+        pred_df_pred = adata[pred_names].values
+
+    else:
+        raise TypeError()
+
     side_by_side_true_pred = np.dstack([pred_df_true, pred_df_pred])
     hierarchy_list = []
     generate_node_level_list(hierarchy, hierarchy_list)
@@ -267,6 +278,8 @@ def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names):
     graph_weights = graph.copy()
     # Get each confusion affecting more than 20 % of cells truly belonging to a given cell type
     # Confusions across all levels and trees of the hierarchy
+    hierarchy_list = []
+    generate_node_level_list(hierarchy, hierarchy_list)
     for confusion in np.dstack(np.where(con_mat > 0.2))[0]:
         true_label = hierarchy_list[confusion[0]][0]
         pred_label = hierarchy_list[confusion[1]][0]
@@ -274,11 +287,34 @@ def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names):
         # of the true label, add an edge with the adequate weight to the graph for plotting
         # Replaces multiple confusion matrices as more straight forward and more condensed way
         # to get an overview of relevant confusions
-        if not is_pred_parent_or_child_or_equal(graph, true_label, pred_label, 'Blood'):
+        ancestor_marked = False
+        # Ensure that only one connection is drawn to the earliest relevant misclassification
+        # in the tree
+        for ancestor in nx.shortest_path(graph, 'Blood', pred_label):
+            if graph_weights.has_edge(true_label, ancestor):
+                ancestor_marked = True
+                break
+
+        if not is_pred_parent_or_child_or_equal(graph, true_label, pred_label, 'Blood') and not ancestor_marked:
             graph_weights.add_edge(true_label, pred_label, weight=round(con_mat[confusion[0], confusion[1]] * 100, 1))
 
-    fig, ax = plt.subplots(figsize=(10, 10))
+    edges_hierarchy = list(graph.edges())
+    edges_confusion = [e for e in graph_weights.edges() if not e in edges_hierarchy]
+    fig, ax = plt.subplots(figsize=(12, 12))
     pos = nx.drawing.nx_agraph.graphviz_layout(graph, prog='twopi')
-    nx.draw(graph_weights, pos, with_labels=True, arrows=True, ax=ax)
+    nx.draw(graph_weights, pos, with_labels=True, arrows=True, ax=ax, edgelist=[])
+    nx.draw_networkx_edges(graph_weights, pos, edgelist=edges_hierarchy, width=1.5, style='dashed')
     labels = nx.get_edge_attributes(graph_weights, 'weight')
-    nx.draw_networkx_edge_labels(graph_weights, pos, edge_labels=labels)
+    for l in labels.keys():
+        nx.draw_networkx_edges(graph_weights, pos, edgelist=[l], width=2, edge_color=matplotlib.cm.get_cmap('viridis')(labels[l]/100)[:-1], arrowsize=10, connectionstyle='arc3,rad=0.4', label='test')
+    for l in labels.keys():
+        labels[l] = f'{labels[l]} %'
+
+    sm = plt.cm.ScalarMappable(cmap=matplotlib.cm.get_cmap('viridis'), norm=plt.Normalize(vmin = 0, vmax=100))
+    sm._A = []
+    # plt.colorbar(sm, label='% of cells misclassified', orientation='horizontal', fraction=0.046, pad=0.04) perfect match
+    plt.colorbar(sm, label='% of cells misclassified', orientation='horizontal', fraction=0.03, pad=0.04)
+    plt.title(
+        'Confusions of > 20 % of true cells, visualized as directed edge to the earliest misstep in the hierarchical classification process',
+        fontdict={'fontsize': 'x-large'}
+    )
