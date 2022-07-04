@@ -6,6 +6,7 @@ from sklearn.metrics import ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 import scanpy as sc
 import pandas as pd
+import matplotlib
 
 def set_node_to_depth(dictionary, depth=0, node_to_depth={}):
     for node in dictionary.keys():
@@ -138,37 +139,56 @@ def list_subgraph_nodes(g, parent_node):
 
     return list_of_nodes
 
-def get_last_annotation(obs_names, adata, barcodes=None):
+def get_last_annotation(obs_names, adata, barcodes=None, true_only=False):
     if barcodes is None:
         barcodes = adata.obs_names
         
     obs_names_pred = [f'{x}_pred' for x in obs_names]
     for i, (true_key, pred_key) in enumerate(zip(obs_names, obs_names_pred)):
         if i == 0:
-            obs_df = adata.obs.loc[barcodes, [true_key, pred_key]]
+            if true_only:
+                obs_df = adata.obs.loc[barcodes, [true_key]]
+
+            else:
+                obs_df = adata.obs.loc[barcodes, [true_key, pred_key]]
+
             obs_df = obs_df[obs_df[true_key].isin([np.nan, '', 'nan']) != True]
-            obs_df = obs_df[obs_df[pred_key].isin([np.nan, '', 'nan']) != True]
-            obs_df.rename(columns={true_key: 'true_last', pred_key: 'pred_last'}, inplace=True)
+            obs_df.rename(columns={true_key: 'true_last'}, inplace=True)
+            if not true_only:
+                obs_df = obs_df[obs_df[pred_key].isin([np.nan, '', 'nan']) != True]
+                obs_df.rename(columns={pred_key: 'pred_last'}, inplace=True)
+
             obs_df = obs_df.astype(str)     
 
         else:
-            obs_df_level = adata.obs.loc[barcodes, [true_key, pred_key]]
-            obs_df_level.rename(columns={true_key: 'true_last', pred_key: 'pred_last'}, inplace=True)   
+            if true_only:
+                obs_df_level = adata.obs.loc[barcodes, [true_key]]
+                obs_df_level.rename(columns={true_key: 'true_last'}, inplace=True)
+
+            else:
+                obs_df_level = adata.obs.loc[barcodes, [true_key, pred_key]]
+                obs_df_level.rename(columns={true_key: 'true_last', pred_key: 'pred_last'}, inplace=True)
+
             obs_df_level = obs_df_level.astype(str)
-            obs_df_level_true = obs_df_level[obs_df_level['true_last'].isin([np.nan, '', 'nan']) != True]
-            obs_df_level_pred = obs_df_level[obs_df_level['pred_last'].isin([np.nan, '', 'nan']) != True]            
+            obs_df_level_true = obs_df_level[obs_df_level['true_last'].isin([np.nan, '', 'nan']) != True]           
             level_barcodes_true = [x for x in obs_df_level_true.index if x in obs_df.index]
-            level_barcodes_pred = [x for x in obs_df_level_pred.index if x in obs_df.index]
             obs_df.loc[level_barcodes_true, 'true_last'] = obs_df_level_true.loc[level_barcodes_true, 'true_last']
-            obs_df.loc[level_barcodes_pred, 'pred_last'] = obs_df_level_pred.loc[level_barcodes_pred, 'pred_last']
+            if not true_only:
+                obs_df_level_pred = obs_df_level[obs_df_level['pred_last'].isin([np.nan, '', 'nan']) != True] 
+                level_barcodes_pred = [x for x in obs_df_level_pred.index if x in obs_df.index]
+                obs_df.loc[level_barcodes_pred, 'pred_last'] = obs_df_level_pred.loc[level_barcodes_pred, 'pred_last']
 
     return obs_df
 
-def weighted_accuracy(dict_of_cell_relations, adata, graph, obs_names, test_barcodes, value='pct', is_flat=False):
+def weighted_accuracy(dict_of_cell_relations, adata, obs_names, test_barcodes, value='pct', is_flat=False, graph=None):
     """Implement accuracy metric that takes into account the distance between predicted and true label.
     Over-specialization errors are not penalized as they are, in this case, not really errors. The last known
     true label is predicted correctly and whatever prediction is made beyond that can not be verified.
     """
+
+    if graph is None:
+        graph = nx.DiGraph()
+        make_graph_from_edges(dict_of_cell_relations, graph)
 
     root_node = list(dict_of_cell_relations.keys())[0]
     adata = adata[test_barcodes, :].copy()
@@ -180,7 +200,7 @@ def weighted_accuracy(dict_of_cell_relations, adata, graph, obs_names, test_barc
             obs_names = obs_names[0]
 
         last_annotation_df = adata.obs.loc[:, [obs_names, f'{obs_names}_pred']]
-        obs_df.rename(columns={obs_names: 'true_last', f'{obs_names}_pred': 'pred_last'}, inplace=True)
+        last_annotation_df.rename(columns={obs_names: 'true_last', f'{obs_names}_pred': 'pred_last'}, inplace=True)
 
     else:
         last_annotation_df = get_last_annotation(obs_names, adata)
@@ -273,7 +293,7 @@ def is_pred_parent_or_child_or_equal(graph, true_label, pred_label, root_node):
     else:
         return False
 
-def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names):
+def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names, fig_size=(12, 12)):
     con_mat = con_mat_leaf_nodes(hierarchy, adata, graph, obs_names, plot=False)
     graph_weights = graph.copy()
     # Get each confusion affecting more than 20 % of cells truly belonging to a given cell type
@@ -300,7 +320,7 @@ def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names):
 
     edges_hierarchy = list(graph.edges())
     edges_confusion = [e for e in graph_weights.edges() if not e in edges_hierarchy]
-    fig, ax = plt.subplots(figsize=(12, 12))
+    fig, ax = plt.subplots(figsize=fig_size)
     pos = nx.drawing.nx_agraph.graphviz_layout(graph, prog='twopi')
     nx.draw(graph_weights, pos, with_labels=True, arrows=True, ax=ax, edgelist=[])
     nx.draw_networkx_edges(graph_weights, pos, edgelist=edges_hierarchy, width=1.5, style='dashed')
@@ -318,3 +338,15 @@ def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names):
         'Confusions of > 20 % of true cells, visualized as directed edge to the earliest misstep in the hierarchical classification process',
         fontdict={'fontsize': 'x-large'}
     )
+
+def last_level_con_mat(dict_of_cell_relations, adata, obs_name, labels, graph=None):
+    if graph is None:
+        graph = nx.DiGraph()
+        make_graph_from_edges(dict_of_cell_relations, graph)
+
+    con_mat = confusion_matrix(adata.obs[obs_name], adata.obs[f'{obs_name}_pred'], labels=labels, normalize='true')
+    con_mat_disp = ConfusionMatrixDisplay(con_mat, display_labels=labels)
+    fig, ax = plt.subplots(figsize=(12, 12))
+    con_mat_disp.plot(xticks_rotation='vertical', ax=ax, values_format='.2f')
+
+    return con_mat
