@@ -294,13 +294,30 @@ def is_pred_parent_or_child_or_equal(graph, true_label, pred_label, root_node):
         return False
 
 def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names, fig_size=(12, 12)):
-    con_mat = con_mat_leaf_nodes(hierarchy, adata, graph, obs_names, plot=False)
+    con_mat = con_mat_leaf_nodes(hierarchy, adata, graph, obs_names[1:], plot=False)
     graph_weights = graph.copy()
+    leaf_nodes = get_leaf_nodes(hierarchy)
     # Get each confusion affecting more than 20 % of cells truly belonging to a given cell type
     # Confusions across all levels and trees of the hierarchy
     hierarchy_list = []
     generate_node_level_list(hierarchy, hierarchy_list)
-    for confusion in np.dstack(np.where(con_mat > 0.2))[0]:
+    node_list = np.array(hierarchy_list)[:, 0]
+    for node, level in zip(
+        np.array(hierarchy_list)[:, 0], 
+        np.array(hierarchy_list)[:, 1].astype(int)
+    ):
+        obs_name_node = obs_names[level]
+        if (level + 1) == len(obs_names) or node in leaf_nodes:
+            graph_weights.nodes[node]['pct_stopped'] = 0.0
+            continue
+
+        obs_name_children = obs_names[level + 1]
+        adata_node = adata[adata.obs[obs_name_node] == node]
+        adata_node_stopped = adata_node[adata_node.obs[f'{obs_name_children}_pred'] == 'stopped']
+        pct_stopped = len(adata_node_stopped) / max(len(adata_node), 1)
+        graph_weights.nodes[node]['pct_stopped'] = pct_stopped
+
+    for confusion in np.dstack(np.where(con_mat > 0.05))[0]:
         true_label = hierarchy_list[confusion[0]][0]
         pred_label = hierarchy_list[confusion[1]][0]
         # If confusions are unexpected, i. e. the predicted label is not an ancestor or descendant
@@ -322,7 +339,10 @@ def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names, fig_size=(12, 
     edges_confusion = [e for e in graph_weights.edges() if not e in edges_hierarchy]
     fig, ax = plt.subplots(figsize=fig_size)
     pos = nx.drawing.nx_agraph.graphviz_layout(graph, prog='twopi')
-    nx.draw(graph_weights, pos, with_labels=True, arrows=True, ax=ax, edgelist=[])
+    node_colors = [
+                   matplotlib.cm.get_cmap('PuBu')(graph_weights.nodes[node]['pct_stopped'])[:-1] 
+                   for node in list(graph_weights)]
+    nx.draw(graph_weights, pos, with_labels=True, arrows=True, ax=ax, edgelist=[], node_color=node_colors, edgecolors='#1f78b4')
     nx.draw_networkx_edges(graph_weights, pos, edgelist=edges_hierarchy, width=1.5, style='dashed')
     labels = nx.get_edge_attributes(graph_weights, 'weight')
     for l in labels.keys():
@@ -332,10 +352,14 @@ def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names, fig_size=(12, 
 
     sm = plt.cm.ScalarMappable(cmap=matplotlib.cm.get_cmap('viridis'), norm=plt.Normalize(vmin = 0, vmax=100))
     sm._A = []
-    # plt.colorbar(sm, label='% of cells misclassified', orientation='horizontal', fraction=0.046, pad=0.04) perfect match
-    plt.colorbar(sm, label='% of cells misclassified', orientation='horizontal', fraction=0.03, pad=0.04)
+    plt.colorbar(sm, label='% of cells misclassified', orientation='horizontal', fraction=0.046, pad=0.08) # perfect match
+    # plt.colorbar(sm, label='% of cells misclassified', orientation='horizontal', fraction=0.03, pad=0.04)
+    sm = plt.cm.ScalarMappable(cmap=matplotlib.cm.get_cmap('PuBu'), norm=plt.Normalize(vmin = 0, vmax=100))
+    sm._A = []
+    plt.colorbar(sm, label='% of cells early stopped at this node', orientation='horizontal', fraction=0.052, pad=0.04) # perfect match
+    # plt.colorbar(sm, label='% of cells early stopped at this node', orientation='horizontal', fraction=0.03, pad=0.04)
     plt.title(
-        'Confusions of > 20 % of true cells, visualized as directed edge to the earliest misstep in the hierarchical classification process',
+        'Confusions of > 5 % of true cells, visualized as directed edge to the earliest misstep in the hierarchical classification process, proportion of cells subjected to early stopping visualized as node color',
         fontdict={'fontsize': 'x-large'}
     )
 

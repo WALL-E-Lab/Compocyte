@@ -291,9 +291,10 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         #%--------------------------------------------------------------------------------------------------------------------------------------------%#
 
         elif self.prob_based_stopping:
-            y_pred = self.predict_single_node_proba(node, x)
+            y_pred = np.array(self.predict_single_node_proba(node, x))
             y_pred_nan_idx = np.where(np.isnan(y_pred))
             y_pred_not_nan_idx = np.where(np.isnan(y_pred) != True)
+            y_pred = y_pred.astype(int)
             y_pred_not_nan_str = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred[y_pred_not_nan_idx])
             y_pred = y_pred.astype(str)
             y_pred[y_pred_not_nan_idx] = y_pred_not_nan_str

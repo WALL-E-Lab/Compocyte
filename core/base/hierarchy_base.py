@@ -169,7 +169,7 @@ class HierarchyBase():
     def predict_single_node_proba(self, node, x):
         """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
         # print(f'type_classifier from predict_.._proba: {type_classifier}')
-        type_classifier = self.graph.nodes[node]['local_classifier']
+        type_classifier = type(self.graph.nodes[node]['local_classifier'])
         if type_classifier == NeuralNetwork:
             y_pred_proba = self.graph.nodes[node]['local_classifier'].predict_proba(x)
             #y_pred_proba array_like with length of predictable classes, entries of form x element [0,1]
