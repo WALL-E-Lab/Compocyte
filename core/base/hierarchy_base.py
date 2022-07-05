@@ -168,10 +168,6 @@ class HierarchyBase():
 
     def predict_single_node_proba(self, node, x):
         """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
-
-        # To do: make argument on instantiation
-        threshold = 0.9
-
         # print(f'type_classifier from predict_.._proba: {type_classifier}')
         type_classifier = self.graph.nodes[node]['local_classifier']
         if type_classifier == NeuralNetwork:
@@ -190,7 +186,7 @@ class HierarchyBase():
             #y_pred is real prediction vector, with possible nans (else case)!
             y_pred = []
             for cell_idx, label_idx in enumerate(largest_idx):
-                if y_pred_proba[cell_idx][label_idx] > threshold:
+                if y_pred_proba[cell_idx][label_idx] > self.threshold:
                     #in this case: set prediction and move on to next classifier
                     y_pred.append(label_idx) #label_idx = class per definition
                 else: 

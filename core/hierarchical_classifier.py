@@ -24,6 +24,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         obs_names=None,
         n_dimensions_scVI=30,
         prob_based_stopping = False,
+        threshold=0.9,
         default_input_data='normlog',
         use_feature_selection=True,
         n_top_genes_per_class=300,
@@ -36,6 +37,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         self.save_path = save_path
         self.n_dimensions_scVI = n_dimensions_scVI
         self.prob_based_stopping = prob_based_stopping
+        self.threshold = threshold
         self.default_input_data = default_input_data
         self.use_feature_selection = use_feature_selection
         self.n_top_genes_per_class = n_top_genes_per_class
@@ -290,10 +292,15 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
 
         elif self.prob_based_stopping:
             y_pred = self.predict_single_node_proba(node, x)
+            y_pred_nan_idx = np.where(np.isnan(y_pred))
+            y_pred_not_nan_idx = np.where(np.isnan(y_pred) != True)
+            y_pred_not_nan_str = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred[y_pred_not_nan_idx])
+            y_pred = y_pred.astype(str)
+            y_pred[y_pred_not_nan_idx] = y_pred_not_nan_str
+            y_pred[y_pred_nan_idx] = 'stopped'
             #child_obs_key says at which hierarchy level the predictions have to be saved
-            child_obs_key = self.get_children_obs_key(node) 
-            parent_obs_key = self.get_parent_obs_key(node)
-            self.set_prob_based_predictions(node, child_obs_key, parent_obs_key, barcodes, y_pred, fitted_label_encoder=self.graph.nodes[node]['label_encoder'])
+            obs_key = self.get_children_obs_key(node)
+            self.set_predictions(obs_key, barcodes, y_pred)
 
     def predict_all_child_nodes(
         self,
