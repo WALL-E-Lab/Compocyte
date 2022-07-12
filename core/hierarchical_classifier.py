@@ -1,6 +1,6 @@
 from classiFire.core.base.data_base import DataBase
 from classiFire.core.base.hierarchy_base import HierarchyBase
-from classiFire.core.tools import z_transform_properties, flatten_dict, set_node_to_depth, set_node_to_scVI
+from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.celltypist import CellTypistWrapper
 from classiFire.core.models.logreg import LogRegWrapper
@@ -10,7 +10,9 @@ from sklearn.metrics import ConfusionMatrixDisplay
 from uncertainties import ufloat
 from copy import deepcopy
 from imblearn.over_sampling import SMOTE
+from time import time
 import numpy as np
+import os
 
 class HierarchicalClassifier(DataBase, HierarchyBase):
     """Add explanation
@@ -491,4 +493,10 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         # save all attributes
         # get types, for adata use adatas write function with hash of adata
         # save state of all local classifiers (what does dumping self.graph do?)
+        data_path = os.path.join(
+            self.save_path, 
+            'data'
+        )
+        timestamp = str(time()).replace('.', '_')
+        self.adata.write(os.path.join(data_path, f'{timestamp}.h5ad'))
         pass
