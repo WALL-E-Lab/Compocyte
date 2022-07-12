@@ -111,7 +111,8 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
     def train_single_node(
         self, 
         node, 
-        barcodes=None):
+        barcodes=None,
+        is_single_training=True):
         """Trains the local classifier stored at node.
 
         Parameters
@@ -183,11 +184,22 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
         self.graph.nodes[node]['last_train_acc'] = train_acc
         self.graph.nodes[node]['last_train_con_mat'] = train_con_mat
+        if is_single_training:
+            self.save_training_process(info={
+                'barcodes': barcodes,
+                'node': node,
+                'data_type': data_type,
+                'type_classifier': type(self.graph.nodes[node]['local_classifier']),
+                'var_names': var_names,
+                'train_acc': train_acc,
+                'train_con_mat': train_con_mat,
+                })
 
     def train_all_child_nodes(
         self,
         current_node,
-        train_barcodes=None):
+        train_barcodes=None,
+        initial_call=True):
         """Starts at current_node, training its local classifier and following up by recursively
         training all local classifiers lower in the hierarchy. Uses cells that were labeled as 
         current_node at the relevant level (i. e. cells that are truly of type current_node, rather
@@ -210,17 +222,24 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             obs_name_parent, 
             current_node, 
             true_from=train_barcodes)
-        self.train_single_node(current_node, true_barcodes)
+        self.train_single_node(current_node, true_barcodes, is_single_training=False)
         for child_node in self.get_child_nodes(current_node):
             if len(self.get_child_nodes(child_node)) == 0:
                 continue
 
-            self.train_all_child_nodes(child_node, train_barcodes=train_barcodes)
+            self.train_all_child_nodes(child_node, train_barcodes=train_barcodes, initial_call=False)
+
+        if initial_call:
+            self.save_training_process(info={
+                'train_barcodes': train_barcodes,
+                'starting_node': current_node,
+                })
 
     def predict_single_node(
         self,
         node,
-        barcodes=None):
+        barcodes=None,
+        is_single_prediction=True):
         """Uses an existing classifier at node to assign one of the child labels to the cells
         specified by barcodes. The predictions are stored in self.adata.obs by calling
         self.set_predictions under f'{obs_key}_pred' where obs_key is the key under
@@ -303,11 +322,21 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             obs_key = self.get_children_obs_key(node)
             self.set_predictions(obs_key, barcodes, y_pred)
 
+        if is_single_prediction:
+            self.save_prediction_process(info={
+                'barcodes': barcodes,
+                'node': node,
+                'data_type': self.graph.nodes[node]['local_classifier'].data_type,
+                'type_classifier': type(self.graph.nodes[node]['local_classifier']),
+                'var_names': var_names,
+                })
+
     def predict_all_child_nodes(
         self,
         current_node,
         current_barcodes=None,
-        test_barcodes=None):
+        test_barcodes=None,
+        initial_call=True):
         """Starts at current_node, predicting cell label affiliation using its local classifier.
         Recursively predicts affiliation to cell type labels lower in the hierarchy, using as relevant
         cell subgroup those cells that were predicted to belong to the parent node label. If 
@@ -332,7 +361,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         if type(test_barcodes) != type(None):
             current_barcodes = [b for b in current_barcodes if b in test_barcodes]
 
-        self.predict_single_node(current_node, barcodes=current_barcodes)
+        self.predict_single_node(current_node, barcodes=current_barcodes, is_single_prediction=False)
         obs_key = self.get_children_obs_key(current_node)
         for child_node in self.get_child_nodes(current_node):
             if len(self.get_child_nodes(child_node)) == 0:
@@ -342,7 +371,13 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                 obs_key, 
                 child_node,
                 predicted_from=test_barcodes)
-            self.predict_all_child_nodes(child_node, child_node_barcodes)
+            self.predict_all_child_nodes(child_node, child_node_barcodes, initial_call=False)
+
+        if initial_call:
+            self.save_prediction_process(info={
+                'test_barcodes': test_barcodes,
+                'starting_node': current_node,
+                })
 
     def train_child_nodes_with_validation(
         self, 
@@ -433,3 +468,27 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
 
         else:
             self.set_preferred_classifier(node, preferred_classifier)
+
+    def save_training_process(self, info={}):
+        # Save info contents
+        # Save hash of adata
+        # Save adata with hash as file name
+        # Save after state of all local classifiers
+        # Save datetime
+        # Save state of self/after implementing saving of self
+        pass
+
+    def save_prediction_process(self, info={}):
+        # Save info contents
+        # Save hash of adata
+        # Save adata with hash as file name
+        # Save after state of all local classifiers
+        # Save datetime
+        # Save state of self/after implementing saving of self
+        pass
+
+    def save(self):
+        # save all attributes
+        # get types, for adata use adatas write function with hash of adata
+        # save state of all local classifiers (what does dumping self.graph do?)
+        pass
