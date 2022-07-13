@@ -22,6 +22,9 @@ class NeuralNetwork():
             name,
             timestamp
         )
+        if not os.path.exists(model_path):
+            os.makedirs(model_path)
+            
         settings_dict = {'classifier_type': 'NN'}
         for key in self.__dict__.keys():
             if key in ['model']:

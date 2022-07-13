@@ -1,4 +1,5 @@
 import numpy as np
+from time import time
 
 class SingleAssignment():
 
@@ -14,6 +15,9 @@ class SingleAssignment():
             name,
             timestamp
         )
+        if not os.path.exists(model_path):
+            os.makedirs(model_path)
+            
         settings_dict = {'classifier_type': 'SA'}
         for key in self.__dict__.keys():
             settings_dict[key] = self.__dict__[key]

@@ -4,7 +4,7 @@ from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
-from classiFire.core.models.local_classifier import load
+from classiFire.core.models.local_classifiers import load
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import ConfusionMatrixDisplay
 from uncertainties import ufloat
@@ -507,7 +507,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         for node in list(self.graph):
             if 'local_classifier' in self.graph.nodes[node]:
                 model_path = os.path.join(
-                    save_path, 
+                    self.save_path, 
                     'models',
                     name
                 )

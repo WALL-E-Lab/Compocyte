@@ -5,6 +5,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import scipy
 import os
 import pickle
+from time import time
 
 class LogRegWrapper():
 
@@ -20,6 +21,9 @@ class LogRegWrapper():
             name,
             timestamp
         )
+        if not os.path.exists(model_path):
+            os.makedirs(model_path)
+            
         settings_dict = {'classifier_type': 'LogReg'}
         for key in self.__dict__.keys():
             if key == 'model':
