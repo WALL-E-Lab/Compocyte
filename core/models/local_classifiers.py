@@ -39,3 +39,5 @@ def load(model_path):
 
 		else:
 			classifier.__dict__[key] = settings_dict[key]
+
+	return classifier

@@ -17,7 +17,7 @@ class NeuralNetwork():
     def save(self, save_path, name):
         timestamp = str(time()).replace('.', '_')
         model_path = os.path.join(
-            self.save_path, 
+            save_path, 
             'models',
             name,
             timestamp
