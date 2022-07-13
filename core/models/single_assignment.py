@@ -6,6 +6,20 @@ class SingleAssignment():
     data_type = 'counts'
     input_as_adata = False
 
+    def save(self, save_path, name):
+        timestamp = str(time()).replace('.', '_')
+        model_path = os.path.join(
+            self.save_path, 
+            'models',
+            name,
+            timestamp
+        )
+        settings_dict = {'classifier_type': 'SA'}
+        for key in self.__dict__.keys():
+            settings_dict[key] = self.__dict__[key]
+
+        pickle.dump(settings_dict, os.path.join(model_path, 'classifier_settings.pickle'))
+
     def __init__(self, assignment, **kwargs):
         self.assignment = assignment
 

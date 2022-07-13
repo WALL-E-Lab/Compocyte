@@ -2,7 +2,6 @@ from classiFire.core.base.data_base import DataBase
 from classiFire.core.base.hierarchy_base import HierarchyBase
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.neural_network import NeuralNetwork
-from classiFire.core.models.celltypist import CellTypistWrapper
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
 from sklearn.model_selection import train_test_split, StratifiedKFold
@@ -297,7 +296,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             x = self.graph.nodes[node]['chi2_feature_selecter'].transform(x)
 
         if not self.prob_based_stopping:
-            if type(self.graph.nodes[node]['local_classifier']) in [CellTypistWrapper, LogRegWrapper]:
+            if type(self.graph.nodes[node]['local_classifier']) in [LogRegWrapper]:
                 y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
 
             else:

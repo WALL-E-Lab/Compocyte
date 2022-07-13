@@ -100,16 +100,6 @@ def z_transform_properties(data_arr):
 
     return data_transformed
 
-# Remove?
-def process_y_input_data(y_input, fitted_label_encoder):
-    """Add explanation
-    """
-
-    y_input_data_int = fitted_label_encoder.transform(y_input)
-    y_input_onehot = keras.utils.to_categorical(y_input_data_int)
-
-    return y_input_data_int, y_input_onehot
-
 def make_graph_from_edges(d, g, parent_key=''):
     """Add explanation
     """

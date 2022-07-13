@@ -6,7 +6,6 @@ from sklearn.preprocessing import LabelEncoder
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
     make_graph_from_edges, set_node_to_depth, set_node_to_scVI
 from classiFire.core.models.neural_network import NeuralNetwork
-from classiFire.core.models.celltypist import CellTypistWrapper
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
 from sklearn.feature_selection import SelectKBest, chi2
