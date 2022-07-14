@@ -51,7 +51,7 @@ class NeuralNetwork():
         loss_function='categorical_crossentropy',
         dropout=0.4,
         max_epochs=1000,
-        batch_size=40
+        batch_size=40,
         **kwargs
     ):
         """Add explanation.

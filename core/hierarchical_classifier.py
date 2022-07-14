@@ -493,6 +493,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         # save all attributes
         # get types, for adata use adatas write function with hash of adata
         # save state of all local classifiers (what does dumping self.graph do?)
+        # save state of all nodes in the graph, label encoders, var names ...
         data_path = os.path.join(
             self.save_path, 
             'data'
@@ -503,8 +504,19 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
 
         self.adata.write(os.path.join(data_path, f'{timestamp}.h5ad'))
         for node in list(self.graph):
-            if 'local_classifier' in self.graph.nodes[node]:
-                self.graph.nodes[node]['local_classifier'].save(self.save_path, node)
+            node_content_path = os.path.join(
+                self.save_path, 
+                'node_content',
+                node,
+                timestamp
+            )
+            for key in self.graph.nodes[node].keys():
+                if key == 'local_classifier':
+                    self.graph.nodes[node]['local_classifier'].save(self.save_path, node)
+                    continue
+
+                with open(os.path.join(node_content_path, f'{key}.pickle'), 'wb') as f:
+                    pickle.dump(self.graph.nodes[node][key], f)
 
     def load(self):
         for node in list(self.graph):
@@ -513,8 +525,26 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                 'models',
                 node
             )
+            node_content_path = os.path.join(
+                self.save_path, 
+                'node_content',
+                node
+            )
             if os.path.exists(model_path):
                 timestamps = os.listdir(model_path)
                 last_timestamp = sorted(timestamps)[-1]
                 classifier = load(os.path.join(model_path, last_timestamp))
                 self.graph.nodes[node]['local_classifier'] = classifier
+
+            if os.path.exists(node_content_path):
+                timestamps = os.listdir(node_content_path)
+                last_timestamp = sorted(timestamps)[-1]
+                properties = os.listdir(os.path.join(node_content_path, last_timestamp))
+                for p in properties:
+                    key = p.replace('.pickle', '')
+                    with open(
+                        os.path.join(node_content_path, last_timestamp, p), 
+                        'rb'
+                    ) as f:
+                        p = pickle.load(f)
+                        self.graph.nodes[node][key] = p
