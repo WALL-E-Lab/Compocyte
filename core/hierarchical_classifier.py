@@ -564,7 +564,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             timestamps = os.listdir(data_path)
             last_adata = sorted(timestamps)[-1]
             adata = sc.read_h5ad(os.path.join(data_path, last_adata))
-            self.load_adata(adata, batch_key=self.batch)
+            self.load_adata(adata, batch_key=self.batch_key)
 
         for node in list(self.graph):
             model_path = os.path.join(
