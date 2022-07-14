@@ -14,6 +14,7 @@ from time import time
 import numpy as np
 import os
 import pickle
+import scanpy as sc
 
 class HierarchicalClassifier(DataBase, HierarchyBase):
     """Add explanation
@@ -49,6 +50,8 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         self.dict_of_cell_relations = None
         self.obs_names = None
         self.hv_genes = hv_genes
+        self.trainings = []
+        self.predictions = []
         if type(sampling_method) != type(None):
             self.init_resampling(sampling_method, sampling_strategy)
 
@@ -500,10 +503,28 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             'data'
         )
         timestamp = str(time()).replace('.', '_')
-        if not os.path.exists(data_path):
-            os.makedirs(data_path)
+        hc_path = os.path.join(
+            self.save_path, 
+            'hierarchical_classifiers',
+            timestamp
+        )
+        if not os.path.exists(hc_path):
+            os.makedirs(hc_path)
 
-        self.adata.write(os.path.join(data_path, f'{timestamp}.h5ad'))
+        settings_dict = {}
+        for key in self.__dict__.keys():
+            if key == 'adata':
+                if not os.path.exists(data_path):
+                    os.makedirs(data_path)
+
+                self.adata.write(os.path.join(data_path, f'{timestamp}.h5ad'))
+
+            else:
+                settings_dict[key] = self.__dict__[key]
+
+        with open(os.path.join(hc_path, 'hierarchical_classifier_settings.pickle'), 'wb') as f:
+            pickle.dump(settings_dict, f)
+        
         for node in list(self.graph):
             node_content_path = os.path.join(
                 self.save_path, 
@@ -523,6 +544,28 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                     pickle.dump(self.graph.nodes[node][key], f)
 
     def load(self):
+        data_path = os.path.join(
+            self.save_path, 
+            'data'
+        )
+        hc_path = os.path.join(
+            self.save_path, 
+            'hierarchical_classifiers'
+        )
+        if os.path.exists(hc_path):
+            timestamps = os.listdir(hc_path)
+            last_timestamp = timestamps[-1]
+            with open(os.path.join(hc_path, last_timestamp, 'hierarchical_classifier_settings.pickle'), 'rb') as f:
+                settings_dict = pickle.load(f)
+                for key in settings_dict.keys():
+                    self.__dict__[key] = settings_dict[key]
+
+        if os.path.exists(data_path):
+            timestamps = os.listdir(data_path)
+            last_adata = sorted(timestamps)[-1]
+            adata = sc.read_h5ad(os.path.join(data_path, last_adata))
+            self.load_adata(adata, batch_key=self.batch)
+
         for node in list(self.graph):
             model_path = os.path.join(
                 self.save_path, 
