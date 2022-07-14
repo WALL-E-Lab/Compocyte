@@ -13,6 +13,7 @@ from imblearn.over_sampling import SMOTE
 from time import time
 import numpy as np
 import os
+import pickle
 
 class HierarchicalClassifier(DataBase, HierarchyBase):
     """Add explanation
@@ -510,6 +511,9 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                 node,
                 timestamp
             )
+            if not os.path.exists(node_content_path):
+                os.makedirs(node_content_path)
+
             for key in self.graph.nodes[node].keys():
                 if key == 'local_classifier':
                     self.graph.nodes[node]['local_classifier'].save(self.save_path, node)
