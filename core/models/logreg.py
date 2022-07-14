@@ -27,13 +27,16 @@ class LogRegWrapper():
         settings_dict = {'classifier_type': 'LogReg'}
         for key in self.__dict__.keys():
             if key == 'model':
-                pickle.dump(self.__dict__[key], os.path.join(model_path, 'model.pickle'))
+                with open(os.path.join(model_path, 'model.pickle'), 'wb') as f:
+                    pickle.dump(self.__dict__[key], f)
+                    
                 settings_dict[key] = os.path.join(model_path, 'model.pickle')
 
             else:
                 settings_dict[key] = self.__dict__[key]
 
-        pickle.dump(settings_dict, os.path.join(model_path, 'classifier_settings.pickle'))
+        with open(os.path.join(model_path, 'classifier_settings.pickle'), 'wb') as f:
+            pickle.dump(settings_dict, f)
 
     def __init__(self, **kwargs):
         self.model = LogisticRegression(class_weight='balanced', random_state=1, max_iter=1e4)

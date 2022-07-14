@@ -24,7 +24,8 @@ class SingleAssignment():
         for key in self.__dict__.keys():
             settings_dict[key] = self.__dict__[key]
 
-        pickle.dump(settings_dict, os.path.join(model_path, 'classifier_settings.pickle'))
+        with open(os.path.join(model_path, 'classifier_settings.pickle'), 'wb') as f:
+            pickle.dump(settings_dict, f)
 
     def __init__(self, assignment, **kwargs):
         self.assignment = assignment
