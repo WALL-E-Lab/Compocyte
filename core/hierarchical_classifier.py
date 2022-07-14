@@ -498,9 +498,9 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             'data'
         )
         timestamp = str(time()).replace('.', '_')
-        if not os.path.exists(os.path.join(data_path, f'{timestamp}.h5ad')):
-            os.makedirs(os.path.join(data_path, f'{timestamp}.h5ad'))
-            
+        if not os.path.exists(data_path):
+            os.makedirs(data_path)
+
         self.adata.write(os.path.join(data_path, f'{timestamp}.h5ad'))
         for node in list(self.graph):
             if 'local_classifier' in self.graph.nodes[node]:
