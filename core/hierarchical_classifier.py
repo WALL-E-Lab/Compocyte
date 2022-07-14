@@ -508,12 +508,12 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
 
     def load(self):
         for node in list(self.graph):
-            if 'local_classifier' in self.graph.nodes[node]:
-                model_path = os.path.join(
-                    self.save_path, 
-                    'models',
-                    name
-                )
+            model_path = os.path.join(
+                self.save_path, 
+                'models',
+                node
+            )
+            if os.path.exists(model_path):
                 timestamps = os.listdir(model_path)
                 last_timestamp = sorted(timestamps)[-1]
                 classifier = load(os.path.join(model_path, last_timestamp))

@@ -5,6 +5,7 @@ from sklearn.metrics import confusion_matrix
 from time import time
 import numpy as np
 import pickle
+import os
 
 class NeuralNetwork():
     """Add explanation.
@@ -51,6 +52,7 @@ class NeuralNetwork():
         dropout=0.4,
         max_epochs=1000,
         batch_size=40
+        **kwargs
     ):
         """Add explanation.
         """

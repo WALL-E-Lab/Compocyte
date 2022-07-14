@@ -12,7 +12,9 @@ _classifiers = {
 }
 
 def load(model_path):
-	settings_dict = pickle.load(os.path.join(model_path, 'classifier_settings.pickle'))
+	with open(os.path.join(model_path, 'classifier_settings.pickle'), 'rb') as f:
+		settings_dict = pickle.load(f)
+		
 	classifier_type = _classifiers[settings_dict['classifier_type']]
 	# Need for SingleAssignment case
 	if 'assignment' in settings_dict.keys():
