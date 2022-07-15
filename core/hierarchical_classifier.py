@@ -190,16 +190,19 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
         self.graph.nodes[node]['last_train_acc'] = train_acc
         self.graph.nodes[node]['last_train_con_mat'] = train_con_mat
-        if is_single_training:
-            self.save_training_process(info={
-                'barcodes': barcodes,
-                'node': node,
-                'data_type': data_type,
-                'type_classifier': type(self.graph.nodes[node]['local_classifier']),
-                'var_names': var_names,
-                'train_acc': train_acc,
-                'train_con_mat': train_con_mat,
-                })
+        timestamp = str(time()).replace('.', '_')
+        if not node in self.trainings.keys():
+            self.trainings[node] = {}
+
+        self.trainings[node][timestamp] = {
+            'barcodes': barcodes,
+            'node': node,
+            'data_type': data_type,
+            'type_classifier': type(self.graph.nodes[node]['local_classifier']),
+            'var_names': var_names,
+            'train_acc': train_acc,
+            'train_con_mat': train_con_mat,
+        }
 
     def train_all_child_nodes(
         self,
@@ -234,12 +237,6 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                 continue
 
             self.train_all_child_nodes(child_node, train_barcodes=train_barcodes, initial_call=False)
-
-        if initial_call:
-            self.save_training_process(info={
-                'train_barcodes': train_barcodes,
-                'starting_node': current_node,
-                })
 
     def predict_single_node(
         self,
@@ -328,14 +325,17 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             obs_key = self.get_children_obs_key(node)
             self.set_predictions(obs_key, barcodes, y_pred)
 
-        if is_single_prediction:
-            self.save_prediction_process(info={
-                'barcodes': barcodes,
-                'node': node,
-                'data_type': self.graph.nodes[node]['local_classifier'].data_type,
-                'type_classifier': type(self.graph.nodes[node]['local_classifier']),
-                'var_names': var_names,
-                })
+        if not node in self.predictions.keys():
+            self.predictions[node] = {}
+
+        timestamp = str(time()).replace('.', '_')
+        self.predictions[node][timestamp] = {
+            'barcodes': barcodes,
+            'node': node,
+            'data_type': self.graph.nodes[node]['local_classifier'].data_type,
+            'type_classifier': type(self.graph.nodes[node]['local_classifier']),
+            'var_names': var_names,
+        }
 
     def predict_all_child_nodes(
         self,
@@ -378,12 +378,6 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                 child_node,
                 predicted_from=test_barcodes)
             self.predict_all_child_nodes(child_node, child_node_barcodes, initial_call=False)
-
-        if initial_call:
-            self.save_prediction_process(info={
-                'test_barcodes': test_barcodes,
-                'starting_node': current_node,
-                })
 
     def train_child_nodes_with_validation(
         self, 
@@ -474,24 +468,6 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
 
         else:
             self.set_preferred_classifier(node, preferred_classifier)
-
-    def save_training_process(self, info={}):
-        # Save info contents
-        # Save hash of adata
-        # Save adata with hash as file name
-        # Save after state of all local classifiers
-        # Save datetime
-        # Save state of self/after implementing saving of self
-        pass
-
-    def save_prediction_process(self, info={}):
-        # Save info contents
-        # Save hash of adata
-        # Save adata with hash as file name
-        # Save after state of all local classifiers
-        # Save datetime
-        # Save state of self/after implementing saving of self
-        pass
 
     def save(self):
         # save all attributes
