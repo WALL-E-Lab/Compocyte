@@ -280,9 +280,10 @@ class DataBase():
 
         self.ensure_normlog()
         adata_subset = self.adata[barcodes, var_names]
-        if hasattr(self, 'prob_based_stopping') and self.prob_based_stopping == False:
+        # thoughts on July 5th: can't train a classifier without a label regardless of prediction mode???
+        #if hasattr(self, 'prob_based_stopping') and self.prob_based_stopping == False:
             # If leaf node prediction is mandatory, make sure that all cells have a valid cell type label in the target level
-            adata_subset = self.throw_out_nan(adata_subset, obs_name_children)
+        adata_subset = self.throw_out_nan(adata_subset, obs_name_children)
 
         if data == 'normlog':
             x = adata_subset.layers['normlog']

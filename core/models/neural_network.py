@@ -2,7 +2,10 @@ import tensorflow.keras as keras
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
+from time import time
 import numpy as np
+import pickle
+import os
 
 class NeuralNetwork():
     """Add explanation.
@@ -11,6 +14,32 @@ class NeuralNetwork():
     possible_data_types = ['counts', 'normlog', 'scVI']
     data_type = 'normlog'
     input_as_adata = False
+
+    def save(self, save_path, name):
+        timestamp = str(time()).replace('.', '_')
+        model_path = os.path.join(
+            save_path, 
+            'models',
+            name,
+            timestamp
+        )
+        if not os.path.exists(model_path):
+            os.makedirs(model_path)
+            
+        settings_dict = {'classifier_type': 'NN'}
+        for key in self.__dict__.keys():
+            if key in ['model']:
+                self.__dict__[key].save(os.path.join(model_path, 'model.SavedModel'))
+                settings_dict[key] = os.path.join(model_path, 'model.SavedModel')
+
+            elif key in ['activation_function', 'optimizer']:
+                pass
+
+            else:
+                settings_dict[key] = self.__dict__[key]
+
+        with open(os.path.join(model_path, 'classifier_settings.pickle'), 'wb') as f:
+            pickle.dump(settings_dict, f)
 
     def __init__(
         self, 
@@ -22,7 +51,8 @@ class NeuralNetwork():
         loss_function='categorical_crossentropy',
         dropout=0.4,
         max_epochs=1000,
-        batch_size=40
+        batch_size=40,
+        **kwargs
     ):
         """Add explanation.
         """
@@ -37,6 +67,7 @@ class NeuralNetwork():
         self.max_epochs = max_epochs
         self.batch_size = batch_size
         self.activation_function = lambda x: keras.activations.relu(x, alpha=0.1)
+        self.histories = []
         self.init_model()
 
     def init_model(self):
@@ -69,7 +100,7 @@ class NeuralNetwork():
             loss = self.loss_function,
             metrics=['accuracy'])
 
-    def train(self, x, y_onehot, y_int, **kwargs):
+    def train(self, x, y_onehot, y_int, plot=False, **kwargs):
         early_stopping_callback = keras.callbacks.EarlyStopping(
             monitor='val_loss', 
             patience=10,
@@ -94,24 +125,24 @@ class NeuralNetwork():
             verbose = 0,
             validation_data=(x_val, y_val),
             callbacks=[early_stopping_callback, reduce_LR_plateau_callback])
-        # summarize history for accuracy
-        plt.plot(history.history['accuracy'])
-        plt.plot(history.history['val_accuracy'])
-        plt.title('model accuracy')
-        plt.ylabel('accuracy')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'val'], loc='upper left')
-        plt.show()
-        # summarize history for loss
-        plt.plot(history.history['loss'])
-        plt.plot(history.history['val_loss'])
-        plt.title('model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'val'], loc='upper left')
-        plt.show()
-
-        pass
+        self.histories.append(history.history)
+        if plot:
+            # summarize history for accuracy
+            plt.plot(history.history['accuracy'])
+            plt.plot(history.history['val_accuracy'])
+            plt.title('model accuracy')
+            plt.ylabel('accuracy')
+            plt.xlabel('epoch')
+            plt.legend(['train', 'val'], loc='upper left')
+            plt.show()
+            # summarize history for loss
+            plt.plot(history.history['loss'])
+            plt.plot(history.history['val_loss'])
+            plt.title('model loss')
+            plt.ylabel('loss')
+            plt.xlabel('epoch')
+            plt.legend(['train', 'val'], loc='upper left')
+            plt.show()
 
     def predict(self, input_vec):
         """Calculate and return label prediction of trained model for an input

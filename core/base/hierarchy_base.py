@@ -6,7 +6,6 @@ from sklearn.preprocessing import LabelEncoder
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
     make_graph_from_edges, set_node_to_depth, set_node_to_scVI
 from classiFire.core.models.neural_network import NeuralNetwork
-from classiFire.core.models.celltypist import CellTypistWrapper
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
 from sklearn.feature_selection import SelectKBest, chi2
@@ -59,8 +58,9 @@ class HierarchyBase():
         """Plot hierarchical cell labels.
         """
 
-        pos = nx.drawing.nx_agraph.graphviz_layout(self.graph, prog='dot')
-        nx.draw(self.graph, pos, with_labels=True, arrows=False)
+        fig, ax = plt.subplots(figsize=(10, 10))
+        pos = nx.drawing.nx_agraph.graphviz_layout(self.graph, prog='twopi')
+        nx.draw(self.graph, pos, with_labels=True, arrows=True, ax=ax)
 
     def get_children_obs_key(self, parent_node):
         """Get the obs key under which labels for the following level in the hierarchy are saved.
@@ -167,12 +167,8 @@ class HierarchyBase():
 
     def predict_single_node_proba(self, node, x):
         """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
-
-        # To do: make argument on instantiation
-        threshold = 0.9
-
         # print(f'type_classifier from predict_.._proba: {type_classifier}')
-        type_classifier = self.graph.nodes[node]['local_classifier']
+        type_classifier = type(self.graph.nodes[node]['local_classifier'])
         if type_classifier == NeuralNetwork:
             y_pred_proba = self.graph.nodes[node]['local_classifier'].predict_proba(x)
             #y_pred_proba array_like with length of predictable classes, entries of form x element [0,1]
@@ -189,7 +185,7 @@ class HierarchyBase():
             #y_pred is real prediction vector, with possible nans (else case)!
             y_pred = []
             for cell_idx, label_idx in enumerate(largest_idx):
-                if y_pred_proba[cell_idx][label_idx] > threshold:
+                if y_pred_proba[cell_idx][label_idx] > self.threshold:
                     #in this case: set prediction and move on to next classifier
                     y_pred.append(label_idx) #label_idx = class per definition
                 else: 
@@ -233,3 +229,10 @@ class HierarchyBase():
 
         else:
             return None
+
+    def get_leaf_nodes(self):
+        return [
+            x for x in self.graph.nodes() \
+            if self.graph.out_degree(x) == 0 \
+            and self.graph.in_degree(x) == 1
+        ]

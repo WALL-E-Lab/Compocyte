@@ -1,16 +1,20 @@
 from classiFire.core.base.data_base import DataBase
 from classiFire.core.base.hierarchy_base import HierarchyBase
-from classiFire.core.tools import z_transform_properties, flatten_dict, set_node_to_depth, set_node_to_scVI
+from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.neural_network import NeuralNetwork
-from classiFire.core.models.celltypist import CellTypistWrapper
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
+from classiFire.core.models.local_classifiers import load
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import ConfusionMatrixDisplay
 from uncertainties import ufloat
 from copy import deepcopy
 from imblearn.over_sampling import SMOTE
+from time import time
 import numpy as np
+import os
+import pickle
+import scanpy as sc
 
 class HierarchicalClassifier(DataBase, HierarchyBase):
     """Add explanation
@@ -24,6 +28,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         obs_names=None,
         n_dimensions_scVI=30,
         prob_based_stopping = False,
+        threshold=0.9,
         default_input_data='normlog',
         use_feature_selection=True,
         n_top_genes_per_class=300,
@@ -36,6 +41,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         self.save_path = save_path
         self.n_dimensions_scVI = n_dimensions_scVI
         self.prob_based_stopping = prob_based_stopping
+        self.threshold = threshold
         self.default_input_data = default_input_data
         self.use_feature_selection = use_feature_selection
         self.n_top_genes_per_class = n_top_genes_per_class
@@ -44,6 +50,8 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         self.dict_of_cell_relations = None
         self.obs_names = None
         self.hv_genes = hv_genes
+        self.trainings = []
+        self.predictions = []
         if type(sampling_method) != type(None):
             self.init_resampling(sampling_method, sampling_strategy)
 
@@ -109,7 +117,8 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
     def train_single_node(
         self, 
         node, 
-        barcodes=None):
+        barcodes=None,
+        is_single_training=True):
         """Trains the local classifier stored at node.
 
         Parameters
@@ -181,11 +190,25 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
         self.graph.nodes[node]['last_train_acc'] = train_acc
         self.graph.nodes[node]['last_train_con_mat'] = train_con_mat
+        timestamp = str(time()).replace('.', '_')
+        if not node in self.trainings.keys():
+            self.trainings[node] = {}
+
+        self.trainings[node][timestamp] = {
+            'barcodes': barcodes,
+            'node': node,
+            'data_type': data_type,
+            'type_classifier': type(self.graph.nodes[node]['local_classifier']),
+            'var_names': var_names,
+            'train_acc': train_acc,
+            'train_con_mat': train_con_mat,
+        }
 
     def train_all_child_nodes(
         self,
         current_node,
-        train_barcodes=None):
+        train_barcodes=None,
+        initial_call=True):
         """Starts at current_node, training its local classifier and following up by recursively
         training all local classifiers lower in the hierarchy. Uses cells that were labeled as 
         current_node at the relevant level (i. e. cells that are truly of type current_node, rather
@@ -208,17 +231,18 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             obs_name_parent, 
             current_node, 
             true_from=train_barcodes)
-        self.train_single_node(current_node, true_barcodes)
+        self.train_single_node(current_node, true_barcodes, is_single_training=False)
         for child_node in self.get_child_nodes(current_node):
             if len(self.get_child_nodes(child_node)) == 0:
                 continue
 
-            self.train_all_child_nodes(child_node, train_barcodes=train_barcodes)
+            self.train_all_child_nodes(child_node, train_barcodes=train_barcodes, initial_call=False)
 
     def predict_single_node(
         self,
         node,
-        barcodes=None):
+        barcodes=None,
+        is_single_prediction=True):
         """Uses an existing classifier at node to assign one of the child labels to the cells
         specified by barcodes. The predictions are stored in self.adata.obs by calling
         self.set_predictions under f'{obs_key}_pred' where obs_key is the key under
@@ -274,7 +298,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             x = self.graph.nodes[node]['chi2_feature_selecter'].transform(x)
 
         if not self.prob_based_stopping:
-            if type(self.graph.nodes[node]['local_classifier']) in [CellTypistWrapper, LogRegWrapper]:
+            if type(self.graph.nodes[node]['local_classifier']) in [LogRegWrapper]:
                 y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
 
             else:
@@ -289,17 +313,36 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         #%--------------------------------------------------------------------------------------------------------------------------------------------%#
 
         elif self.prob_based_stopping:
-            y_pred = self.predict_single_node_proba(node, x)
+            y_pred = np.array(self.predict_single_node_proba(node, x))
+            y_pred_nan_idx = np.where(np.isnan(y_pred))
+            y_pred_not_nan_idx = np.where(np.isnan(y_pred) != True)
+            y_pred = y_pred.astype(int)
+            y_pred_not_nan_str = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred[y_pred_not_nan_idx])
+            y_pred = y_pred.astype(str)
+            y_pred[y_pred_not_nan_idx] = y_pred_not_nan_str
+            y_pred[y_pred_nan_idx] = 'stopped'
             #child_obs_key says at which hierarchy level the predictions have to be saved
-            child_obs_key = self.get_children_obs_key(node) 
-            parent_obs_key = self.get_parent_obs_key(node)
-            self.set_prob_based_predictions(node, child_obs_key, parent_obs_key, barcodes, y_pred, fitted_label_encoder=self.graph.nodes[node]['label_encoder'])
+            obs_key = self.get_children_obs_key(node)
+            self.set_predictions(obs_key, barcodes, y_pred)
+
+        if not node in self.predictions.keys():
+            self.predictions[node] = {}
+
+        timestamp = str(time()).replace('.', '_')
+        self.predictions[node][timestamp] = {
+            'barcodes': barcodes,
+            'node': node,
+            'data_type': self.graph.nodes[node]['local_classifier'].data_type,
+            'type_classifier': type(self.graph.nodes[node]['local_classifier']),
+            'var_names': var_names,
+        }
 
     def predict_all_child_nodes(
         self,
         current_node,
         current_barcodes=None,
-        test_barcodes=None):
+        test_barcodes=None,
+        initial_call=True):
         """Starts at current_node, predicting cell label affiliation using its local classifier.
         Recursively predicts affiliation to cell type labels lower in the hierarchy, using as relevant
         cell subgroup those cells that were predicted to belong to the parent node label. If 
@@ -324,7 +367,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         if type(test_barcodes) != type(None):
             current_barcodes = [b for b in current_barcodes if b in test_barcodes]
 
-        self.predict_single_node(current_node, barcodes=current_barcodes)
+        self.predict_single_node(current_node, barcodes=current_barcodes, is_single_prediction=False)
         obs_key = self.get_children_obs_key(current_node)
         for child_node in self.get_child_nodes(current_node):
             if len(self.get_child_nodes(child_node)) == 0:
@@ -334,7 +377,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                 obs_key, 
                 child_node,
                 predicted_from=test_barcodes)
-            self.predict_all_child_nodes(child_node, child_node_barcodes)
+            self.predict_all_child_nodes(child_node, child_node_barcodes, initial_call=False)
 
     def train_child_nodes_with_validation(
         self, 
@@ -425,3 +468,106 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
 
         else:
             self.set_preferred_classifier(node, preferred_classifier)
+
+    def save(self):
+        # save all attributes
+        # get types, for adata use adatas write function with hash of adata
+        # save state of all local classifiers (what does dumping self.graph do?)
+        # save state of all nodes in the graph, label encoders, var names ...
+        data_path = os.path.join(
+            self.save_path, 
+            'data'
+        )
+        timestamp = str(time()).replace('.', '_')
+        hc_path = os.path.join(
+            self.save_path, 
+            'hierarchical_classifiers',
+            timestamp
+        )
+        if not os.path.exists(hc_path):
+            os.makedirs(hc_path)
+
+        settings_dict = {}
+        for key in self.__dict__.keys():
+            if key == 'adata':
+                if not os.path.exists(data_path):
+                    os.makedirs(data_path)
+
+                self.adata.write(os.path.join(data_path, f'{timestamp}.h5ad'))
+
+            else:
+                settings_dict[key] = self.__dict__[key]
+
+        with open(os.path.join(hc_path, 'hierarchical_classifier_settings.pickle'), 'wb') as f:
+            pickle.dump(settings_dict, f)
+        
+        for node in list(self.graph):
+            node_content_path = os.path.join(
+                self.save_path, 
+                'node_content',
+                node,
+                timestamp
+            )
+            if not os.path.exists(node_content_path):
+                os.makedirs(node_content_path)
+
+            for key in self.graph.nodes[node].keys():
+                if key == 'local_classifier':
+                    self.graph.nodes[node]['local_classifier'].save(self.save_path, node)
+                    continue
+
+                with open(os.path.join(node_content_path, f'{key}.pickle'), 'wb') as f:
+                    pickle.dump(self.graph.nodes[node][key], f)
+
+    def load(self):
+        data_path = os.path.join(
+            self.save_path, 
+            'data'
+        )
+        hc_path = os.path.join(
+            self.save_path, 
+            'hierarchical_classifiers'
+        )
+        if os.path.exists(hc_path):
+            timestamps = os.listdir(hc_path)
+            last_timestamp = timestamps[-1]
+            with open(os.path.join(hc_path, last_timestamp, 'hierarchical_classifier_settings.pickle'), 'rb') as f:
+                settings_dict = pickle.load(f)
+                for key in settings_dict.keys():
+                    self.__dict__[key] = settings_dict[key]
+
+        if os.path.exists(data_path):
+            timestamps = os.listdir(data_path)
+            last_adata = sorted(timestamps)[-1]
+            adata = sc.read_h5ad(os.path.join(data_path, last_adata))
+            self.load_adata(adata, batch_key=self.batch_key)
+
+        for node in list(self.graph):
+            model_path = os.path.join(
+                self.save_path, 
+                'models',
+                node
+            )
+            node_content_path = os.path.join(
+                self.save_path, 
+                'node_content',
+                node
+            )
+            if os.path.exists(model_path):
+                timestamps = os.listdir(model_path)
+                last_timestamp = sorted(timestamps)[-1]
+                classifier = load(os.path.join(model_path, last_timestamp))
+                self.graph.nodes[node]['local_classifier'] = classifier
+
+            if os.path.exists(node_content_path):
+                timestamps = os.listdir(node_content_path)
+                last_timestamp = sorted(timestamps)[-1]
+                properties = os.listdir(os.path.join(node_content_path, last_timestamp))
+                for p in properties:
+                    key = p.replace('.pickle', '')
+                    with open(
+                        os.path.join(node_content_path, last_timestamp, p), 
+                        'rb'
+                    ) as f:
+                        p = pickle.load(f)
+                        self.graph.nodes[node][key] = p
