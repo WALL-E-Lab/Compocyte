@@ -238,6 +238,16 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
 
             self.train_all_child_nodes(child_node, train_barcodes=train_barcodes, initial_call=False)
 
+        if initial_call:
+            if not 'overall' in self.trainings.keys():
+                self.trainings['overall'] = {}
+
+            timestamp = str(time()).replace('.', '_')
+            self.trainings['overall'][timestamp] = {
+                'train_barcodes': train_barcodes,
+                'current_node': current_node
+            }
+
     def predict_single_node(
         self,
         node,
@@ -378,6 +388,17 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                 child_node,
                 predicted_from=test_barcodes)
             self.predict_all_child_nodes(child_node, child_node_barcodes, initial_call=False)
+
+        if initial_call:
+            if not 'overall' in self.predictions.keys():
+                self.predictions['overall'] = {}
+
+            timestamp = str(time()).replace('.', '_')
+            self.predictions['overall'][timestamp] = {
+                'test_barcodes': test_barcodes,
+                'current_barcodes': current_barcodes,
+                'current_node': current_node
+            }
 
     def train_child_nodes_with_validation(
         self, 
