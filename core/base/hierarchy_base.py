@@ -103,7 +103,7 @@ class HierarchyBase():
         else: 
             print('Chi2 Feature selecter already trained, using trained selecter!')
 
-    def ensure_existence_classifier(self, node, input_len, classifier=NeuralNetwork, **kwargs):
+    def ensure_existence_classifier(self, node, input_len, classifier=NeuralNetwork, is_CPN=False, **kwargs):
         """Ensure that for the specified node in the graph, a local classifier exists under the
         key 'local_classifier'.
         """

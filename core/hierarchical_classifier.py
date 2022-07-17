@@ -36,7 +36,8 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         sampling_method=None,
         sampling_strategy='auto',
         batch_key='batch', 
-        scVI_model_prefix=None):
+        scVI_model_prefix=None,
+        classification_mode='CPN'):
 
         self.save_path = save_path
         self.n_dimensions_scVI = n_dimensions_scVI
@@ -114,11 +115,58 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         else:
             return x, y, None, None
 
-    def train_single_node(
+    def train_single_node_CPN(
+        self,
+        node,
+        barcodes=None):
+        """"""
+
+        print(f'Training 1 v all classifier at {node}.')
+        if type(barcodes) != type(None):
+            print(f'Subsetting to {len(barcodes)} cells based on node assignment and'\
+            ' designation as training data.')
+
+        else:
+            barcodes = self.adata.obs_names
+
+        type_classifier = self.get_preferred_classifier(node)
+        if type(type_classifier) == type(None):
+            type_classifier = NeuralNetwork
+
+        if self.default_input_data in type_classifier.possible_data_types:
+            data_type = self.default_input_data
+
+        else:
+            data_type = type_classifier.possible_data_types[0]
+
+        var_names = self.get_selected_var_names(node, barcodes, obs_name_children, data_type=data_type)
+        scVI_key = None
+        if data_type == 'scVI':
+            scVI_node = self.node_to_scVI[node]
+            scVI_key = self.get_scVI_key(
+                node=scVI_node, 
+                n_dimensions=self.n_dimensions_scVI,
+                barcodes=barcodes)
+
+        if data_type == 'scVI':
+            input_n_classifier = self.n_dimensions_scVI
+
+        elif type(var_names) == type(None):
+            input_n_classifier = len(self.adata.var_names)
+
+        else:
+            input_n_classifier = len(var_names)
+
+        self.ensure_existence_classifier(
+            node, 
+            input_n_classifier,
+            classifier=type_classifier,
+            is_CPN=True)
+
+    def train_single_node_CPPN(
         self, 
         node, 
-        barcodes=None,
-        is_single_training=True):
+        barcodes=None):
         """Trains the local classifier stored at node.
 
         Parameters
@@ -130,7 +178,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             Specifies which cells should be used for training.
         """
 
-        print(f'Training classifier at {node}.')
+        print(f'Training multilabel classifier at {node}.')
         if type(barcodes) != type(None):
             print(f'Subsetting to {len(barcodes)} cells based on node assignment and'\
             ' designation as training data.')
@@ -204,7 +252,12 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             'train_con_mat': train_con_mat,
         }
 
-    def train_all_child_nodes(
+    def train_all_child_nodes_CPN(self):
+        """"""
+
+        pass
+
+    def train_all_child_nodes_CPPN(
         self,
         current_node,
         train_barcodes=None,
@@ -231,12 +284,12 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             obs_name_parent, 
             current_node, 
             true_from=train_barcodes)
-        self.train_single_node(current_node, true_barcodes, is_single_training=False)
+        self.train_single_node_CPPN(current_node, true_barcodes)
         for child_node in self.get_child_nodes(current_node):
             if len(self.get_child_nodes(child_node)) == 0:
                 continue
 
-            self.train_all_child_nodes(child_node, train_barcodes=train_barcodes, initial_call=False)
+            self.train_all_child_nodes_CPPN(child_node, train_barcodes=train_barcodes, initial_call=False)
 
         if initial_call:
             if not 'overall' in self.trainings.keys():
@@ -248,11 +301,10 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                 'current_node': current_node
             }
 
-    def predict_single_node(
+    def predict_single_node_CPPN(
         self,
         node,
-        barcodes=None,
-        is_single_prediction=True):
+        barcodes=None):
         """Uses an existing classifier at node to assign one of the child labels to the cells
         specified by barcodes. The predictions are stored in self.adata.obs by calling
         self.set_predictions under f'{obs_key}_pred' where obs_key is the key under
@@ -347,7 +399,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             'var_names': var_names,
         }
 
-    def predict_all_child_nodes(
+    def predict_all_child_nodes_CPPN(
         self,
         current_node,
         current_barcodes=None,
@@ -377,7 +429,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         if type(test_barcodes) != type(None):
             current_barcodes = [b for b in current_barcodes if b in test_barcodes]
 
-        self.predict_single_node(current_node, barcodes=current_barcodes, is_single_prediction=False)
+        self.predict_single_node_CPPN(current_node, barcodes=current_barcodes)
         obs_key = self.get_children_obs_key(current_node)
         for child_node in self.get_child_nodes(current_node):
             if len(self.get_child_nodes(child_node)) == 0:
@@ -387,7 +439,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                 obs_key, 
                 child_node,
                 predicted_from=test_barcodes)
-            self.predict_all_child_nodes(child_node, child_node_barcodes, initial_call=False)
+            self.predict_all_child_nodes_CPPN(child_node, child_node_barcodes, initial_call=False)
 
         if initial_call:
             if not 'overall' in self.predictions.keys():
@@ -447,8 +499,8 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
                 self_copy = deepcopy(self)
 
             barcodes_train, barcodes_test = train_test_split(barcodes, test_size=test_size, stratify = y)
-            self.train_all_child_nodes(starting_node, barcodes_train)
-            self.predict_all_child_nodes(starting_node, test_barcodes=barcodes_test)
+            self.train_all_child_nodes_CPPN(starting_node, barcodes_train)
+            self.predict_all_child_nodes_CPPN(starting_node, test_barcodes=barcodes_test)
             self.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
             #integrate preliminary hierarchical confusion matrix
             # self.get_hierarchical_accuracy(test_barcodes=barcodes_test, level_obs_keys=self.obs_names, all_labels = self.all_nodes, overview_obs_key = 'Level_2' )
@@ -465,8 +517,8 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
 
                 barcodes_train = barcodes[barcodes_train_idx]
                 barcodes_test = barcodes[barcodes_test_idx]
-                self.train_all_child_nodes(starting_node, barcodes_train)
-                self.predict_all_child_nodes(starting_node, test_barcodes=barcodes_test)
+                self.train_all_child_nodes_CPPN(starting_node, barcodes_train)
+                self.predict_all_child_nodes_CPPN(starting_node, test_barcodes=barcodes_test)
                 acc, con_mat, possible_labels = self.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
                 # acc, con_mat, possible_labels, con_mat_overview, possible_labels_overview = self.get_hierarchical_accuracy(test_barcodes=barcodes_test, level_obs_keys=self.obs_names, all_labels=self.all_nodes, overview_obs_key = 'Level_2')
                 con_mats.append(con_mat)
