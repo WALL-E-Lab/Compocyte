@@ -444,7 +444,7 @@ class DataBase():
 
         return acc, con_mat, possible_labels
 
-    def get_top_genes(self, barcodes, obs_name_children, n_genes):
+    def get_top_genes(self, classifier_node, barcodes, n_genes):
         if type(barcodes) == type(None):
             barcodes = self.adata.obs_names
 
@@ -459,6 +459,25 @@ class DataBase():
                     total_top_genes.append(gene)
 
         return total_top_genes
+
+    def feature_selection(self, barcodes_positive, barcodes_negative, data_type, n_features=300, method='chi2'):
+        self.adata.obs.loc[barcodes_positive, 'node'] = 'yes'
+        self.adata.obs.loc[barcodes_negative, 'node'] = 'no'
+        barcodes = barcodes_positive + barcodes_negative
+        if data_type == 'normlog':
+            x = self.adata[barcodes, :].layers['normlog']
+
+        elif data_type == 'counts':
+            x = self.adata[barcodes, :].X
+
+        else:
+            raise Exception('Feature selection not implemeted for embeddings.')
+
+        y = self.adata[barcodes, :].obs['node'].values
+        selecter = SelectKBest(chi2, k=n_features)
+        selecter.fit(x, y)
+
+        return list(self.adata.var_names[selecter.get_support()])
 
     def init_resampling(self, sampling_method, sampling_strategy='auto'):
         self.sampling_method = sampling_method

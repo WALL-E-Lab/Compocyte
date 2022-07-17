@@ -11,6 +11,7 @@ from uncertainties import ufloat
 from copy import deepcopy
 from imblearn.over_sampling import SMOTE
 from time import time
+import tensorflow.keras as keras
 import numpy as np
 import os
 import pickle
@@ -24,6 +25,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         self,
         save_path,
         adata = None,
+        root_node=None,
         dict_of_cell_relations=None, 
         obs_names=None,
         n_dimensions_scVI=30,
@@ -59,8 +61,8 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         if type(adata) != type(None):
             self.load_adata(adata, batch_key)
 
-        if type(dict_of_cell_relations) != type(None) and type(obs_names) != type(None):
-            self.set_cell_relations(dict_of_cell_relations, obs_names)       
+        if root_node is not None and dict_of_cell_relations is not None and obs_names is not None:
+            self.set_cell_relations(root_node, dict_of_cell_relations, obs_names)       
 
     def get_training_data(
         self, 
@@ -115,22 +117,17 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         else:
             return x, y, None, None
 
-    def train_single_node_CPN(
-        self,
-        node,
-        barcodes=None):
-        """"""
+    def train_single_node(
+    	self,
+    	node,
+    	train_barcodes=None):
 
-        print(f'Training 1 v all classifier at {node}.')
-        if type(barcodes) != type(None):
-            print(f'Subsetting to {len(barcodes)} cells based on node assignment and'\
-            ' designation as training data.')
+    	print(f'Training at {node}.')
+    	if train_barcodes is None:
+    		train_barcodes = self.adata.obs_names
 
-        else:
-            barcodes = self.adata.obs_names
-
-        type_classifier = self.get_preferred_classifier(node)
-        if type(type_classifier) == type(None):
+		type_classifier = self.get_preferred_classifier(node)
+        if type_classifier is None:
             type_classifier = NeuralNetwork
 
         if self.default_input_data in type_classifier.possible_data_types:
@@ -138,30 +135,80 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
 
         else:
             data_type = type_classifier.possible_data_types[0]
+            print(f'{self.default_input_data} data is not currently compatible with {type_classifier}. Set to {data_type}')
+    	
+    	parent_node = self.get_parent_node(node),
+    	parent_obs_key = self.get_parent_obs_key(parent_node)
+    	node_obs_key = self.get_children_obs_key(parent_node)
+    	# We use the sibling policy for defining positive and negative training samples
+    	# for a 1 vs all classifier. All cells that are classified at the appropriate
+    	# level as parent_node are siblings of node.
+    	potential_cells = self.adata[self.adata.obs[parent_obs_key] == parent_node]
+    	# To avoid training with cells that should be reserved for testing, make sure to limit
+    	# to train_barcodes.
+    	relevant_cells = self.adata[[b for b in potential_cells.obs_names if b in train_barcodes], :]
+    	# Cells that are unlabeled (nan or '') are not certain to not belong to the cell type in question
+    	relevant_cells = self.throw_out_nan(relevant_cells, node_obs_key)
+    	positive_cells = relevant_cells[relevant_cells.obs[node_obs_key] == node]
+    	negative_cells = relevant_cells[relevant_cells.obs[node_obs_key] != node]
+    	if data_type == 'normlog':
+    		self.ensure_normlog()
 
-        var_names = self.get_selected_var_names(node, barcodes, obs_name_children, data_type=data_type)
-        scVI_key = None
-        if data_type == 'scVI':
-            scVI_node = self.node_to_scVI[node]
-            scVI_key = self.get_scVI_key(
-                node=scVI_node, 
-                n_dimensions=self.n_dimensions_scVI,
-                barcodes=barcodes)
+    	selected_var_names = list(self.adata.var_names)
+    	# Feature selection is only relevant for (transformed) gene data, not embeddings
+    	if self.use_feature_selection and data_type in ['counts', 'normlog']:
+    		if 'selected_var_names' in self.graph.nodes[node].keys():
+    			selected_var_names = self.graph.nodes[node]['selected_var_names']
 
-        if data_type == 'scVI':
-            input_n_classifier = self.n_dimensions_scVI
+			else:
+				selected_var_names = self.feature_selection(
+					list(positive_cells.obs_names), 
+					list(negative_cells.obs_names), 
+					data_type, 
+					n_features=self.n_top_genes_per_class, 
+					method='chi2')
+				self.graph.nodes[node]['selected_var_names'] = selected_var_names
 
-        elif type(var_names) == type(None):
-            input_n_classifier = len(self.adata.var_names)
-
-        else:
-            input_n_classifier = len(var_names)
-
-        self.ensure_existence_classifier(
+		n_input = len(selected_var_names)
+		self.ensure_existence_OVR_classifier(
             node, 
             input_n_classifier,
-            classifier=type_classifier,
-            is_CPN=True)
+            data_type,
+            classifier=type_classifier)
+		if data_type == 'counts':
+			x = relevant_cells.X
+
+		elif data_type == 'normlog':
+			x = relevant_cells.layers['normlog']
+
+		else:
+			raise Exception('Data type not currently supported.')
+
+		y = np.array(relevant_cells.obs[node_obs_key])
+		if hasattr(self, 'sampling_method') and type(self.sampling_method) != type(None):
+            res = self.sampling_method(sampling_strategy=self.sampling_strategy)
+            x, y = res.fit_resample(x, y)
+
+        y_int = (y == node).astype(int)
+		y_onehot = keras.utils.to_categorical(y_int, num_classes=2)
+		x = z_transform_properties(x)
+		self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
+        train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
+        self.graph.nodes[node]['last_train_acc'] = train_acc
+        self.graph.nodes[node]['last_train_con_mat'] = train_con_mat
+        timestamp = str(time()).replace('.', '_')
+        if not node in self.trainings.keys():
+            self.trainings[node] = {}
+
+        self.trainings[node][timestamp] = {
+            'barcodes': barcodes,
+            'node': node,
+            'data_type': data_type,
+            'type_classifier': type(self.graph.nodes[node]['local_classifier']),
+            'var_names': var_names,
+            'train_acc': train_acc,
+            'train_con_mat': train_con_mat,
+        }
 
     def train_single_node_CPPN(
         self, 

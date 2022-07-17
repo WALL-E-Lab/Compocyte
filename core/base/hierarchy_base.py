@@ -14,14 +14,15 @@ class HierarchyBase():
     """Add explanation
     """
 
-    def set_cell_relations(self, dict_of_cell_relations, obs_names):
+    def set_cell_relations(self, root_node, dict_of_cell_relations, obs_names):
         """Once set, cell relations can only be changed one node at a time, using supplied methods,
         not by simply calling defining new cell relations
         """
 
-        if type(self.dict_of_cell_relations) != type(None) and type(self.obs_names) != type(None):
+        if self.root_node is not None and self.dict_of_cell_relations is not None and self.obs_names is not None:
             raise Exception('Cannot redefine cell relations after initialization.')
 
+        self.root_node = root_node
         self.dict_of_cell_relations = dict_of_cell_relations
         self.obs_names = obs_names
         self.ensure_depth_match()
@@ -102,6 +103,14 @@ class HierarchyBase():
 
         else: 
             print('Chi2 Feature selecter already trained, using trained selecter!')
+
+    def ensure_existence_OVR_classifier(self, node, n_input, type_classifier, data_type):
+        if 'local_classifier' in self.graph.nodes[node].keys():
+            return
+
+        self.graph.nodes[node]['local_classifier'] = type_classifier(n_input=input_len, n_output=output_len, **kwargs)
+        self.graph.nodes[node]['local_classifier'].data_type = data_type
+        print(f'OVR classifier set up as {type_classifier} with {data_type} data at {node}.')
 
     def ensure_existence_classifier(self, node, input_len, classifier=NeuralNetwork, is_CPN=False, **kwargs):
         """Ensure that for the specified node in the graph, a local classifier exists under the
@@ -201,7 +210,7 @@ class HierarchyBase():
     def set_preferred_classifier(self, node, type_classifier):
         self.graph.nodes[node]['preferred_classifier'] = type_classifier
 
-    def get_selected_var_names(self, node, barcodes, obs_name_children=None, data_type='normlog'):
+    def get_selected_var_names(self, classifier_node, barcodes, data_type='normlog'):
         if data_type == 'scVI':
             return None
 
@@ -213,8 +222,8 @@ class HierarchyBase():
 
         if type(var_names) == type(None) and self.use_feature_selection == True:
             var_names = self.get_top_genes(
+                classifier_node,
                 barcodes, 
-                obs_name_children, 
                 self.n_top_genes_per_class)
             self.set_selected_var_names(node, var_names)
 
@@ -236,3 +245,11 @@ class HierarchyBase():
             if self.graph.out_degree(x) == 0 \
             and self.graph.in_degree(x) == 1
         ]
+
+    def get_parent_node(self, node):
+        edges = np.array(self.graph.edges)
+        # In a directed graph there should only be one edge leading TO any given node
+        idx_child_node_edges = np.where(edges[:, 1] == node)
+        parent_node = edges[idx_child_node_edges][0, 0]
+
+        return parent_node

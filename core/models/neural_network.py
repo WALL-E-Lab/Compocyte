@@ -11,7 +11,7 @@ class NeuralNetwork():
     """Add explanation.
     """
 
-    possible_data_types = ['counts', 'normlog', 'scVI']
+    possible_data_types = ['counts', 'normlog']
     data_type = 'normlog'
     input_as_adata = False
 
