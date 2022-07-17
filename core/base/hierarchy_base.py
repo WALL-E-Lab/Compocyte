@@ -104,11 +104,11 @@ class HierarchyBase():
         else: 
             print('Chi2 Feature selecter already trained, using trained selecter!')
 
-    def ensure_existence_OVR_classifier(self, node, n_input, type_classifier, data_type):
+    def ensure_existence_OVR_classifier(self, node, n_input, type_classifier, data_type, **kwargs):
         if 'local_classifier' in self.graph.nodes[node].keys():
             return
 
-        self.graph.nodes[node]['local_classifier'] = type_classifier(n_input=input_len, n_output=output_len, **kwargs)
+        self.graph.nodes[node]['local_classifier'] = type_classifier(n_input=n_input, n_output=2, **kwargs)
         self.graph.nodes[node]['local_classifier'].data_type = data_type
         print(f'OVR classifier set up as {type_classifier} with {data_type} data at {node}.')
 

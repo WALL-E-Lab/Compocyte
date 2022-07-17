@@ -7,6 +7,7 @@ from datetime import datetime
 from classiFire.core.tools import is_counts
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from scipy import sparse
+from sklearn.feature_selection import SelectKBest, chi2
 import matplotlib.pyplot as plt
 
 class DataBase():
