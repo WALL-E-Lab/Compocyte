@@ -123,7 +123,6 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         node,
         train_barcodes=None):
 
-        print(f'Training at {node}.')
         if train_barcodes is None:
             train_barcodes = self.adata.obs_names
 
@@ -155,6 +154,10 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         if data_type == 'normlog':
             self.ensure_normlog()
 
+        if len(positive_cells) == 0:
+            return
+
+        print(f'Training at {node}.')
         selected_var_names = list(self.adata.var_names)
         # Feature selection is only relevant for (transformed) gene data, not embeddings
         if self.use_feature_selection and data_type in ['counts', 'normlog']:
@@ -229,7 +232,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             self.train_single_node(node, train_barcodes)
 
         for child_node in self.get_child_nodes(node):
-            self.train_all_child_nodes_CPPN(child_node, train_barcodes=train_barcodes, initial_call=False)
+            self.train_all_child_nodes(child_node, train_barcodes=train_barcodes, initial_call=False)
 
         if initial_call:
             if not 'overall' in self.trainings.keys():
@@ -406,24 +409,26 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
 
         activations_positive = None
         predicted_nodes = []
-        for child_node in self.get_child_nodes(node):
-            if not 'local_classifier' in self.graph.nodes[node].keys():
+        child_nodes = self.get_child_nodes(node)
+        for child_node in child_nodes:
+            if not 'local_classifier' in self.graph.nodes[child_node].keys():
                 continue
 
-            predicted_nodes.append(node)
-            data_type = self.graph.nodes[node]['local_classifier'].data_type
-            if type(self.graph.nodes[node]['local_classifier']) != NeuralNetwork:
+            predicted_nodes.append(child_node)
+            data_type = self.graph.nodes[child_node]['local_classifier'].data_type
+            if type(self.graph.nodes[child_node]['local_classifier']) != NeuralNetwork:
                 raise Exception('CPN classification mode currently only compatible with neural networks.')
 
             selected_var_names = list(self.adata.var_names)
             # Feature selection is only relevant for (transformed) gene data, not embeddings
             if self.use_feature_selection and data_type in ['counts', 'normlog']:
-                selected_var_names = self.graph.nodes[node]['selected_var_names']
+                selected_var_names = self.graph.nodes[child_node]['selected_var_names']
 
             if data_type == 'counts':
                 x = relevant_cells[:, selected_var_names].X
 
             elif data_type == 'normlog':
+                self.ensure_normlog()
                 x = relevant_cells[:, selected_var_names].layers['normlog']
 
             else:
@@ -435,18 +440,31 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             x = z_transform_properties(x)
             # the second output node (at index 1) is defined to represent a positive prediction for the node in question
             if activations_positive is None:
-                activations_positive = self.graph.nodes[node]['local_classifier'].predict_proba(x)[:, 1]
+                activations_positive = self.graph.nodes[child_node]['local_classifier'].predict_proba(x)[:, 1]
 
             else:
                 # each row represents all activations (across cells) for a single possible label
                 # each column represents the activations of the output node representing a positive result for all possible labels
-                activations_positive = np.vstack(
+                activations_positive = np.vstack((
                     activations_positive,
-                    self.graph.nodes[node]['local_classifier'].predict_proba(x)[:, 1])
+                    self.graph.nodes[child_node]['local_classifier'].predict_proba(x)[:, 1]))
 
-        y_int = np.argmax(activations_positive, axis = 0)
+        if len(predicted_nodes) == 0:
+            return
+
+        if len(activations_positive.shape) > 1:
+            y_int = np.argmax(activations_positive, axis = 0)
+
+        else:
+            y_int = np.array([0 for i in activations_positive])
+
         if self.prob_based_stopping:
-            y_probs = activations_positive[y_int, :]
+            if len(activations_positive.shape) > 1:
+                y_probs = np.take_along_axis(activations_positive, np.array([y_int]), axis=0)[0]
+
+            else:
+                y_probs = activations_positive
+
             y = []
             for i, p in zip(y_int, y_probs):
                 if p > self.threshold:
@@ -467,8 +485,8 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         self.predictions[node][timestamp] = {
             'barcodes': list(relevant_cells.obs_names),
             'node': node,
-            'data_type': self.graph.nodes[node]['local_classifier'].data_type,
-            'type_classifier': type(self.graph.nodes[node]['local_classifier']),
+            'data_type': [self.graph.nodes[n]['local_classifier'].data_type for n in predicted_nodes],
+            'type_classifier': [type(self.graph.nodes[n]['local_classifier']) for n in predicted_nodes],
             'var_names': selected_var_names,
         }
 
@@ -762,6 +780,9 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
 
                 self.adata.write(os.path.join(data_path, f'{timestamp}.h5ad'))
 
+            elif key == 'graph':
+                continue
+
             else:
                 settings_dict[key] = self.__dict__[key]
 
@@ -808,6 +829,9 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             last_adata = sorted(timestamps)[-1]
             adata = sc.read_h5ad(os.path.join(data_path, last_adata))
             self.load_adata(adata, batch_key=self.batch_key)
+
+        if not hasattr(self, 'graph') or self.graph is None:
+            self.make_classifier_graph()
 
         for node in list(self.graph):
             model_path = os.path.join(

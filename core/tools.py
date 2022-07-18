@@ -287,11 +287,11 @@ def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names, fig_size=(12, 
     con_mat = con_mat_leaf_nodes(hierarchy, adata, graph, obs_names[1:], plot=False)
     graph_weights = graph.copy()
     leaf_nodes = get_leaf_nodes(hierarchy)
-    # Get each confusion affecting more than 20 % of cells truly belonging to a given cell type
-    # Confusions across all levels and trees of the hierarchy
+    
     hierarchy_list = []
     generate_node_level_list(hierarchy, hierarchy_list)
     node_list = np.array(hierarchy_list)[:, 0]
+    # Get pct of true cells stopped at some point along the hierarchy
     for node, level in zip(
         np.array(hierarchy_list)[:, 0], 
         np.array(hierarchy_list)[:, 1].astype(int)
@@ -301,12 +301,22 @@ def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names, fig_size=(12, 
             graph_weights.nodes[node]['pct_stopped'] = 0.0
             continue
 
-        obs_name_children = obs_names[level + 1]
         adata_node = adata[adata.obs[obs_name_node] == node]
-        adata_node_stopped = adata_node[adata_node.obs[f'{obs_name_children}_pred'] == 'stopped']
+        does_contain_stopped = None
+        for obs_name in obs_names[1:]:
+            if does_contain_stopped is None:
+                does_contain_stopped = adata_node.obs[f'{obs_name}_pred'] == 'stopped'
+
+            else:
+                does_contain_stopped = (does_contain_stopped) | (adata_node.obs[f'{obs_name}_pred'] == 'stopped')
+
+        # create index representing whether 'stopped' is in any pred column for any given cell
+        adata_node_stopped = adata_node[does_contain_stopped]
         pct_stopped = len(adata_node_stopped) / max(len(adata_node), 1)
         graph_weights.nodes[node]['pct_stopped'] = pct_stopped
 
+    # Get each confusion affecting more than 5 % of cells truly belonging to a given cell type
+    # Confusions across all levels and trees of the hierarchy
     for confusion in np.dstack(np.where(con_mat > 0.05))[0]:
         true_label = hierarchy_list[confusion[0]][0]
         pred_label = hierarchy_list[confusion[1]][0]
@@ -349,7 +359,7 @@ def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names, fig_size=(12, 
     plt.colorbar(sm, label='% of cells early stopped at this node', orientation='horizontal', fraction=0.052, pad=0.04) # perfect match
     # plt.colorbar(sm, label='% of cells early stopped at this node', orientation='horizontal', fraction=0.03, pad=0.04)
     plt.title(
-        'Confusions of > 5 % of true cells, visualized as directed edge to the earliest misstep in the hierarchical classification process, proportion of cells subjected to early stopping visualized as node color',
+        'Confusions of > 5 % of true cells, visualized as directed edge to the earliest misstep in the hierarchical classification process, proportion of true cells subjected to early stopping visualized as node color',
         fontdict={'fontsize': 'x-large'}
     )
 
