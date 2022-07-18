@@ -214,6 +214,33 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             'train_con_mat': train_con_mat,
         }
 
+    def train_all_child_nodes(
+        self,
+        node,
+        train_barcodes=None,
+        initial_call=True):
+        """"""
+
+        if train_barcodes is None:
+            train_barcodes = list(self.adata.obs_names)
+
+        # Can not train root node classifier as there are no negative cells
+        if not node == self.root_node:
+            self.train_single_node(node, train_barcodes)
+
+        for child_node in self.get_child_nodes(node):
+            self.train_all_child_nodes_CPPN(child_node, train_barcodes=train_barcodes, initial_call=False)
+
+        if initial_call:
+            if not 'overall' in self.trainings.keys():
+                self.trainings['overall'] = {}
+
+            timestamp = str(time()).replace('.', '_')
+            self.trainings['overall'][timestamp] = {
+                'train_barcodes': train_barcodes,
+                'current_node': node
+            }
+
     def train_single_node_CPPN(
         self, 
         node, 
@@ -350,6 +377,122 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
             self.trainings['overall'][timestamp] = {
                 'train_barcodes': train_barcodes,
                 'current_node': current_node
+            }
+
+    def predict_single_parent_node(self, node, test_barcodes=None, barcodes=None):
+        """"""
+
+        print(f'Predicting at parent {node}.')
+        if test_barcodes is None:
+            test_barcodes = list(self.adata.obs_names)
+
+        parent_obs_key = self.get_parent_obs_key(node)
+        if not f'{parent_obs_key}_pred' in self.adata.obs.columns and barcodes is None and not node == self.root_node:
+            raise Exception('If previous nodes were not predicted, barcodes for prediction need to \
+                be given explicitly.')
+
+        elif node == self.root_node and barcodes is None:
+            barcodes = test_barcodes
+
+        potential_cells = self.adata[test_barcodes, :]
+        if barcodes is not None:
+            potential_cells = self.adata[[b for b in barcodes if b in test_barcodes], :]
+
+        if f'{parent_obs_key}_pred' in self.adata.obs.columns:
+            relevant_cells = potential_cells[potential_cells.obs[parent_obs_key] == node]
+
+        else:
+            relevant_cells = potential_cells
+
+        activations_positive = None
+        predicted_nodes = []
+        for child_node in self.get_child_nodes(node):
+            if not 'local_classifier' in self.graph.nodes[node].keys():
+                continue
+
+            predicted_nodes.append(node)
+            data_type = self.graph.nodes[node]['local_classifier'].data_type
+            if type(self.graph.nodes[node]['local_classifier']) != NeuralNetwork:
+                raise Exception('CPN classification mode currently only compatible with neural networks.')
+
+            selected_var_names = list(self.adata.var_names)
+            # Feature selection is only relevant for (transformed) gene data, not embeddings
+            if self.use_feature_selection and data_type in ['counts', 'normlog']:
+                selected_var_names = self.graph.nodes[node]['selected_var_names']
+
+            if data_type == 'counts':
+                x = relevant_cells[:, selected_var_names].X
+
+            elif data_type == 'normlog':
+                x = relevant_cells[:, selected_var_names].layers['normlog']
+
+            else:
+                raise Exception('Data type not currently supported.')
+
+            if hasattr(x, 'todense'):
+                x = x.todense()
+
+            x = z_transform_properties(x)
+            # the second output node (at index 1) is defined to represent a positive prediction for the node in question
+            if activations_positive is None:
+                activations_positive = self.graph.nodes[node]['local_classifier'].predict_proba(x)[:, 1]
+
+            else:
+                # each row represents all activations (across cells) for a single possible label
+                # each column represents the activations of the output node representing a positive result for all possible labels
+                activations_positive = np.vstack(
+                    activations_positive,
+                    self.graph.nodes[node]['local_classifier'].predict_proba(x)[:, 1])
+
+        y_int = np.argmax(activations_positive, axis = 0)
+        if self.prob_based_stopping:
+            y_probs = activations_positive[y_int, :]
+            y = []
+            for i, p in zip(y_int, y_probs):
+                if p > self.threshold:
+                    y.append(predicted_nodes[i])
+
+                else:
+                    y.append('stopped')
+
+        else:
+            y = [predicted_nodes[i] for i in y_int]
+
+        obs_key = self.get_children_obs_key(node)
+        self.set_predictions(obs_key, list(relevant_cells.obs_names), y)
+        if not node in self.predictions.keys():
+            self.predictions[node] = {}
+
+        timestamp = str(time()).replace('.', '_')
+        self.predictions[node][timestamp] = {
+            'barcodes': list(relevant_cells.obs_names),
+            'node': node,
+            'data_type': self.graph.nodes[node]['local_classifier'].data_type,
+            'type_classifier': type(self.graph.nodes[node]['local_classifier']),
+            'var_names': selected_var_names,
+        }
+
+    def predict_all_child_nodes(self, node, test_barcodes=None, initial_call=True):
+        """"""
+
+        if test_barcodes is None:
+            test_barcodes = list(self.adata.obs_names)
+
+        # Can not train root node classifier as there are no negative cells
+        if len(self.get_child_nodes(node)) != 0:
+            self.predict_single_parent_node(node, test_barcodes)
+
+        for child_node in self.get_child_nodes(node):
+            self.predict_all_child_nodes(child_node, test_barcodes=test_barcodes, initial_call=False)
+
+        if initial_call:
+            if not 'overall' in self.predictions.keys():
+                self.predictions['overall'] = {}
+
+            timestamp = str(time()).replace('.', '_')
+            self.predictions['overall'][timestamp] = {
+                'test_barcodes': test_barcodes,
+                'current_node': node
             }
 
     def predict_single_node_CPPN(
