@@ -297,9 +297,10 @@ def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names, fig_size=(12, 
         np.array(hierarchy_list)[:, 1].astype(int)
     ):
         obs_name_node = obs_names[level]
+        """
         if (level + 1) == len(obs_names) or node in leaf_nodes:
             graph_weights.nodes[node]['pct_stopped'] = 0.0
-            continue
+            continue"""
 
         adata_node = adata[adata.obs[obs_name_node] == node]
         does_contain_stopped = None
