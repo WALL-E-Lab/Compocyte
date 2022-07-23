@@ -20,33 +20,33 @@ class HierarchyBase():
         """
 
         if self.root_node is not None and self.dict_of_cell_relations is not None and self.obs_names is not None:
-            raise Exception('Cannot redefine cell relations after initialization.')
+            raise Exception('To redefine cell relations after initialization, call update_hierarchy.')
 
         self.root_node = root_node
+        self.ensure_depth_match(dict_of_cell_relations, obs_names)
+        self.ensure_unique_nodes(dict_of_cell_relations)
         self.dict_of_cell_relations = dict_of_cell_relations
         self.obs_names = obs_names
-        self.ensure_depth_match()
-        self.ensure_unique_nodes()
         self.all_nodes = flatten_dict(self.dict_of_cell_relations)
         self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
         self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
         self.make_classifier_graph()
 
-    def ensure_depth_match(self):
+    def ensure_depth_match(self, dict_of_cell_relations, obs_names):
         """Check if the annotations supplied in .obs under obs_names are sufficiently deep to work 
         with the hierarchy provided.
         """
 
-        if not dict_depth(self.dict_of_cell_relations) == len(self.obs_names):
+        if not dict_depth(dict_of_cell_relations) == len(obs_names):
             raise Exception('obs_names must contain an annotation key for every level of the '\
                 'hierarchy supplied in dict_of_cell_relations.')
 
-    def ensure_unique_nodes(self):
+    def ensure_unique_nodes(self, dict_of_cell_relations):
         """Check if keys within the hierarchy are unique across all levels as that is a requirement
         for uniquely identifying graph nodes with networkx.
         """
 
-        if not hierarchy_names_unique(self.dict_of_cell_relations):
+        if not hierarchy_names_unique(dict_of_cell_relations):
             raise Exception('Names given in the hierarchy must be unique.')
 
     def make_classifier_graph(self):
@@ -246,10 +246,56 @@ class HierarchyBase():
             and self.graph.in_degree(x) == 1
         ]
 
-    def get_parent_node(self, node):
-        edges = np.array(self.graph.edges)
+    def get_parent_node(self, node, graph=None):
+        if graph is None:
+            graph = self.graph
+
+        edges = np.array(graph.edges)
         # In a directed graph there should only be one edge leading TO any given node
         idx_child_node_edges = np.where(edges[:, 1] == node)
         parent_node = edges[idx_child_node_edges][0, 0]
 
         return parent_node
+
+    def update_hierarchy(self, dict_of_cell_relations, root_node=None):
+        """"""
+
+        if not root_node is None:
+            self.root_node = root_node
+
+        if dict_of_cell_relations == self.dict_of_cell_relations:
+            return
+
+        self.ensure_depth_match(dict_of_cell_relations, obs_names)
+        self.ensure_unique_nodes(dict_of_cell_relations)
+        all_nodes_pre = flatten_dict(self.dict_of_cell_relations)
+        self.dict_of_cell_relations = dict_of_cell_relations
+        self.obs_names = obs_names
+        all_nodes_post = flatten_dict(self.dict_of_cell_relations)
+        self.all_nodes = all_nodes_post
+        self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
+        self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
+        new_graph = nx.DiGraph()
+        make_graph_from_edges(self.dict_of_cell_relations, new_graph)
+
+        new_nodes = [n for n in all_nodes_post if not n in all_nodes_pre]
+        removed_nodes = [n for n in all_nodes_pre if not n in all_nodes_post]
+        moved_nodes = []
+        for node in all_nodes_post:
+            if node in new_nodes:
+                continue
+
+            # Check if node was moved within the hierarchy, i. e. assigned
+            # to a different parent node
+            # Does not change the strategy of assigning the previous node attributes
+            # but may end up a fact of interest
+            parent_post = self.get_parent_node(node, graph=new_graph)
+            parent_pre = self.get_parent_node(node)
+            if parent_pre != parent_post:
+                moved_nodes.append(node)
+
+            # Transfer properties, such as local classifier, from old graph
+            # to new graph
+            new_graph.nodes[node] = self.graph.nodes[node]
+
+        self.graph = new_graph
