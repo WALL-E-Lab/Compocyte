@@ -407,6 +407,9 @@ class HierarchicalClassifier(DataBase, HierarchyBase):
         else:
             relevant_cells = potential_cells
 
+        if len(relevant_cells) == 0:
+            return
+
         activations_positive = None
         predicted_nodes = []
         child_nodes = self.get_child_nodes(node)

@@ -9,6 +9,7 @@ from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
 from sklearn.feature_selection import SelectKBest, chi2
+from copy import deepcopy
 
 class HierarchyBase():
     """Add explanation
@@ -105,6 +106,7 @@ class HierarchyBase():
             print('Chi2 Feature selecter already trained, using trained selecter!')
 
     def ensure_existence_OVR_classifier(self, node, n_input, type_classifier, data_type, **kwargs):
+        print(f'Trying creating OVR at {node}')
         if 'local_classifier' in self.graph.nodes[node].keys():
             return
 
@@ -266,11 +268,10 @@ class HierarchyBase():
         if dict_of_cell_relations == self.dict_of_cell_relations:
             return
 
-        self.ensure_depth_match(dict_of_cell_relations, obs_names)
+        self.ensure_depth_match(dict_of_cell_relations, self.obs_names)
         self.ensure_unique_nodes(dict_of_cell_relations)
         all_nodes_pre = flatten_dict(self.dict_of_cell_relations)
         self.dict_of_cell_relations = dict_of_cell_relations
-        self.obs_names = obs_names
         all_nodes_post = flatten_dict(self.dict_of_cell_relations)
         self.all_nodes = all_nodes_post
         self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
@@ -289,13 +290,17 @@ class HierarchyBase():
             # to a different parent node
             # Does not change the strategy of assigning the previous node attributes
             # but may end up a fact of interest
-            parent_post = self.get_parent_node(node, graph=new_graph)
-            parent_pre = self.get_parent_node(node)
-            if parent_pre != parent_post:
-                moved_nodes.append(node)
+            if not node == self.root_node:
+                parent_post = self.get_parent_node(node, graph=new_graph)
+                parent_pre = self.get_parent_node(node)
+                if parent_pre != parent_post:
+                    moved_nodes.append(node)
 
             # Transfer properties, such as local classifier, from old graph
             # to new graph
-            new_graph.nodes[node] = self.graph.nodes[node]
+            for item in self.graph.nodes[node]:
+                new_graph.nodes[node][item] = deepcopy(self.graph.nodes[node][item])
+
+            print(f'Transfered to {node}, local classifier {"transferred" if "local_classifier" in self.graph.nodes[node] else "not transferred"}')
 
         self.graph = new_graph

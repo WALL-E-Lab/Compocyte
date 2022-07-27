@@ -83,6 +83,12 @@ class NeuralNetwork():
                 activation = self.activation_function
                 dropout = self.dropout
 
+            if idx == 0:
+                self.model.add(keras.Input(
+                    shape=(layer[0], )))
+                mask = keras.backend.constant([[1 for i in range(layer[0])]])
+                self.model.add(keras.layers.Lambda(lambda x: x * mask))
+
             self.model.add(keras.layers.Dense(
                 input_shape=(layer[0], ),
                 units=layer[1],
