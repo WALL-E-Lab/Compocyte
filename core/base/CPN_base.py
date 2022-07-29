@@ -1,5 +1,12 @@
+from classiFire.core.tools import z_transform_properties
+from classiFire.core.models.neural_network import NeuralNetwork
+from uncertainties import ufloat
+from time import time
+import tensorflow.keras as keras
+import numpy as np
+
 class CPNBase():
-	def train_single_node_CPN(
+    def train_single_node_CPN(
         self,
         node,
         train_barcodes=None):
@@ -110,10 +117,10 @@ class CPNBase():
 
         # Can not train root node classifier as there are no negative cells
         if not node == self.root_node:
-            self.train_single_node(node, train_barcodes)
+            self.train_single_node_CPN(node, train_barcodes)
 
         for child_node in self.get_child_nodes(node):
-            self.train_all_child_nodes(child_node, train_barcodes=train_barcodes, initial_call=False)
+            self.train_all_child_nodes_CPN(child_node, train_barcodes=train_barcodes, initial_call=False)
 
         if initial_call:
             if not 'overall' in self.trainings.keys():
@@ -125,7 +132,7 @@ class CPNBase():
                 'current_node': node
             }
 
-	def predict_single_parent_node_CPN(self, node, test_barcodes=None, barcodes=None):
+    def predict_single_parent_node_CPN(self, node, test_barcodes=None, barcodes=None):
         """"""
 
         print(f'Predicting at parent {node}.')
@@ -236,7 +243,7 @@ class CPNBase():
             'var_names': selected_var_names,
         }
 
-    def predict_all_child_nodes(self, node, test_barcodes=None, initial_call=True):
+    def predict_all_child_nodes_CPN(self, node, test_barcodes=None, initial_call=True):
         """"""
 
         if test_barcodes is None:
@@ -244,10 +251,10 @@ class CPNBase():
 
         # Can not train root node classifier as there are no negative cells
         if len(self.get_child_nodes(node)) != 0:
-            self.predict_single_parent_node(node, test_barcodes)
+            self.predict_single_parent_node_CPN(node, test_barcodes)
 
         for child_node in self.get_child_nodes(node):
-            self.predict_all_child_nodes(child_node, test_barcodes=test_barcodes, initial_call=False)
+            self.predict_all_child_nodes_CPN(child_node, test_barcodes=test_barcodes, initial_call=False)
 
         if initial_call:
             if not 'overall' in self.predictions.keys():

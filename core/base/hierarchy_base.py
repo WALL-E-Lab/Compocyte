@@ -216,7 +216,7 @@ class HierarchyBase():
         if data_type == 'scVI':
             return None
 
-        if not 'selected_var_names' in self.graph.nodes[node].keys():
+        if not 'selected_var_names' in self.graph.nodes[classifier_node].keys():
             var_names = None
 
         else:

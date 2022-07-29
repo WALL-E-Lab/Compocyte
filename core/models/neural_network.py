@@ -10,14 +10,23 @@ import os
 
 class FeatureMaskLayer(keras.layers.Layer):
     def __init__(self, n_features):
-        super(Linear, self).__init__()
-        self.mask = tf.Variable(np.zeros(shape=(n_features)))
+        super(FeatureMaskLayer, self).__init__()
+        self.mask = np.ones(shape=(n_features))
 
     def call(self, inputs):
         return inputs * self.mask
 
     def update_mask(self, mask):
-        self.mask = tf.Variable(mask)
+        if not type(mask) is np.array:
+            self.mask = np.array(mask)
+
+        else:
+            self.mask = mask
+
+    def get_config(self):
+        data = {'mask': self.mask}
+
+        return data
 
 class NeuralNetwork():
     """Add explanation.
@@ -100,8 +109,7 @@ class NeuralNetwork():
                     shape=(layer[0], )))
                 # Lambda layer with mask allows for turning input nodes on/off in the future
                 # Enables flexible, iterative feature selection
-                mask = keras.backend.constant([[1 for i in range(layer[0])]])
-                self.model.add(keras.layers.Lambda(lambda x: x * mask))
+                self.model.add(FeatureMaskLayer(layer[0]))
 
             self.model.add(keras.layers.Dense(
                 input_shape=(layer[0], ),

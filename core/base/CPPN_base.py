@@ -1,5 +1,17 @@
+from classiFire.core.tools import z_transform_properties
+from classiFire.core.models.neural_network import NeuralNetwork
+from classiFire.core.models.logreg import LogRegWrapper
+from classiFire.core.models.single_assignment import SingleAssignment
+from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.metrics import ConfusionMatrixDisplay
+from uncertainties import ufloat
+from copy import deepcopy
+from time import time
+import tensorflow.keras as keras
+import numpy as np
+
 class CPPNBase():
-	def get_training_data(
+    def get_training_data(
         self, 
         node,
         barcodes,
@@ -25,9 +37,9 @@ class CPPNBase():
             Specifies under which key in data_container.adata.obs the target label relevant at this node
             is saved for each cell.
         """
-
-        var_names = self.get_selected_var_names(node, barcodes, obs_name_children)
+        
         data = self.graph.nodes[node]['local_classifier'].data_type
+        var_names = self.get_selected_var_names(node, barcodes, data_type=data)
         return_adata = self.graph.nodes[node]['local_classifier'].input_as_adata
         x, y = self.get_x_y_untransformed(
             barcodes=barcodes, 
@@ -52,7 +64,7 @@ class CPPNBase():
         else:
             return x, y, None, None
 
-	def train_single_node_CPPN(
+    def train_single_node_CPPN(
         self, 
         node, 
         barcodes=None):
@@ -100,7 +112,7 @@ class CPPNBase():
             data_type = type_classifier.possible_data_types[0]
 
         # To do: add vars if new cell type is encountered
-        var_names = self.get_selected_var_names(node, barcodes, obs_name_children, data_type=data_type)
+        var_names = self.get_selected_var_names(node, barcodes, data_type=data_type)
         scVI_key = None
         if data_type == 'scVI':
             scVI_node = self.node_to_scVI[node]
@@ -141,7 +153,7 @@ class CPPNBase():
             'train_con_mat': train_con_mat,
         }
 
-	def train_all_child_nodes_CPPN(
+    def train_all_child_nodes_CPPN(
         self,
         current_node,
         train_barcodes=None,
@@ -231,8 +243,8 @@ class CPPNBase():
             self.set_predictions(obs_key, barcodes, y_pred)
             return
 
-        var_names = self.get_selected_var_names(node, barcodes)
         data = self.graph.nodes[node]['local_classifier'].data_type
+        var_names = self.get_selected_var_names(node, barcodes, data_type=data)
         return_adata = self.graph.nodes[node]['local_classifier'].input_as_adata
         print(f'Predicting with {len(var_names) if type(var_names) != type(None) else "all available"} genes')
         type_classifier = self.get_preferred_classifier(node)

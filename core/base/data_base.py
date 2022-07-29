@@ -452,6 +452,7 @@ class DataBase():
         adata_subset = self.adata[barcodes, :].copy()
         sc.pp.normalize_total(adata_subset)
         sc.pp.log1p(adata_subset)
+        obs_name_children = self.get_children_obs_key(classifier_node)
         sc.tl.rank_genes_groups(adata_subset, obs_name_children, n_genes=n_genes)
         total_top_genes = []
         for label in adata_subset.obs[obs_name_children].unique():
