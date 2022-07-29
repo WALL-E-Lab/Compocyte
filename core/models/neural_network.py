@@ -1,4 +1,5 @@
 import tensorflow.keras as keras
+import tensorflow as tf
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
@@ -6,6 +7,17 @@ from time import time
 import numpy as np
 import pickle
 import os
+
+class FeatureMaskLayer(keras.layers.Layer):
+    def __init__(self, n_features):
+        super(Linear, self).__init__()
+        self.mask = tf.Variable(np.zeros(shape=(n_features)))
+
+    def call(self, inputs):
+        return inputs * self.mask
+
+    def update_mask(self, mask):
+        self.mask = tf.Variable(mask)
 
 class NeuralNetwork():
     """Add explanation.
@@ -86,6 +98,8 @@ class NeuralNetwork():
             if idx == 0:
                 self.model.add(keras.Input(
                     shape=(layer[0], )))
+                # Lambda layer with mask allows for turning input nodes on/off in the future
+                # Enables flexible, iterative feature selection
                 mask = keras.backend.constant([[1 for i in range(layer[0])]])
                 self.model.add(keras.layers.Lambda(lambda x: x * mask))
 
@@ -190,3 +204,8 @@ class NeuralNetwork():
             normalize = 'true')
 
         return acc, con_mat
+
+    def update_feature_mask(self, mask):
+        for layer in self.model.layers:
+            if type(layer) is FeatureMaskLayer:
+                layer.update_mask(mask)
