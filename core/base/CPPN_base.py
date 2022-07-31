@@ -67,7 +67,7 @@ class CPPNBase():
     def train_single_node_CPPN(
         self, 
         node, 
-        barcodes=None):
+        train_barcodes=None):
         """Trains the local classifier stored at node.
 
         Parameters
@@ -79,30 +79,11 @@ class CPPNBase():
             Specifies which cells should be used for training.
         """
 
-        print(f'Training multilabel classifier at {node}.')
-        if type(barcodes) != type(None):
-            print(f'Subsetting to {len(barcodes)} cells based on node assignment and'\
-            ' designation as training data.')
+        if train_barcodes is None:
+            train_barcodes = self.adata.obs_names
 
-        else:
-            barcodes = self.adata.obs_names
-
-        obs_name_children = self.get_children_obs_key(node)
-        # To do: permanent solution, currently circumventing binary decisions being trained
-        # when only one type of child is available in the data
-        child_types_in_data = self.adata[barcodes, :].obs[obs_name_children].unique()
-        corrector = 1 if self.adata[barcodes, :].obs[obs_name_children].hasnans else 0
-        if len(child_types_in_data) - corrector == 1:
-            self.graph.nodes[node]['local_classifier'] = SingleAssignment(child_types_in_data[0])
-            return
-
-        if len(child_types_in_data) - corrector == 0:
-            return
-
-        self.ensure_existence_label_encoder(node)
-        self.set_chi2_feature_selecter(node)
         type_classifier = self.get_preferred_classifier(node)
-        if type(type_classifier) == type(None):
+        if type_classifier is None:
             type_classifier = NeuralNetwork
 
         if self.default_input_data in type_classifier.possible_data_types:
@@ -110,31 +91,85 @@ class CPPNBase():
 
         else:
             data_type = type_classifier.possible_data_types[0]
+            print(f'{self.default_input_data} data is not currently compatible with {type_classifier}. Set to {data_type}')
 
-        # To do: add vars if new cell type is encountered
-        var_names = self.get_selected_var_names(node, barcodes, data_type=data_type)
-        scVI_key = None
-        if data_type == 'scVI':
-            scVI_node = self.node_to_scVI[node]
-            scVI_key = self.get_scVI_key(
-                node=scVI_node, 
-                n_dimensions=self.n_dimensions_scVI,
-                barcodes=barcodes)
+        parent_obs_key = self.get_parent_obs_key(node)
+        children_obs_key = self.get_children_obs_key(node)
+        potential_cells = self.adata[self.adata.obs[parent_obs_key] == parent_node]
+        # To avoid training with cells that should be reserved for testing, make sure to limit
+        # to train_barcodes.
+        relevant_cells = self.adata[[b for b in potential_cells.obs_names if b in train_barcodes], :]
+        # Cells that are unlabeled (nan or '') are not certain to not belong to the cell type in question
+        relevant_cells = self.throw_out_nan(relevant_cells, children_obs_key)
+        if data_type == 'normlog':
+            self.ensure_normlog()
 
-        if data_type == 'scVI':
-            input_n_classifier = self.n_dimensions_scVI
+        n_cell_types = len(relevant_cells)
+        if n_cell_types == 0:
+            return
 
-        elif type(var_names) == type(None):
-            input_n_classifier = len(self.adata.var_names)
+        print(f'Training at {node}.')
+        selected_var_names = list(self.adata.var_names)
+        # Feature selection is only relevant for (transformed) gene data, not embeddings
+        if self.use_feature_selection and data_type in ['counts', 'normlog']:
+            if 'selected_var_names' in self.graph.nodes[node].keys():
+                selected_var_names = self.graph.nodes[node]['selected_var_names']
 
-        else:
-            input_n_classifier = len(var_names)
+            # Cannot define relevant genes for prediction if there is no cell group to compare to
+            elif n_cell_types > 1:
+                selected_var_names = []
+                for label in relevant_cells.obs[children_obs_key].unique():
+                    positive_cells = relevant_cells[relevant_cells.obs[children_obs_key] == label]
+                    negative_cells = relevant_cells[relevant_cells.obs[children_obs_key] != label]
+                
+                    selected_var_names_node = self.feature_selection(
+                        list(positive_cells.obs_names), 
+                        list(negative_cells.obs_names), 
+                        data_type, 
+                        n_features=self.n_top_genes_per_class, 
+                        method='chi2')
+                    selected_var_names = selected_var_names + [f for f in selected_var_names if f not in combined_features]
 
+                self.graph.nodes[node]['selected_var_names'] = selected_var_names
+
+        n_input = len(selected_var_names)
         self.ensure_existence_classifier(
             node, 
-            input_n_classifier,
+            n_input,
             classifier=type_classifier)
-        x, y, y_int, y_onehot = self.get_training_data(node, barcodes, obs_name_children, scVI_key=scVI_key)        
+        if data_type == 'counts':
+            x = relevant_cells[:, selected_var_names].X
+
+        elif data_type == 'normlog':
+            x = relevant_cells[:, selected_var_names].layers['normlog']
+
+        else:
+            raise Exception('Data type not currently supported.')
+
+        if hasattr(x, 'todense'):
+            x = x.todense()
+
+        y = np.array(relevant_cells.obs[child_obs_key])
+        if hasattr(self, 'sampling_method') and type(self.sampling_method) != type(None):
+            res = self.sampling_method(sampling_strategy=self.sampling_strategy)
+            x, y = res.fit_resample(x, y)
+
+        if not 'label_encoding' in self.graph.nodes[node]:
+            self.graph.nodes[node]['label_encoding'] = {}
+
+        for label in np.unique(y):
+            if label in self.graph.nodes[node]['label_encoding']:
+                continue
+
+            idx = len(self.graph.nodes[node]['label_encoding'])
+            self.graph.nodes[node]['label_encoding'][label] = idx
+
+        y_int = np.array(
+                [self.graph.nodes[node]['label_encoding'][label] for label in y]
+            ).astype(int)
+        n_classes = len(self.graph.nodes[node]['label_encoding'])
+        y_onehot = keras.utils.to_categorical(y_int, num_classes=n_classes)
+        x = z_transform_properties(x)
         self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
         train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
         self.graph.nodes[node]['last_train_acc'] = train_acc
@@ -148,7 +183,7 @@ class CPPNBase():
             'node': node,
             'data_type': data_type,
             'type_classifier': type(self.graph.nodes[node]['local_classifier']),
-            'var_names': var_names,
+            'var_names': selected_var_names,
             'train_acc': train_acc,
             'train_con_mat': train_con_mat,
         }
@@ -175,12 +210,7 @@ class CPPNBase():
             classifier. Necessary to enable separation of training and test data for cross-validation.
         """
 
-        obs_name_parent = self.get_parent_obs_key(current_node)
-        true_barcodes = self.get_true_barcodes(
-            obs_name_parent, 
-            current_node, 
-            true_from=train_barcodes)
-        self.train_single_node_CPPN(current_node, true_barcodes)
+        self.train_single_node_CPPN(current_node, train_barcodes)
         for child_node in self.get_child_nodes(current_node):
             if len(self.get_child_nodes(child_node)) == 0:
                 continue
@@ -200,6 +230,7 @@ class CPPNBase():
     def predict_single_node_CPPN(
         self,
         node,
+        test_barcodes=None,
         barcodes=None):
         """Uses an existing classifier at node to assign one of the child labels to the cells
         specified by barcodes. The predictions are stored in self.adata.obs by calling
@@ -216,55 +247,70 @@ class CPPNBase():
             Specifies which cells are to be labelled.
         """
 
-        print(f'Predicting cells at {node}.')
-        if type(barcodes) == type(None):
-            barcodes = self.adata.obs_names
+        print(f'Predicting at parent {node}.')
+        if test_barcodes is None:
+            test_barcodes = list(self.adata.obs_names)
 
-        print(f'Making prediction for {len(barcodes)} cells based on node assignment and'\
-            ' designation as prediction data.')
-        if len(barcodes) == 0:
-            return
+        parent_obs_key = self.get_parent_obs_key(node)
+        if not f'{parent_obs_key}_pred' in self.adata.obs.columns and barcodes is None and not node == self.root_node:
+            raise Exception('If previous nodes were not predicted, barcodes for prediction need to \
+                be given explicitly.')
+
+        elif node == self.root_node and barcodes is None:
+            barcodes = test_barcodes
 
         if not self.is_trained_at(node):
             raise Exception(f'Must train local classifier for {node} before trying to predict cell'\
                 ' types')
 
-        scVI_key = None
-        if self.graph.nodes[node]['local_classifier'].data_type == 'scVI':
-            scVI_node = self.node_to_scVI[node]
-            scVI_key = self.get_scVI_key(
-                node=scVI_node, 
-                n_dimensions=self.n_dimensions_scVI,
-                barcodes=barcodes)
+        potential_cells = self.adata[test_barcodes, :]
+        if barcodes is not None:
+            potential_cells = self.adata[[b for b in barcodes if b in test_barcodes], :]
 
-        if type(self.graph.nodes[node]['local_classifier']) == SingleAssignment:
-            y_pred = self.graph.nodes[node]['local_classifier'].predict(barcodes)
-            obs_key = self.get_children_obs_key(node)
-            self.set_predictions(obs_key, barcodes, y_pred)
+        if f'{parent_obs_key}_pred' in self.adata.obs.columns:
+            relevant_cells = potential_cells[potential_cells.obs[parent_obs_key] == node]
+
+        else:
+            relevant_cells = potential_cells
+
+        if len(relevant_cells) == 0:
             return
 
-        data = self.graph.nodes[node]['local_classifier'].data_type
-        var_names = self.get_selected_var_names(node, barcodes, data_type=data)
-        return_adata = self.graph.nodes[node]['local_classifier'].input_as_adata
-        print(f'Predicting with {len(var_names) if type(var_names) != type(None) else "all available"} genes')
-        type_classifier = self.get_preferred_classifier(node)
-        x = self.get_x_untransformed(barcodes, data=data, var_names=var_names, scVI_key=scVI_key, return_adata=return_adata)
-        if return_adata == False and not type_classifier == LogRegWrapper:
-            x = z_transform_properties(x)
+        data_type = self.graph.nodes[node]['local_classifier'].data_type
+        if type(self.graph.nodes[node]['local_classifier']) != NeuralNetwork:
+            raise Exception('CPPN classification mode currently only compatible with neural networks.')
 
-        elif type_classifier == LogRegWrapper:
-            x = self.graph.nodes[node]['chi2_feature_selecter'].transform(x)
+        selected_var_names = list(self.adata.var_names)
+        # Feature selection is only relevant for (transformed) gene data, not embeddings
+        if self.use_feature_selection and data_type in ['counts', 'normlog']:
+            selected_var_names = self.graph.nodes[node]['selected_var_names']
+
+        if data_type == 'counts':
+            x = relevant_cells[:, selected_var_names].X
+
+        elif data_type == 'normlog':
+            self.ensure_normlog()
+            x = relevant_cells[:, selected_var_names].layers['normlog']
+
+        else:
+            raise Exception('Data type not currently supported.')
+
+        if hasattr(x, 'todense'):
+            x = x.todense()
+
+        x = z_transform_properties(x)
 
         if not self.prob_based_stopping:
-            if type(self.graph.nodes[node]['local_classifier']) in [LogRegWrapper]:
-                y_pred = self.graph.nodes[node]['local_classifier'].predict(x)
+            y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
+            label_decoding = {}
+            for key in self.graph.nodes[node]['label_encoding'].keys():
+                i = self.graph.nodes[node]['label_encoding'][key]
+                label_decoding[i] = key
 
-            else:
-                y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
-                y_pred = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred_int)
-
+            y_pred = np.array(
+                [label_decoding[i] for i in y_pred_int])
             obs_key = self.get_children_obs_key(node)
-            self.set_predictions(obs_key, barcodes, y_pred)
+            self.set_predictions(obs_key, list(relevant_cells.obs_names), y_pred)
 
         #%--------------------------------------------------------------------------------------------------------------------------------------------%#       
         #belongs somewhere in the prediction methds, not sure where yet because of test/training problem
@@ -275,7 +321,13 @@ class CPPNBase():
             y_pred_nan_idx = np.where(np.isnan(y_pred))
             y_pred_not_nan_idx = np.where(np.isnan(y_pred) != True)
             y_pred = y_pred.astype(int)
-            y_pred_not_nan_str = self.graph.nodes[node]['label_encoder'].inverse_transform(y_pred[y_pred_not_nan_idx])
+            label_decoding = {}
+            for key in self.graph.nodes[node]['label_encoding'].keys():
+                i = self.graph.nodes[node]['label_encoding'][key]
+                label_decoding[i] = key
+
+            y_pred_not_nan_str = np.array(
+                [label_decoding[i] for i in y_pred[y_pred_not_nan_idx]])
             y_pred = y_pred.astype(str)
             y_pred[y_pred_not_nan_idx] = y_pred_not_nan_str
             y_pred[y_pred_nan_idx] = 'stopped'
