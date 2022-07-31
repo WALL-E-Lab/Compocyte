@@ -220,14 +220,14 @@ class HierarchyBase():
             var_names = None
 
         else:
-            var_names = self.graph.nodes[node]['selected_var_names']
+            var_names = self.graph.nodes[classifier_node]['selected_var_names']
 
         if type(var_names) == type(None) and self.use_feature_selection == True:
             var_names = self.get_top_genes(
                 classifier_node,
                 barcodes, 
                 self.n_top_genes_per_class)
-            self.set_selected_var_names(node, var_names)
+            self.set_selected_var_names(classifier_node, var_names)
 
         return var_names
 

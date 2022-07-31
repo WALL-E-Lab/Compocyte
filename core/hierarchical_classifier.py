@@ -32,7 +32,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase):
         obs_names=None,
         n_dimensions_scVI=30,
         prob_based_stopping = False,
-        threshold=0.9,
+        threshold=None,
         default_input_data='normlog',
         use_feature_selection=True,
         n_top_genes_per_class=300,
@@ -46,7 +46,11 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase):
         self.save_path = save_path
         self.n_dimensions_scVI = n_dimensions_scVI
         self.prob_based_stopping = prob_based_stopping
-        self.threshold = threshold
+        if threshold is None:
+            self.threshold = {'CPPN': 0.9, 'CPN': 0.6}[classification_mode]
+            
+        else:
+            self.threshold = threshold
         self.default_input_data = default_input_data
         self.use_feature_selection = use_feature_selection
         self.n_top_genes_per_class = n_top_genes_per_class
