@@ -95,7 +95,7 @@ class CPPNBase():
 
         parent_obs_key = self.get_parent_obs_key(node)
         children_obs_key = self.get_children_obs_key(node)
-        potential_cells = self.adata[self.adata.obs[parent_obs_key] == parent_node]
+        potential_cells = self.adata[self.adata.obs[parent_obs_key] == node]
         # To avoid training with cells that should be reserved for testing, make sure to limit
         # to train_barcodes.
         relevant_cells = self.adata[[b for b in potential_cells.obs_names if b in train_barcodes], :]
@@ -128,7 +128,7 @@ class CPPNBase():
                         data_type, 
                         n_features=self.n_top_genes_per_class, 
                         method='chi2')
-                    selected_var_names = selected_var_names + [f for f in selected_var_names if f not in combined_features]
+                    selected_var_names = selected_var_names + [f for f in selected_var_names_node if f not in selected_var_names]
 
                 self.graph.nodes[node]['selected_var_names'] = selected_var_names
 
@@ -149,7 +149,7 @@ class CPPNBase():
         if hasattr(x, 'todense'):
             x = x.todense()
 
-        y = np.array(relevant_cells.obs[child_obs_key])
+        y = np.array(relevant_cells.obs[children_obs_key])
         if hasattr(self, 'sampling_method') and type(self.sampling_method) != type(None):
             res = self.sampling_method(sampling_strategy=self.sampling_strategy)
             x, y = res.fit_resample(x, y)
@@ -167,8 +167,8 @@ class CPPNBase():
         y_int = np.array(
                 [self.graph.nodes[node]['label_encoding'][label] for label in y]
             ).astype(int)
-        n_classes = len(self.graph.nodes[node]['label_encoding'])
-        y_onehot = keras.utils.to_categorical(y_int, num_classes=n_classes)
+        output_len = len(list(self.graph.adj[node].keys()))
+        y_onehot = keras.utils.to_categorical(y_int, num_classes=output_len)
         x = z_transform_properties(x)
         self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
         train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
@@ -179,7 +179,7 @@ class CPPNBase():
             self.trainings[node] = {}
 
         self.trainings[node][timestamp] = {
-            'barcodes': barcodes,
+            'barcodes': list(relevant_cells.obs_names),
             'node': node,
             'data_type': data_type,
             'type_classifier': type(self.graph.nodes[node]['local_classifier']),
@@ -260,8 +260,9 @@ class CPPNBase():
             barcodes = test_barcodes
 
         if not self.is_trained_at(node):
-            raise Exception(f'Must train local classifier for {node} before trying to predict cell'\
+            print(f'Must train local classifier for {node} before trying to predict cell'\
                 ' types')
+            return
 
         potential_cells = self.adata[test_barcodes, :]
         if barcodes is not None:
@@ -333,7 +334,7 @@ class CPPNBase():
             y_pred[y_pred_nan_idx] = 'stopped'
             #child_obs_key says at which hierarchy level the predictions have to be saved
             obs_key = self.get_children_obs_key(node)
-            self.set_predictions(obs_key, barcodes, y_pred)
+            self.set_predictions(obs_key, list(relevant_cells.obs_names), y_pred)
 
         if not node in self.predictions.keys():
             self.predictions[node] = {}
@@ -344,7 +345,7 @@ class CPPNBase():
             'node': node,
             'data_type': self.graph.nodes[node]['local_classifier'].data_type,
             'type_classifier': type(self.graph.nodes[node]['local_classifier']),
-            'var_names': var_names,
+            'var_names': selected_var_names,
         }
 
     def predict_all_child_nodes_CPPN(
