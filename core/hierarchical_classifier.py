@@ -41,6 +41,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase):
         sampling_strategy='auto',
         batch_key='batch', 
         scVI_model_prefix=None,
+        update_feature_selection=True, # Relevant for CPPN currently
         classification_mode='CPN'):
 
         self.save_path = save_path

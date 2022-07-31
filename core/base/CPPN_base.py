@@ -104,16 +104,38 @@ class CPPNBase():
         if data_type == 'normlog':
             self.ensure_normlog()
 
-        n_cell_types = len(relevant_cells)
+        n_cell_types = len(relevant_cells.obs[children_obs_key].unique())
         if n_cell_types == 0:
             return
 
         print(f'Training at {node}.')
-        selected_var_names = list(self.adata.var_names)
+        selected_var_names = None
+        if not 'cell_types_seen' in self.graph.nodes[node]:
+            self.graph.nodes[node]['cell_types_seen'] = []
+
+        # Keeping tracks of which cell types the classifier has encountered to update
+        # if desired the selected features
+        cell_types_seen = self.graph.nodes[node]['cell_types_seen']
+        new_cell_types = [label for label in relevant_cells.obs[children_obs_key].unique() if not label in cell_types_seen]
+        self.graph.nodes[node]['cell_types_seen'] = cell_types_seen + new_cell_types
         # Feature selection is only relevant for (transformed) gene data, not embeddings
         if self.use_feature_selection and data_type in ['counts', 'normlog']:
             if 'selected_var_names' in self.graph.nodes[node].keys():
                 selected_var_names = self.graph.nodes[node]['selected_var_names']
+                if len(new_cell_types) > 0 and self.update_feature_selection and n_cell_types > 1:
+                    for label in new_cell_types:
+                        positive_cells = relevant_cells[relevant_cells.obs[children_obs_key] == label]
+                        negative_cells = relevant_cells[relevant_cells.obs[children_obs_key] != label]
+                    
+                        selected_var_names_node = self.feature_selection(
+                            list(positive_cells.obs_names), 
+                            list(negative_cells.obs_names), 
+                            data_type, 
+                            n_features=self.n_top_genes_per_class, 
+                            method='chi2')
+                        selected_var_names = selected_var_names + [f for f in selected_var_names_node if f not in selected_var_names]
+
+                    self.graph.nodes[node]['selected_var_names'] = selected_var_names
 
             # Cannot define relevant genes for prediction if there is no cell group to compare to
             elif n_cell_types > 1:
@@ -130,13 +152,21 @@ class CPPNBase():
                         method='chi2')
                     selected_var_names = selected_var_names + [f for f in selected_var_names_node if f not in selected_var_names]
 
-                self.graph.nodes[node]['selected_var_names'] = selected_var_names
+                self.graph.nodes[node]['selected_var_names'] = selected_var_names                
 
-        n_input = len(selected_var_names)
+        # Initialize with all available genes as input, banking on mask layer for feature selection
+        n_input = len(self.adata.var_names)
         self.ensure_existence_classifier(
             node, 
             n_input,
             classifier=type_classifier)
+        # As soon as feature selection is available, adjust the mask layer to silence none-selected input nodes
+        if not selected_var_names is None:
+            idx_selected = np.isin(np.array(self.adata.var_names), np.array(selected_var_names))
+            mask = np.zeros(shape=(n_input))
+            mask[idx_selected] = 1
+            self.graph.nodes[node]['local_classifier'].update_feature_mask(mask)
+
         if data_type == 'counts':
             x = relevant_cells[:, selected_var_names].X
 
@@ -482,3 +512,12 @@ class CPPNBase():
             disp = ConfusionMatrixDisplay(confusion_matrix=averaged_con_mat, display_labels=possible_labels)
             disp.plot(xticks_rotation='vertical')
             print(f'Test accuracy was {test_score_mean}')
+
+    def update_hierarchy_CPPN(self, dict_of_cell_relations, root_node=None):
+        if not root_node is None:
+            self.root_node = root_node
+
+        if dict_of_cell_relations == self.dict_of_cell_relations:
+            return
+
+        pass

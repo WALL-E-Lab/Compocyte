@@ -260,47 +260,11 @@ class HierarchyBase():
         return parent_node
 
     def update_hierarchy(self, dict_of_cell_relations, root_node=None):
-        """"""
+        if self.classification_mode == 'CPN':
+            self.update_hierarchy_CPN(dict_of_cell_relations, root_node=root_node)
 
-        if not root_node is None:
-            self.root_node = root_node
+        elif self.classification_mode == 'CPPN':
+            self.update_hierarchy_CPPN(dict_of_cell_relations, root_node=root_node)
 
-        if dict_of_cell_relations == self.dict_of_cell_relations:
-            return
-
-        self.ensure_depth_match(dict_of_cell_relations, self.obs_names)
-        self.ensure_unique_nodes(dict_of_cell_relations)
-        all_nodes_pre = flatten_dict(self.dict_of_cell_relations)
-        self.dict_of_cell_relations = dict_of_cell_relations
-        all_nodes_post = flatten_dict(self.dict_of_cell_relations)
-        self.all_nodes = all_nodes_post
-        self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
-        self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
-        new_graph = nx.DiGraph()
-        make_graph_from_edges(self.dict_of_cell_relations, new_graph)
-
-        new_nodes = [n for n in all_nodes_post if not n in all_nodes_pre]
-        removed_nodes = [n for n in all_nodes_pre if not n in all_nodes_post]
-        moved_nodes = []
-        for node in all_nodes_post:
-            if node in new_nodes:
-                continue
-
-            # Check if node was moved within the hierarchy, i. e. assigned
-            # to a different parent node
-            # Does not change the strategy of assigning the previous node attributes
-            # but may end up a fact of interest
-            if not node == self.root_node:
-                parent_post = self.get_parent_node(node, graph=new_graph)
-                parent_pre = self.get_parent_node(node)
-                if parent_pre != parent_post:
-                    moved_nodes.append(node)
-
-            # Transfer properties, such as local classifier, from old graph
-            # to new graph
-            for item in self.graph.nodes[node]:
-                new_graph.nodes[node][item] = deepcopy(self.graph.nodes[node][item])
-
-            print(f'Transfered to {node}, local classifier {"transferred" if "local_classifier" in self.graph.nodes[node] else "not transferred"}')
-
-        self.graph = new_graph
+        else:
+            raise Exception('Classification mode unknown.')
