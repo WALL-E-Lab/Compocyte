@@ -217,3 +217,15 @@ class NeuralNetwork():
         for layer in self.model.layers:
             if type(layer) is FeatureMaskLayer:
                 layer.update_mask(mask)
+
+    def reset_output(self, n_output):
+        self.n_output = n_output
+        input_shape = (self.model.layers[-1].input.shape[1], )
+        activation = self.model.layers[-1].activation
+        self.model.pop()
+        self.model.add(keras.layers.Dense(
+                        input_shape=input_shape,
+                        units=n_output,
+                        kernel_initializer='glorot_uniform',                                          
+                        bias_initializer='zeros',
+                        activation=activation))

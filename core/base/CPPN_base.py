@@ -187,7 +187,8 @@ class CPPNBase():
         if not 'label_encoding' in self.graph.nodes[node]:
             self.graph.nodes[node]['label_encoding'] = {}
 
-        for label in np.unique(y):
+        child_nodes = self.get_child_nodes(node)
+        for label in child_nodes:
             if label in self.graph.nodes[node]['label_encoding']:
                 continue
 
@@ -197,7 +198,7 @@ class CPPNBase():
         y_int = np.array(
                 [self.graph.nodes[node]['label_encoding'][label] for label in y]
             ).astype(int)
-        output_len = len(list(self.graph.adj[node].keys()))
+        output_len = len(child_nodes)
         y_onehot = keras.utils.to_categorical(y_int, num_classes=output_len)
         x = z_transform_properties(x)
         self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
@@ -520,4 +521,49 @@ class CPPNBase():
         if dict_of_cell_relations == self.dict_of_cell_relations:
             return
 
-        pass
+        self.ensure_depth_match(dict_of_cell_relations, self.obs_names)
+        self.ensure_unique_nodes(dict_of_cell_relations)
+        all_nodes_pre = flatten_dict(self.dict_of_cell_relations)
+        self.dict_of_cell_relations = dict_of_cell_relations
+        all_nodes_post = flatten_dict(self.dict_of_cell_relations)
+        self.all_nodes = all_nodes_post
+        self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
+        self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
+        new_graph = nx.DiGraph()
+        make_graph_from_edges(self.dict_of_cell_relations, new_graph)
+
+        new_nodes = [n for n in all_nodes_post if not n in all_nodes_pre]
+        removed_nodes = [n for n in all_nodes_pre if not n in all_nodes_post]
+        moved_nodes = []
+        classifier_nodes = []
+        for node in all_nodes_post:
+            if node in new_nodes:
+                continue
+
+            # Check if node was moved within the hierarchy, i. e. assigned
+            # to a different parent node
+            # Does not change the strategy of assigning the previous node attributes
+            # but may end up a fact of interest
+            if not node == self.root_node:
+                parent_post = self.get_parent_node(node, graph=new_graph)
+                parent_pre = self.get_parent_node(node)
+                if parent_pre != parent_post:
+                    moved_nodes.append(node)
+
+            # Transfer properties, such as local classifier, from old graph
+            # to new graph
+            for item in self.graph.nodes[node]:
+                new_graph.nodes[node][item] = deepcopy(self.graph.nodes[node][item])
+
+            if "local_classifier" in self.graph.nodes[node]:
+                classifier_nodes.append(node) # Define nodes that contain a classifier
+
+            print(f'Transfered to {node}, local classifier {"transferred" if "local_classifier" in self.graph.nodes[node] else "not transferred"}')
+
+        self.graph = new_graph
+        for node in classifier_nodes:
+            print(f'Ensuring correct output architecture for {node}.')
+            child_nodes = self.get_child_nodes(node)
+            # reset label encoding, unproblematic because the final layer is reinitilaized anyway
+            self.graph.nodes[node]['label_encoding'] = {}
+            self.graph.nodes[node]['local_classifier'].reset_output(len(child_nodes))
