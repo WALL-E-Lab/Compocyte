@@ -325,17 +325,17 @@ class CPPNBase():
         if type(self.graph.nodes[node]['local_classifier']) != NeuralNetwork:
             raise Exception('CPPN classification mode currently only compatible with neural networks.')
 
-        selected_var_names = list(self.adata.var_names)
+        """selected_var_names = list(self.adata.var_names)
         # Feature selection is only relevant for (transformed) gene data, not embeddings
         if self.use_feature_selection and data_type in ['counts', 'normlog']:
-            selected_var_names = self.graph.nodes[node]['selected_var_names']
+            selected_var_names = self.graph.nodes[node]['selected_var_names']"""
 
         if data_type == 'counts':
-            x = relevant_cells[:, selected_var_names].X
+            x = relevant_cells.X
 
         elif data_type == 'normlog':
             self.ensure_normlog()
-            x = relevant_cells[:, selected_var_names].layers['normlog']
+            x = relevant_cells.layers['normlog']
 
         else:
             raise Exception('Data type not currently supported.')

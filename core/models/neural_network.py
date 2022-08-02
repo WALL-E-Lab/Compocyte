@@ -9,9 +9,14 @@ import pickle
 import os
 
 class FeatureMaskLayer(keras.layers.Layer):
-    def __init__(self, n_features):
+    def __init__(self, n_features, mask=None):
         super(FeatureMaskLayer, self).__init__()
-        self.mask = np.ones(shape=(n_features))
+        self.n_features = n_features
+        if mask is None:
+            self.mask = np.ones(shape=(n_features))
+
+        else:
+            self.mask = mask
 
     def call(self, inputs):
         return inputs * self.mask
@@ -24,7 +29,7 @@ class FeatureMaskLayer(keras.layers.Layer):
             self.mask = mask
 
     def get_config(self):
-        data = {'mask': self.mask}
+        data = {'n_features': self.n_features, 'mask': self.mask}
 
         return data
 

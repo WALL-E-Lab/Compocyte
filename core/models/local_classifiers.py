@@ -1,7 +1,7 @@
 import pickle
 import os
 import tensorflow.keras as keras
-from classiFire.core.models.neural_network import NeuralNetwork
+from classiFire.core.models.neural_network import NeuralNetwork, FeatureMaskLayer
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
 
@@ -34,7 +34,7 @@ def load(model_path):
 
 		if key == 'model':
 			if settings_dict['classifier_type'] == 'NN':
-				classifier.model = keras.models.load_model(settings_dict[key])
+				classifier.model = keras.models.load_model(settings_dict[key], custom_objects={'FeatureMaskLayer': FeatureMaskLayer})
 
 			elif settings_dict['classifier_type'] == 'LogReg':
 				classifier.model = pickle.load(settings_dict[key])
