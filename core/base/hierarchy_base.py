@@ -114,12 +114,17 @@ class HierarchyBase():
         self.graph.nodes[node]['local_classifier'].data_type = data_type
         print(f'OVR classifier set up as {type_classifier} with {data_type} data at {node}.')
 
-    def ensure_existence_classifier(self, node, input_len, classifier=NeuralNetwork, is_CPN=False, **kwargs):
+    def ensure_existence_classifier(self, node, input_len, classifier=NeuralNetwork, is_CPN=False, n_output=None, **kwargs):
         """Ensure that for the specified node in the graph, a local classifier exists under the
         key 'local_classifier'.
         """
         
-        output_len = len(list(self.graph.adj[node].keys()))
+        if n_output is None:
+            output_len = len(list(self.graph.adj[node].keys()))
+
+        else:
+            output_len = n_output
+
         define_classifier = False
         if not 'local_classifier' in self.graph.nodes[node].keys() or type(self.graph.nodes[node]['local_classifier']) == SingleAssignment:
             define_classifier = True

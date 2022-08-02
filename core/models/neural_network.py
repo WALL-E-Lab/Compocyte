@@ -145,6 +145,7 @@ class NeuralNetwork():
             stratify=y_int, 
             test_size=0.2, 
             random_state=42)
+        print('Before fit')
         history = self.model.fit(
             x_train,
             y_train,
@@ -153,6 +154,7 @@ class NeuralNetwork():
             verbose = 0,
             validation_data=(x_val, y_val),
             callbacks=[early_stopping_callback, reduce_LR_plateau_callback])
+        print('After fit')
         self.histories.append(history.history)
         if plot:
             # summarize history for accuracy

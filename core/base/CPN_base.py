@@ -1,5 +1,7 @@
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.neural_network import NeuralNetwork
+from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
+    make_graph_from_edges, set_node_to_depth, set_node_to_scVI
 from uncertainties import ufloat
 from time import time
 import tensorflow.keras as keras

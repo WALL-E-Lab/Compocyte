@@ -4,11 +4,14 @@ from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import ConfusionMatrixDisplay
+from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
+    make_graph_from_edges, set_node_to_depth, set_node_to_scVI
 from uncertainties import ufloat
 from copy import deepcopy
 from time import time
 import tensorflow.keras as keras
 import numpy as np
+import psutil
 
 class CPPNBase():
     def get_training_data(
@@ -156,9 +159,13 @@ class CPPNBase():
 
         # Initialize with all available genes as input, banking on mask layer for feature selection
         n_input = len(self.adata.var_names)
+        child_nodes = self.get_child_nodes(node)
+        # Avoid problems with argmax for prediction by ensuring output activation is 2d
+        output_len = max(len(child_nodes), 2)
         self.ensure_existence_classifier(
             node, 
             n_input,
+            n_output=output_len,
             classifier=type_classifier)
         # As soon as feature selection is available, adjust the mask layer to silence none-selected input nodes
         if not selected_var_names is None:
@@ -168,16 +175,20 @@ class CPPNBase():
             self.graph.nodes[node]['local_classifier'].update_feature_mask(mask)
 
         if data_type == 'counts':
-            x = relevant_cells[:, selected_var_names].X
+            x = relevant_cells.X
 
         elif data_type == 'normlog':
-            x = relevant_cells[:, selected_var_names].layers['normlog']
+            x = relevant_cells.layers['normlog']
 
         else:
             raise Exception('Data type not currently supported.')
 
         if hasattr(x, 'todense'):
+            print('Before todense')
+            print(psutil.Process().memory_info().rss / (1024 * 1024))
             x = x.todense()
+            print('After todense')
+            print(psutil.Process().memory_info().rss / (1024 * 1024))
 
         y = np.array(relevant_cells.obs[children_obs_key])
         if hasattr(self, 'sampling_method') and type(self.sampling_method) != type(None):
@@ -187,7 +198,6 @@ class CPPNBase():
         if not 'label_encoding' in self.graph.nodes[node]:
             self.graph.nodes[node]['label_encoding'] = {}
 
-        child_nodes = self.get_child_nodes(node)
         for label in child_nodes:
             if label in self.graph.nodes[node]['label_encoding']:
                 continue
@@ -198,9 +208,12 @@ class CPPNBase():
         y_int = np.array(
                 [self.graph.nodes[node]['label_encoding'][label] for label in y]
             ).astype(int)
-        output_len = len(child_nodes)
         y_onehot = keras.utils.to_categorical(y_int, num_classes=output_len)
+        print('Before z transform')
+        print(psutil.Process().memory_info().rss / (1024 * 1024))
         x = z_transform_properties(x)
+        print('After z transform')
+        print(psutil.Process().memory_info().rss / (1024 * 1024))
         self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
         train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
         self.graph.nodes[node]['last_train_acc'] = train_acc
