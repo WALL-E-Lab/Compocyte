@@ -230,7 +230,7 @@ class NeuralNetwork():
 
     def update_feature_mask(self, mask):
         for layer in self.model.layers:
-            if type(layer) is FeatureMaskLayer:
+            if hasattr(layer, 'mask'):
                 layer.update_mask(mask)
 
     def reset_output(self, n_output):

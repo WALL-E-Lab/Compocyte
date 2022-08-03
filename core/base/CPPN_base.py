@@ -139,6 +139,7 @@ class CPPNBase():
                             method='chi2')
                         selected_var_names = selected_var_names + [f for f in selected_var_names_node if f not in selected_var_names]
 
+                    print('Selected genes updated due to presence of new cell type.')
                     self.graph.nodes[node]['selected_var_names'] = selected_var_names
 
             # Cannot define relevant genes for prediction if there is no cell group to compare to
@@ -156,6 +157,7 @@ class CPPNBase():
                         method='chi2')
                     selected_var_names = selected_var_names + [f for f in selected_var_names_node if f not in selected_var_names]
 
+                print('Selected genes first defined.')
                 self.graph.nodes[node]['selected_var_names'] = selected_var_names                
 
         # Initialize with all available genes as input, banking on mask layer for feature selection
@@ -169,7 +171,8 @@ class CPPNBase():
             n_output=output_len,
             classifier=type_classifier)
         # As soon as feature selection is available, adjust the mask layer to silence none-selected input nodes
-        if not selected_var_names is None:
+        if selected_var_names is not None:
+            print('Feature mask set/updated.')
             idx_selected = np.isin(np.array(self.adata.var_names), np.array(selected_var_names))
             mask = np.zeros(shape=(n_input))
             mask[idx_selected] = 1
@@ -291,6 +294,10 @@ class CPPNBase():
         barcodes
             Specifies which cells are to be labelled.
         """
+
+        if not 'label_encoding' in self.graph.nodes[node] or len(self.graph.nodes[node]['label_encoding']) == 0:
+            raise Exception('No label encoding saved in selected node. \
+                The local classifier has either not been trained or the hierarchy updated and thus the output layer reset.')
 
         print(f'Predicting at parent {node}.')
         if test_barcodes is None:
