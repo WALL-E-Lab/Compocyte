@@ -27,15 +27,6 @@ class FeatureMaskLayer(keras.layers.Layer):
         inputs = tf.cast(inputs, dtype=tf.float64)
         return inputs * self.mask
 
-    def update_mask(self, mask):
-        if not type(mask) is np.array:
-            self.mask = np.array(mask)
-
-        else:
-            self.mask = mask
-
-        self.mask = tf.Variable(self.mask)
-
     def get_config(self):
         data = {'n_features': self.n_features, 'mask': self.mask.numpy()} # try .numpy()
 
@@ -231,7 +222,13 @@ class NeuralNetwork():
     def update_feature_mask(self, mask):
         for layer in self.model.layers:
             if hasattr(layer, 'mask'):
-                layer.update_mask(mask)
+                if not type(mask) is np.array:
+                    layer.mask = np.array(mask)
+
+                else:
+                    layer.mask = mask
+
+                layer.mask = tf.Variable(layer.mask)
 
     def reset_output(self, n_output):
         self.n_output = n_output

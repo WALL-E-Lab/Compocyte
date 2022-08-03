@@ -295,10 +295,6 @@ class CPPNBase():
             Specifies which cells are to be labelled.
         """
 
-        if not 'label_encoding' in self.graph.nodes[node] or len(self.graph.nodes[node]['label_encoding']) == 0:
-            raise Exception('No label encoding saved in selected node. \
-                The local classifier has either not been trained or the hierarchy updated and thus the output layer reset.')
-
         print(f'Predicting at parent {node}.')
         if test_barcodes is None:
             test_barcodes = list(self.adata.obs_names)
@@ -315,6 +311,10 @@ class CPPNBase():
             print(f'Must train local classifier for {node} before trying to predict cell'\
                 ' types')
             return
+
+        if not 'label_encoding' in self.graph.nodes[node] or len(self.graph.nodes[node]['label_encoding'].keys()) == 0:
+            raise Exception('No label encoding saved in selected node. \
+                The local classifier has either not been trained or the hierarchy updated and thus the output layer reset.')
 
         potential_cells = self.adata[test_barcodes, :]
         if barcodes is not None:
@@ -585,6 +585,10 @@ class CPPNBase():
         for node in classifier_nodes:
             print(f'Ensuring correct output architecture for {node}.')
             child_nodes = self.get_child_nodes(node)
-            # reset label encoding, unproblematic because the final layer is reinitilaized anyway
-            self.graph.nodes[node]['label_encoding'] = {}
-            self.graph.nodes[node]['local_classifier'].reset_output(len(child_nodes))
+            # Previously reset all classifier nodes
+            # Bad idea because you want to conserve as much of the training progress as possible,
+            # resetting as little as possible, as much as necessary
+            if True in [n in new_nodes or n in moved_nodes for n in [node] + child_nodes]:
+                # reset label encoding, unproblematic because the final layer is reinitilaized anyway
+                self.graph.nodes[node]['label_encoding'] = {}
+                self.graph.nodes[node]['local_classifier'].reset_output(len(child_nodes))
