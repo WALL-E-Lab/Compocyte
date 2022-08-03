@@ -6,6 +6,7 @@ from uncertainties import ufloat
 from time import time
 import tensorflow.keras as keras
 import numpy as np
+import networkx as nx
 
 class CPNBase():
     def train_single_node_CPN(

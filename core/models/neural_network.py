@@ -18,7 +18,13 @@ class FeatureMaskLayer(keras.layers.Layer):
         else:
             self.mask = mask
 
+        if not type(self.mask) is np.array:
+            self.mask = np.array(self.mask)
+
+        self.mask = tf.Variable(self.mask)
+
     def call(self, inputs):
+        inputs = tf.cast(inputs, dtype=tf.float64)
         return inputs * self.mask
 
     def update_mask(self, mask):
@@ -28,8 +34,10 @@ class FeatureMaskLayer(keras.layers.Layer):
         else:
             self.mask = mask
 
+        self.mask = tf.Variable(self.mask)
+
     def get_config(self):
-        data = {'n_features': self.n_features, 'mask': self.mask}
+        data = {'n_features': self.n_features, 'mask': self.mask.numpy()} # try .numpy()
 
         return data
 

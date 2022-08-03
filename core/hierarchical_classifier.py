@@ -63,6 +63,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase):
         self.hv_genes = hv_genes
         self.trainings = {}
         self.predictions = {}
+        self.update_feature_selection = update_feature_selection
         self.classification_mode = classification_mode
         if type(sampling_method) != type(None):
             self.init_resampling(sampling_method, sampling_strategy)

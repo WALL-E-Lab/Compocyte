@@ -12,6 +12,7 @@ from time import time
 import tensorflow.keras as keras
 import numpy as np
 import psutil
+import networkx as nx
 
 class CPPNBase():
     def get_training_data(
@@ -325,10 +326,10 @@ class CPPNBase():
         if type(self.graph.nodes[node]['local_classifier']) != NeuralNetwork:
             raise Exception('CPPN classification mode currently only compatible with neural networks.')
 
-        """selected_var_names = list(self.adata.var_names)
+        selected_var_names = list(self.adata.var_names)
         # Feature selection is only relevant for (transformed) gene data, not embeddings
-        if self.use_feature_selection and data_type in ['counts', 'normlog']:
-            selected_var_names = self.graph.nodes[node]['selected_var_names']"""
+        if self.use_feature_selection and data_type in ['counts', 'normlog'] and 'selected_var_names' in self.graph.nodes[node]:
+            selected_var_names = self.graph.nodes[node]['selected_var_names']
 
         if data_type == 'counts':
             x = relevant_cells.X
