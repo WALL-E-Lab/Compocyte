@@ -588,7 +588,7 @@ class CPPNBase():
             # Previously reset all classifier nodes
             # Bad idea because you want to conserve as much of the training progress as possible,
             # resetting as little as possible, as much as necessary
-            if True in [n in new_nodes or n in moved_nodes for n in [node] + child_nodes]:
+            if True in [n in new_nodes or n in moved_nodes for n in [node] + list(child_nodes)]:
                 # reset label encoding, unproblematic because the final layer is reinitilaized anyway
                 self.graph.nodes[node]['label_encoding'] = {}
                 self.graph.nodes[node]['local_classifier'].reset_output(len(child_nodes))
