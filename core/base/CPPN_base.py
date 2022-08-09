@@ -13,6 +13,7 @@ import tensorflow.keras as keras
 import numpy as np
 import psutil
 import networkx as nx
+import gc
 
 class CPPNBase():
     def get_training_data(
@@ -235,6 +236,7 @@ class CPPNBase():
             'train_acc': train_acc,
             'train_con_mat': train_con_mat,
         }
+        gc.collect()
 
     def train_all_child_nodes_CPPN(
         self,
@@ -399,6 +401,7 @@ class CPPNBase():
             'type_classifier': type(self.graph.nodes[node]['local_classifier']),
             'var_names': selected_var_names,
         }
+        gc.collect()
 
     def predict_all_child_nodes_CPPN(
         self,
