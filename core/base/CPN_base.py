@@ -298,7 +298,6 @@ class CPNBase():
         all_nodes_post = flatten_dict(self.dict_of_cell_relations)
         self.all_nodes = all_nodes_post
         self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
-        self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
         new_graph = nx.DiGraph()
         make_graph_from_edges(self.dict_of_cell_relations, new_graph)
 

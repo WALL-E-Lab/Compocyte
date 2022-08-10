@@ -30,7 +30,6 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase):
         root_node=None,
         dict_of_cell_relations=None, 
         obs_names=None,
-        n_dimensions_scVI=30,
         prob_based_stopping = False,
         threshold=None,
         default_input_data='normlog',
@@ -40,12 +39,10 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase):
         sampling_method=None,
         sampling_strategy='auto',
         batch_key='batch', 
-        scVI_model_prefix=None,
         update_feature_selection=True, # Relevant for CPPN currently
         classification_mode='CPN'):
 
         self.save_path = save_path
-        self.n_dimensions_scVI = n_dimensions_scVI
         self.prob_based_stopping = prob_based_stopping
         if threshold is None:
             self.threshold = {'CPPN': 0.9, 'CPN': 0.6}[classification_mode]
@@ -55,7 +52,6 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase):
         self.default_input_data = default_input_data
         self.use_feature_selection = use_feature_selection
         self.n_top_genes_per_class = n_top_genes_per_class
-        self.scVI_model_prefix = scVI_model_prefix
         self.adata = None
         self.dict_of_cell_relations = None
         self.root_node = None
