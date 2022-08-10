@@ -148,7 +148,7 @@ class HierarchyBase():
             else:
                 self.graph.nodes[node]['local_classifier'] = classifier(n_input=input_len, n_output=output_len, **kwargs)
 
-        if hasattr(self, 'default_input_data') and self.default_input_data in self.graph.nodes[node]['local_classifier'].possible_data_types:
+        if hasattr(self, 'default_input_data') and self.default_input_data in self.graph.nodes[node]['local_classifier'].possible_data_types or self.default_input_data in self.adata.obsm:
             self.graph.nodes[node]['local_classifier'].data_type = self.default_input_data
 
         print(f'Data type for {node} set to {self.graph.nodes[node]["local_classifier"].data_type}')

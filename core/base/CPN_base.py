@@ -21,7 +21,7 @@ class CPNBase():
         if type_classifier is None:
             type_classifier = NeuralNetwork
 
-        if self.default_input_data in type_classifier.possible_data_types:
+        if self.default_input_data in type_classifier.possible_data_types or self.default_input_data in self.adata.obsm:
             data_type = self.default_input_data
 
         else:
