@@ -1,7 +1,7 @@
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
-    make_graph_from_edges, set_node_to_depth, set_node_to_scVI
+    make_graph_from_edges, set_node_to_depth
 from uncertainties import ufloat
 from time import time
 import tensorflow.keras as keras
@@ -49,20 +49,30 @@ class CPNBase():
             return
 
         print(f'Training at {node}.')
-        selected_var_names = list(self.adata.var_names)
-        # Feature selection is only relevant for (transformed) gene data, not embeddings
-        if self.use_feature_selection and data_type in ['counts', 'normlog']:
-            if 'selected_var_names' in self.graph.nodes[node].keys():
+        if data_type in ['counts', 'normlog']:
+            selected_var_names = list(self.adata.var_names) 
+
+        elif data_type in self.adata.obsm:
+            selected_var_names = list(range(self.adata.obsm[data_type].shape[1]))
+
+        else:
+            raise Exception('Data type not currently supported.')
+
+        if 'selected_var_names' in self.graph.nodes[node].keys():
                 selected_var_names = self.graph.nodes[node]['selected_var_names']
 
-            else:
-                selected_var_names = self.feature_selection(
-                    list(positive_cells.obs_names), 
-                    list(negative_cells.obs_names), 
-                    data_type, 
-                    n_features=self.n_top_genes_per_class, 
-                    method='chi2')
-                self.graph.nodes[node]['selected_var_names'] = selected_var_names
+        elif self.use_feature_selection:
+            # Counts and normlog rely on variable names for unique id of selected features
+            # for embeddings, only selected indices can be provided
+            return_idx = data_type not in ['counts', 'normlog']
+            selected_var_names = self.feature_selection(
+                list(positive_cells.obs_names), 
+                list(negative_cells.obs_names), 
+                data_type, 
+                n_features=self.n_top_genes_per_class, 
+                method='chi2',
+                return_idx=return_idx)
+            self.graph.nodes[node]['selected_var_names'] = selected_var_names
 
         n_input = len(selected_var_names)
         self.ensure_existence_OVR_classifier(
@@ -75,6 +85,9 @@ class CPNBase():
 
         elif data_type == 'normlog':
             x = relevant_cells[:, selected_var_names].layers['normlog']
+
+        elif data_type in relevant_cells.obsm:
+            x = relevant_cells.obsm[data_type][:, selected_var_names]
 
         else:
             raise Exception('Data type not currently supported.')

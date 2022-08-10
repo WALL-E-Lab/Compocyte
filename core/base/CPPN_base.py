@@ -5,7 +5,7 @@ from classiFire.core.models.single_assignment import SingleAssignment
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import ConfusionMatrixDisplay
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
-    make_graph_from_edges, set_node_to_depth, set_node_to_scVI
+    make_graph_from_edges, set_node_to_depth
 from uncertainties import ufloat
 from copy import deepcopy
 from time import time
@@ -16,59 +16,6 @@ import networkx as nx
 import gc
 
 class CPPNBase():
-    def get_training_data(
-        self, 
-        node,
-        barcodes,
-        obs_name_children,
-        scVI_key=None):
-        """Gets untransformed input and target data for the training of a local classifier, 
-        z-transforms the input data (scVI dimensions in the case of NeuralNetwork), calls upon
-        self to encode the cell type labels into onehot and integer format using
-        the label encoder at the local node.
-
-        Parameters
-        ----------
-        node
-            Specifies which local classifier is currently being trained. This information is
-            used to access the relevant label encoder in self.transform_y.
-        barcodes
-            Specifies which cells should be used for training, enabling the retrieval of input
-            and target data for these cells only.
-        scVI_key
-            Specifies under which key in data_container.adata.obsm the relevant scVI dimensions
-            are to be found.
-        obs_name_children
-            Specifies under which key in data_container.adata.obs the target label relevant at this node
-            is saved for each cell.
-        """
-        
-        data = self.graph.nodes[node]['local_classifier'].data_type
-        var_names = self.get_selected_var_names(node, barcodes, data_type=data)
-        return_adata = self.graph.nodes[node]['local_classifier'].input_as_adata
-        x, y = self.get_x_y_untransformed(
-            barcodes=barcodes, 
-            obs_name_children=obs_name_children, 
-            data=data, 
-            var_names=var_names, 
-            scVI_key=scVI_key, 
-            return_adata=return_adata)
-
-        if return_adata == False:
-            if self.get_preferred_classifier(node) != LogRegWrapper:
-                x = z_transform_properties(x)
-
-            else:
-                self.fit_chi2_feature_selecter(node, x, y)
-                x = self.graph.nodes[node]['chi2_feature_selecter'].transform(x)
-
-            y_int, y_onehot = self.transform_y(node, y)
-
-            return x, y, y_int, y_onehot
-
-        else:
-            return x, y, None, None
-
     def train_single_node_CPPN(
         self, 
         node, 
@@ -114,36 +61,41 @@ class CPPNBase():
             return
 
         print(f'Training at {node}.')
-        selected_var_names = list(self.adata.var_names)
-        if not 'cell_types_seen' in self.graph.nodes[node]:
-            self.graph.nodes[node]['cell_types_seen'] = []
+        if data_type in ['counts', 'normlog']:
+            selected_var_names = list(self.adata.var_names) 
 
-        # Feature selection is only relevant for (transformed) gene data, not embeddings
-        if self.use_feature_selection and data_type in ['counts', 'normlog']:
-            if 'selected_var_names' in self.graph.nodes[node].keys():
+        elif data_type in self.adata.obsm:
+            selected_var_names = list(range(self.adata.obsm[data_type].shape[1]))
+
+        else:
+            raise Exception('Data type not currently supported.')
+
+        if 'selected_var_names' in self.graph.nodes[node].keys():
                 selected_var_names = self.graph.nodes[node]['selected_var_names']
 
-            # Cannot define relevant genes for prediction if there is no cell group to compare to
-            elif n_cell_types > 1:
-                # Reinitialize classifier if, for the first time, more than one cell type is present
-                if 'local_classifier' in self.graph.nodes[node]:
-                    del self.graph.nodes[node]['local_classifier']
+        # Cannot define relevant genes for prediction if there is no cell group to compare to
+        elif self.use_feature_selection and n_cell_types > 1:
+            # Reinitialize classifier if, for the first time, more than one cell type is present
+            if 'local_classifier' in self.graph.nodes[node]:
+                del self.graph.nodes[node]['local_classifier']
 
-                selected_var_names = []
-                for label in relevant_cells.obs[children_obs_key].unique():
-                    positive_cells = relevant_cells[relevant_cells.obs[children_obs_key] == label]
-                    negative_cells = relevant_cells[relevant_cells.obs[children_obs_key] != label]
-                
-                    selected_var_names_node = self.feature_selection(
-                        list(positive_cells.obs_names), 
-                        list(negative_cells.obs_names), 
-                        data_type, 
-                        n_features=self.n_top_genes_per_class, 
-                        method='chi2')
-                    selected_var_names = selected_var_names + [f for f in selected_var_names_node if f not in selected_var_names]
+            return_idx = data_type not in ['counts', 'normlog']
+            selected_var_names = []
+            for label in relevant_cells.obs[children_obs_key].unique():
+                positive_cells = relevant_cells[relevant_cells.obs[children_obs_key] == label]
+                negative_cells = relevant_cells[relevant_cells.obs[children_obs_key] != label]
+            
+                selected_var_names_node = self.feature_selection(
+                    list(positive_cells.obs_names), 
+                    list(negative_cells.obs_names), 
+                    data_type, 
+                    n_features=self.n_top_genes_per_class, 
+                    method='chi2',
+                    return_idx=return_idx)
+                selected_var_names = selected_var_names + [f for f in selected_var_names_node if f not in selected_var_names]
 
-                print('Selected genes first defined.')
-                self.graph.nodes[node]['selected_var_names'] = selected_var_names                
+            print('Selected genes first defined.')
+            self.graph.nodes[node]['selected_var_names'] = selected_var_names  
 
         # Initialize with all available genes as input, banking on mask layer for feature selection
         n_input = len(selected_var_names)
@@ -161,15 +113,18 @@ class CPPNBase():
         elif data_type == 'normlog':
             x = relevant_cells[:, selected_var_names].layers['normlog']
 
+        elif data_type in relevant_cells.obsm:
+            x = relevant_cells.obsm[data_type][:, selected_var_names]
+
         else:
             raise Exception('Data type not currently supported.')
 
         if hasattr(x, 'todense'):
-            print('Before todense')
-            print(psutil.Process().memory_info().rss / (1024 * 1024))
+            #print('Before todense')
+            #print(psutil.Process().memory_info().rss / (1024 * 1024))
             x = x.todense()
-            print('After todense')
-            print(psutil.Process().memory_info().rss / (1024 * 1024))
+            #print('After todense')
+            #print(psutil.Process().memory_info().rss / (1024 * 1024))
 
         y = np.array(relevant_cells.obs[children_obs_key])
         if hasattr(self, 'sampling_method') and type(self.sampling_method) != type(None):
@@ -190,11 +145,11 @@ class CPPNBase():
                 [self.graph.nodes[node]['label_encoding'][label] for label in y]
             ).astype(int)
         y_onehot = keras.utils.to_categorical(y_int, num_classes=output_len)
-        print('Before z transform')
-        print(psutil.Process().memory_info().rss / (1024 * 1024))
+        #print('Before z transform')
+        #print(psutil.Process().memory_info().rss / (1024 * 1024))
         x = z_transform_properties(x)
-        print('After z transform')
-        print(psutil.Process().memory_info().rss / (1024 * 1024))
+        #print('After z transform')
+        #print(psutil.Process().memory_info().rss / (1024 * 1024))
         self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
         train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
         self.graph.nodes[node]['last_train_acc'] = train_acc
@@ -528,7 +483,6 @@ class CPPNBase():
         all_nodes_post = flatten_dict(self.dict_of_cell_relations)
         self.all_nodes = all_nodes_post
         self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
-        self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
         new_graph = nx.DiGraph()
         make_graph_from_edges(self.dict_of_cell_relations, new_graph)
 

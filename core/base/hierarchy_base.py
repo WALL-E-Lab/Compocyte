@@ -4,7 +4,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from sklearn.preprocessing import LabelEncoder
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
-    make_graph_from_edges, set_node_to_depth, set_node_to_scVI
+    make_graph_from_edges, set_node_to_depth
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
@@ -30,7 +30,6 @@ class HierarchyBase():
         self.obs_names = obs_names
         self.all_nodes = flatten_dict(self.dict_of_cell_relations)
         self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
-        self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
         self.make_classifier_graph()
 
     def ensure_depth_match(self, dict_of_cell_relations, obs_names):
@@ -216,28 +215,6 @@ class HierarchyBase():
 
     def set_preferred_classifier(self, node, type_classifier):
         self.graph.nodes[node]['preferred_classifier'] = type_classifier
-
-    def get_selected_var_names(self, classifier_node, barcodes, data_type='normlog'):
-        if data_type == 'scVI':
-            return None
-
-        if not 'selected_var_names' in self.graph.nodes[classifier_node].keys():
-            var_names = None
-
-        else:
-            var_names = self.graph.nodes[classifier_node]['selected_var_names']
-
-        if type(var_names) == type(None) and self.use_feature_selection == True:
-            var_names = self.get_top_genes(
-                classifier_node,
-                barcodes, 
-                self.n_top_genes_per_class)
-            self.set_selected_var_names(classifier_node, var_names)
-
-        return var_names
-
-    def set_selected_var_names(self, node, selected_var_names):
-        self.graph.nodes[node]['selected_var_names'] = selected_var_names
 
     def get_preferred_classifier(self, node):
         if 'preferred_classifier' in self.graph.nodes[node].keys():

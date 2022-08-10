@@ -1,4 +1,3 @@
-import scvi
 import os
 import numpy as np
 import scanpy as sc
@@ -96,160 +95,6 @@ class DataBase():
             else:
                 raise ValueError('No raw counts found in adata.X or adata.raw.X.')
 
-    def get_scVI_key(
-        self,
-        node,
-        n_dimensions=10,
-        barcodes=None, 
-        overwrite=False,
-        **kwargs):
-        """This method ensures that scVI data is present as requested, i. e. for the specified
-        barcodes, the specified node and the specified number of dimensions. Returns the obsm key
-        corresponding to the requested scVI data.
-
-        Parameters
-        ----------
-        node
-            Node in the cell label hierarchy for which the scVI data should be specific.
-        n_dimensions
-            Number of latent dimensions/nodes in the scVI bottleneck.
-        barcodes
-            Barcodes belonging to cells which are to be predicted/trained with and for whom,
-            consequently, scVI dimensions should be available.
-        overwrite
-            Whether or not existing scVI dimensions fitting all criteria should be overwritten.
-        """
-        
-        key = f'X_scVI_{n_dimensions}_{node}'
-        # Run scVI if it has not been run at the specified number of dimensions or for the specified
-        # node
-        if not key in self.adata.obsm or overwrite:
-            self.run_scVI(
-                n_dimensions, 
-                key, 
-                barcodes=barcodes, 
-                overwrite=overwrite, 
-                **kwargs)
-
-        # Also run scVI again if entry does not exist for all barcodes supplied
-        elif type(barcodes) != type(None):
-            adata_subset = self.adata[barcodes, :]
-            if np.isnan(adata_subset.obsm[key]).any():
-                self.run_scVI(
-                    n_dimensions, 
-                    key, 
-                    barcodes=barcodes, 
-                    overwrite=overwrite,
-                    **kwargs)
-
-        return key
-
-    def run_scVI(
-        self, 
-        n_dimensions, 
-        key, 
-        barcodes=None, 
-        overwrite=False,
-        **kwargs):
-        """Run scVI with parameters taken from the scvi-tools scANVI tutorial.
-
-        Parameters
-        ----------
-        n_dimensions
-            Number of latent dimensions/nodes in the scVI bottleneck.
-        key
-            Key under which to save the latent representation in self.adata.obsm.
-        barcodes
-            Barcodes belonging to cells which are to be predicted/trained with and for whom,
-            consequently, scVI dimensions should be available.
-        overwrite
-            Whether or not existing scVI dimensions fitting all criteria should be overwritten.
-        """
-
-        # Check if scVI has previously been trained for this node and number of dimensions
-
-        scvi_save_path = os.path.join(
-            self.save_path, 
-            'models', 
-            'scvi')
-        if not os.path.exists(scvi_save_path):
-            os.makedirs(scvi_save_path)
-
-        #### TODO: Robust model saving and loading
-        models = [model for model in os.listdir(scvi_save_path) if model.endswith(key)]
-        if len(models) > 0:
-            model = models[-1]
-            model_exists = True
-
-        else:
-            model = f'{self.scVI_model_prefix}_{key}'
-            model_exists = False
-
-        model_path = os.path.join(self.save_path,
-            'models',
-            'scvi', 
-            model)        
-        #model_exists = os.path.exists(model_path)
-        if type(barcodes) != type(None):
-            relevant_adata = self.adata[barcodes, :].copy()
-
-        else:
-            relevant_adata = self.adata
-
-        scvi.model.SCVI.setup_anndata(
-            relevant_adata,
-            batch_key=self.batch_key)
-
-        save_model = False
-        if model_exists and not overwrite:
-            vae = scvi.model.SCVI.load_query_data(
-                relevant_adata,
-                model_path)
-
-        else:
-            save_model = True
-            arches_params = dict(
-                use_layer_norm="both",
-                use_batch_norm="none",
-                encode_covariates=True,
-                dropout_rate=0.2,
-                n_layers=2,
-                n_latent=n_dimensions)
-            vae = scvi.model.SCVI(
-                relevant_adata,
-                **arches_params)
-
-        vae.train(
-            early_stopping=True,
-            early_stopping_patience=10)
-
-        if save_model:
-            self.scVI_model_prefix = datetime.now().isoformat(timespec='minutes')
-            model_path = os.path.join(
-                self.save_path, 
-                'models', 
-                'scvi', 
-                f'{self.scVI_model_prefix}_{key}')
-            vae.save(
-                model_path,
-                overwrite=True)
-
-        if type(barcodes) != type(None):
-            # Ensure that scVI values in the relevant obsm key are only being set for those
-            # cells that belong to the specified subset (by barcodes) and values for all other
-            # cells are set to np.nan
-            scvi_template = np.empty(shape=(len(self.adata), n_dimensions))
-            scvi_template[:] = np.nan
-            barcodes_np_index = np.where(
-                np.isin(
-                    np.array(self.adata.obs_names), 
-                    barcodes))[0]
-            scvi_template[barcodes_np_index, :] = vae.get_latent_representation()
-            self.adata.obsm[key] = scvi_template
-
-        else:
-            self.adata.obsm[key] = vae.get_latent_representation()
-
     def ensure_normlog(self):
         if not 'normlog' in self.adata.layers:            
             copy_adata = self.adata.copy()
@@ -264,126 +109,6 @@ class DataBase():
         adata = adata[(adata.obs[obs_key] != adata.obs[obs_key]) != True]
 
         return adata
-
-    def get_x_y_untransformed(
-        self, 
-        barcodes, 
-        obs_name_children, 
-        data='normlog',
-        var_names=None,
-        scVI_key=None,
-        return_adata=False):
-        """Add explanation
-        """
-
-        if type(var_names) == type(None):
-            var_names = list(self.adata.var_names)
-
-        self.ensure_normlog()
-        adata_subset = self.adata[barcodes, var_names]
-        # thoughts on July 5th: can't train a classifier without a label regardless of prediction mode???
-        #if hasattr(self, 'prob_based_stopping') and self.prob_based_stopping == False:
-            # If leaf node prediction is mandatory, make sure that all cells have a valid cell type label in the target level
-        adata_subset = self.throw_out_nan(adata_subset, obs_name_children)
-
-        if data == 'normlog':
-            x = adata_subset.layers['normlog']
-
-        elif data == 'counts':
-            x = adata_subset.X
-
-        elif data == 'scVI':
-            if type(scVI_key) == type(None):
-                raise Exception('You are trying to use scVI data as training data, please supply a valid obsm key.')
-
-            x = adata_subset.obsm[scVI_key]
-
-        else:
-            raise Exception('Please specify the type of data you want to supply to the classifier. Options are: "scVI", "counts" and "normlog".')
-
-        if hasattr(x, 'todense'):
-            x = x.todense()
-
-        y = np.array(adata_subset.obs[obs_name_children])
-        if hasattr(self, 'sampling_method') and type(self.sampling_method) != type(None):
-            res = self.sampling_method(sampling_strategy=self.sampling_strategy)
-            x_res, y_res = res.fit_resample(x, y)
-
-        else:
-            x_res, y_res = x, y
-
-        if return_adata == False:
-            return x_res, y_res
-
-        elif data != 'scVI':
-            adata_subset_res = sc.AnnData(x_res)
-            adata_subset_res.var = pd.DataFrame(index=adata_subset.var_names)
-            adata_subset_res.obs[obs_name_children] = y_res
-            return adata_subset_res, obs_name_children
-
-        else:
-            raise Exception('Returning an AnnData object is not compatible with scVI data.')
-
-
-    def get_x_untransformed(
-        self, 
-        barcodes, 
-        data='normlog', 
-        var_names=None, 
-        scVI_key=None, 
-        return_adata=False):
-        """Add explanation.
-        """
-        
-        if type(var_names) == type(None):
-            var_names = self.adata.var_names
-
-        adata_subset = self.adata[barcodes, var_names]
-        if data == 'normlog':
-            self.ensure_normlog()
-            x = adata_subset.layers['normlog']
-
-        elif data == 'counts':
-            x = adata_subset.X
-
-        elif data == 'scVI':
-            if type(scVI_key) == type(None):
-                raise Exception('You are trying to use scVI data as training data, please supply a valid obsm key.')
-
-            x = adata_subset.obsm[scVI_key]
-
-        else:
-            raise Exception('Please specify the type of data you want to supply to the classifier. Options are: "scVI", "counts" and "normlog".')
-
-        if hasattr(x, 'todense'):
-            x = x.todense()
-
-        if return_adata == False:
-            return x
-
-        elif data != 'scVI':
-            adata_subset_selected = sc.AnnData(x)
-            adata_subset_selected.var = pd.DataFrame(index=adata_subset.var_names)
-            return adata_subset_selected
-
-        else:
-            raise Exception('Returning an AnnData object is not compatible with scVI data.')
-
-    def get_true_barcodes(self, obs_name_node, node, true_from=None):
-        """Retrieves bar codes of the cells that match the node supplied in the obs column supplied.
-        Important for training using only the cells that are actually classified as belonging to
-        that node.
-        """
-
-        adata_subset = self.adata[self.adata.obs[obs_name_node] == node]
-        if type(true_from) != type(None):
-            true_from = list(true_from)
-            true_barcodes = [b for b in adata_subset.obs_names if b in true_from]
-
-        else:
-            true_barcodes = adata_subset.obs_names
-
-        return true_barcodes
 
     def set_predictions(self, obs_key, barcodes, y_pred):
         """Add explanation.
@@ -462,7 +187,7 @@ class DataBase():
 
         return total_top_genes
 
-    def feature_selection(self, barcodes_positive, barcodes_negative, data_type, n_features=300, method='chi2'):
+    def feature_selection(self, barcodes_positive, barcodes_negative, data_type, n_features=300, method='chi2', return_idx=False):
         self.adata.obs.loc[barcodes_positive, 'node'] = 'yes'
         self.adata.obs.loc[barcodes_negative, 'node'] = 'no'
         barcodes = barcodes_positive + barcodes_negative
@@ -472,14 +197,23 @@ class DataBase():
         elif data_type == 'counts':
             x = self.adata[barcodes, :].X
 
+        elif data_type in self.adata.obsm:
+            x = self.adata[barcodes, :].obsm[data_type]
+
         else:
             raise Exception('Feature selection not implemeted for embeddings.')
 
         y = self.adata[barcodes, :].obs['node'].values
+        # Make sure the default n_features option does not lead to trying to select more features than available
+        n_features = min(x.shape[1], n_features)
         selecter = SelectKBest(chi2, k=n_features)
         selecter.fit(x, y)
 
-        return list(self.adata.var_names[selecter.get_support()])
+        if return_idx:
+            return selecter.get_support()
+
+        else:
+            return list(self.adata.var_names[selecter.get_support()])
 
     def init_resampling(self, sampling_method, sampling_strategy='auto'):
         self.sampling_method = sampling_method
