@@ -70,7 +70,7 @@ class CPNBase():
                 list(negative_cells.obs_names), 
                 data_type, 
                 n_features=self.n_top_genes_per_class, 
-                method='chi2',
+                method='f_classif',
                 return_idx=return_idx)
             self.graph.nodes[node]['selected_var_names'] = selected_var_names
 

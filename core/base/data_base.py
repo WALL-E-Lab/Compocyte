@@ -3,10 +3,10 @@ import numpy as np
 import scanpy as sc
 import pandas as pd
 from datetime import datetime
-from classiFire.core.tools import is_counts
+from classiFire.core.tools import is_counts, z_transform_properties
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from scipy import sparse
-from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.feature_selection import SelectKBest, chi2, f_classif
 import matplotlib.pyplot as plt
 
 class DataBase():
@@ -187,7 +187,7 @@ class DataBase():
 
         return total_top_genes
 
-    def feature_selection(self, barcodes_positive, barcodes_negative, data_type, n_features=300, method='chi2', return_idx=False):
+    def feature_selection(self, barcodes_positive, barcodes_negative, data_type, n_features=300, method='f_classif', return_idx=False):
         self.adata.obs.loc[barcodes_positive, 'node'] = 'yes'
         self.adata.obs.loc[barcodes_negative, 'node'] = 'no'
         barcodes = barcodes_positive + barcodes_negative
@@ -203,14 +203,16 @@ class DataBase():
         else:
             raise Exception('Feature selection not implemeted for embeddings.')
 
+        x = z_transform_properties(x)
         y = self.adata[barcodes, :].obs['node'].values
         # Make sure the default n_features option does not lead to trying to select more features than available
         n_features = min(x.shape[1], n_features)
-        selecter = SelectKBest(chi2, k=n_features)
+        selecter = SelectKBest(f_classif, k=n_features)
         selecter.fit(x, y)
 
         if return_idx:
-            return selecter.get_support()
+            bool_idx = selecter.get_support()
+            return list(np.where(bool_idx)[0])
 
         else:
             return list(self.adata.var_names[selecter.get_support()])

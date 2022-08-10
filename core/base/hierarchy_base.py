@@ -8,7 +8,7 @@ from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_uniq
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
-from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.feature_selection import SelectKBest, f_classif
 from copy import deepcopy
 
 class HierarchyBase():
@@ -84,25 +84,25 @@ class HierarchyBase():
 
         return self.obs_names[depth_parent]
 
-    def set_chi2_feature_selecter(self, node, number_features=50):
-        """save chi2 feature selecter in one node, train only once""" 
+    def set_f_classif_feature_selecter(self, node, number_features=50):
+        """save f_classif feature selecter in one node, train only once""" 
 
         # To do: is this really only trained once or is that something that needs to be implemented???
 
-        self.graph.nodes[node]['chi2_feature_selecter'] = SelectKBest(chi2, k = number_features)
-        self.graph.nodes[node]['chi2_feature_selecter_trained'] = False
+        self.graph.nodes[node]['f_classif_feature_selecter'] = SelectKBest(f_classif, k = number_features)
+        self.graph.nodes[node]['f_classif_feature_selecter_trained'] = False
 
-    def fit_chi2_feature_selecter(self, node, x_feature_fit, y_feature_fit):
-        """fit chi2 feature selecter once, i.e. only with one trainings dataset"""
+    def fit_f_classif_feature_selecter(self, node, x_feature_fit, y_feature_fit):
+        """fit f_classif feature selecter once, i.e. only with one trainings dataset"""
 
         # To do: see above? need to be sure that features are not selected again for every new training run
 
-        if self.graph.nodes[node]['chi2_feature_selecter_trained'] == False:
-            self.graph.nodes[node]['chi2_feature_selecter'].fit(x_feature_fit, y_feature_fit)
-            self.graph.nodes[node]['chi2_feature_selecter_trained'] = True
+        if self.graph.nodes[node]['f_classif_feature_selecter_trained'] == False:
+            self.graph.nodes[node]['f_classif_feature_selecter'].fit(x_feature_fit, y_feature_fit)
+            self.graph.nodes[node]['f_classif_feature_selecter_trained'] = True
 
         else: 
-            print('Chi2 Feature selecter already trained, using trained selecter!')
+            print('f_classif Feature selecter already trained, using trained selecter!')
 
     def ensure_existence_OVR_classifier(self, node, n_input, type_classifier, data_type, **kwargs):
         print(f'Trying creating OVR at {node}')

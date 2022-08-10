@@ -71,7 +71,7 @@ class CPPNBase():
             raise Exception('Data type not currently supported.')
 
         if 'selected_var_names' in self.graph.nodes[node].keys():
-                selected_var_names = self.graph.nodes[node]['selected_var_names']
+            selected_var_names = self.graph.nodes[node]['selected_var_names']
 
         # Cannot define relevant genes for prediction if there is no cell group to compare to
         elif self.use_feature_selection and n_cell_types > 1:
@@ -90,7 +90,7 @@ class CPPNBase():
                     list(negative_cells.obs_names), 
                     data_type, 
                     n_features=self.n_top_genes_per_class, 
-                    method='chi2',
+                    method='f_classif',
                     return_idx=return_idx)
                 selected_var_names = selected_var_names + [f for f in selected_var_names_node if f not in selected_var_names]
 
@@ -266,9 +266,17 @@ class CPPNBase():
         if type(self.graph.nodes[node]['local_classifier']) != NeuralNetwork:
             raise Exception('CPPN classification mode currently only compatible with neural networks.')
 
-        selected_var_names = list(self.adata.var_names)
+        if data_type in ['counts', 'normlog']:
+            selected_var_names = list(self.adata.var_names) 
+
+        elif data_type in self.adata.obsm:
+            selected_var_names = list(range(self.adata.obsm[data_type].shape[1]))
+
+        else:
+            raise Exception('Data type not supported.')
+
         # Feature selection is only relevant for (transformed) gene data, not embeddings
-        if self.use_feature_selection and data_type in ['counts', 'normlog'] and 'selected_var_names' in self.graph.nodes[node]:
+        if self.use_feature_selection and 'selected_var_names' in self.graph.nodes[node]:
             selected_var_names = self.graph.nodes[node]['selected_var_names']
 
         if data_type == 'counts':
@@ -277,6 +285,9 @@ class CPPNBase():
         elif data_type == 'normlog':
             self.ensure_normlog()
             x = relevant_cells[:, selected_var_names].layers['normlog']
+
+        elif data_type in relevant_cells.obsm:
+            x = relevant_cells.obsm[data_type][:, selected_var_names]
 
         else:
             raise Exception('Data type not currently supported.')
