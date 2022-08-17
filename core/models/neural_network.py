@@ -8,30 +8,6 @@ import numpy as np
 import pickle
 import os
 
-class FeatureMaskLayer(keras.layers.Layer):
-    def __init__(self, n_features, mask=None):
-        super(FeatureMaskLayer, self).__init__()
-        self.n_features = n_features
-        if mask is None:
-            self.mask = np.ones(shape=(n_features))
-
-        else:
-            self.mask = mask
-
-        if not type(self.mask) is np.array:
-            self.mask = np.array(self.mask)
-
-        self.mask = tf.Variable(self.mask)
-
-    def call(self, inputs):
-        inputs = tf.cast(inputs, dtype=tf.float64)
-        return inputs * self.mask
-
-    def get_config(self):
-        data = {'n_features': self.n_features, 'mask': self.mask.numpy()} # try .numpy()
-
-        return data
-
 class NeuralNetwork():
     """Add explanation.
     """
@@ -111,9 +87,6 @@ class NeuralNetwork():
             if idx == 0:
                 self.model.add(keras.Input(
                     shape=(layer[0], )))
-                # Lambda layer with mask allows for turning input nodes on/off in the future
-                # Enables flexible, iterative feature selection
-                self.model.add(FeatureMaskLayer(layer[0]))
 
             self.model.add(keras.layers.Dense(
                 input_shape=(layer[0], ),
@@ -218,17 +191,6 @@ class NeuralNetwork():
             normalize = 'true')
 
         return acc, con_mat
-
-    def update_feature_mask(self, mask):
-        for layer in self.model.layers:
-            if hasattr(layer, 'mask'):
-                if not type(mask) is np.array:
-                    layer.mask = np.array(mask)
-
-                else:
-                    layer.mask = mask
-
-                layer.mask = tf.Variable(layer.mask)
 
     def reset_output(self, n_output):
         self.n_output = n_output
