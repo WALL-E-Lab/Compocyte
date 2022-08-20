@@ -53,6 +53,7 @@ class NeuralNetwork():
         dropout=0.4,
         max_epochs=1000,
         batch_size=40,
+        discretization=False,
         **kwargs
     ):
         """Add explanation.
@@ -69,6 +70,7 @@ class NeuralNetwork():
         self.batch_size = batch_size
         self.activation_function = lambda x: keras.activations.relu(x, alpha=0.1)
         self.histories = []
+        self.discretization = discretization
         self.init_model()
 
     def init_model(self):
@@ -87,6 +89,8 @@ class NeuralNetwork():
             if idx == 0:
                 self.model.add(keras.Input(
                     shape=(layer[0], )))
+                if discretization:
+                    self.model.add(keras.layers.Discretization(bin_boundaries=[-0.675, 0, 0.675]))
 
             self.model.add(keras.layers.Dense(
                 input_shape=(layer[0], ),
@@ -191,15 +195,3 @@ class NeuralNetwork():
             normalize = 'true')
 
         return acc, con_mat
-
-    def reset_output(self, n_output):
-        self.n_output = n_output
-        input_shape = (self.model.layers[-1].input.shape[1], )
-        activation = self.model.layers[-1].activation
-        self.model.pop()
-        self.model.add(keras.layers.Dense(
-                        input_shape=input_shape,
-                        units=n_output,
-                        kernel_initializer='glorot_uniform',                                          
-                        bias_initializer='zeros',
-                        activation=activation))

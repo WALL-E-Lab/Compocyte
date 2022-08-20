@@ -1,4 +1,5 @@
 import os
+import gc
 import numpy as np
 import scanpy as sc
 import pandas as pd
@@ -203,6 +204,10 @@ class DataBase():
         else:
             raise Exception('Feature selection not implemeted for embeddings.')
 
+        if hasattr(x, 'todense'):
+            x = x.todense()
+            x = np.asarray(x)
+
         x = z_transform_properties(x)
         y = self.adata[barcodes, :].obs['node'].values
         # Make sure the default n_features option does not lead to trying to select more features than available
@@ -212,9 +217,11 @@ class DataBase():
 
         if return_idx:
             bool_idx = selecter.get_support()
+            gc.collect()
             return list(np.where(bool_idx)[0])
 
         else:
+            gc.collect()
             return list(self.adata.var_names[selecter.get_support()])
 
     def init_resampling(self, sampling_method, sampling_strategy='auto'):
