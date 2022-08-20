@@ -1,5 +1,6 @@
 import os
 import gc
+import warnings
 import numpy as np
 import scanpy as sc
 import pandas as pd
@@ -212,6 +213,8 @@ class DataBase():
         y = self.adata[barcodes, :].obs['node'].values
         # Make sure the default n_features option does not lead to trying to select more features than available
         n_features = min(x.shape[1], n_features)
+        warnings.filterwarnings(action='ignore', category=RuntimeWarning)
+        warnings.filterwarnings(action='ignore', category=UserWarning)
         selecter = SelectKBest(f_classif, k=n_features)
         selecter.fit(x, y)
 

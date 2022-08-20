@@ -40,7 +40,9 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase):
         sampling_strategy='auto',
         batch_key='batch', 
         update_feature_selection=True, # Relevant for CPPN currently
-        classification_mode='CPN'):
+        classification_mode='CPN',
+        discretization=False,
+        l2_reg_input=False):
 
         self.save_path = save_path
         self.prob_based_stopping = prob_based_stopping
@@ -61,6 +63,8 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase):
         self.predictions = {}
         self.update_feature_selection = update_feature_selection
         self.classification_mode = classification_mode
+        self.discretization = discretization
+        self.l2_reg_input = l2_reg_input
         if type(sampling_method) != type(None):
             self.init_resampling(sampling_method, sampling_strategy)
 

@@ -89,7 +89,7 @@ def hierarchy_names_unique(hierarchy_dict):
     
     return len(all_nodes) == len(set(all_nodes))
 
-def z_transform_properties(data_arr):
+def z_transform_properties(data_arr, discretization=False):
     """Calculates a z transformation to center properties across cells in data_arr \
     around mean zero
     """
@@ -97,6 +97,9 @@ def z_transform_properties(data_arr):
     mean_vals = np.mean(data_arr, axis=0)
     std_val = np.std(data_arr)
     data_transformed = (data_arr - mean_vals) / std_val
+    bin_boundaries = [-0.675, 0, 0.675]
+    if discretization:
+        data_transformed = np.digitize(data_transformed, bin_boundaries)
 
     return data_transformed
 

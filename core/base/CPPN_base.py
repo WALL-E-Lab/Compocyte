@@ -97,7 +97,6 @@ class CPPNBase():
             print('Selected genes first defined.')
             self.graph.nodes[node]['selected_var_names'] = selected_var_names  
 
-        # Initialize with all available genes as input, banking on mask layer for feature selection
         n_input = len(selected_var_names)
         child_nodes = self.get_child_nodes(node)
         # Avoid problems with argmax for prediction by ensuring output activation is 2d
@@ -106,7 +105,9 @@ class CPPNBase():
             node, 
             n_input,
             n_output=output_len,
-            classifier=type_classifier)
+            classifier=type_classifier,
+            discretization=self.discretization,
+            l2_reg_input=self.l2_reg_input)
         if data_type == 'counts':
             x = relevant_cells[:, selected_var_names].X
 

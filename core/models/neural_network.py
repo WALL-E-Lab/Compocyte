@@ -54,6 +54,7 @@ class NeuralNetwork():
         max_epochs=1000,
         batch_size=40,
         discretization=False,
+        l2_reg_input=False,
         **kwargs
     ):
         """Add explanation.
@@ -71,6 +72,7 @@ class NeuralNetwork():
         self.activation_function = lambda x: keras.activations.relu(x, alpha=0.1)
         self.histories = []
         self.discretization = discretization
+        self.l2_reg_input = l2_reg_input
         self.init_model()
 
     def init_model(self):
@@ -89,15 +91,28 @@ class NeuralNetwork():
             if idx == 0:
                 self.model.add(keras.Input(
                     shape=(layer[0], )))
-                if discretization:
+                if self.discretization:
                     self.model.add(keras.layers.Discretization(bin_boundaries=[-0.675, 0, 0.675]))
 
-            self.model.add(keras.layers.Dense(
-                input_shape=(layer[0], ),
-                units=layer[1],
-                kernel_initializer='glorot_uniform',                                          
-                bias_initializer='zeros',
-                activation=activation))
+            if not l2_reg_input is None:
+                self.model.add(keras.layers.Dense(
+                    input_shape=(layer[0], ),
+                    units=layer[1],
+                    kernel_initializer='glorot_uniform',                                          
+                    bias_initializer='zeros',
+                    activation=activation,
+                    kernel_regularizer=regularizers.L1L2(l1=1e-5, l2=1e-4),
+                    bias_regularizer=regularizers.L2(1e-4),
+                    activity_regularizer=regularizers.L2(1e-5)))
+
+            else:
+                self.model.add(keras.layers.Dense(
+                    input_shape=(layer[0], ),
+                    units=layer[1],
+                    kernel_initializer='glorot_uniform',                                          
+                    bias_initializer='zeros',
+                    activation=activation))
+
             if dropout > 0.0:
                 self.model.add(keras.layers.Dropout(dropout))
 
@@ -195,3 +210,15 @@ class NeuralNetwork():
             normalize = 'true')
 
         return acc, con_mat
+
+    def reset_output(self, n_output):
+        self.n_output = n_output
+        input_shape = (self.model.layers[-1].input.shape[1], )
+        activation = self.model.layers[-1].activation
+        self.model.pop()
+        self.model.add(keras.layers.Dense(
+                        input_shape=input_shape,
+                        units=n_output,
+                        kernel_initializer='glorot_uniform',
+                        bias_initializer='zeros',
+                        activation=activation)) 
