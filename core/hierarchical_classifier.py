@@ -202,7 +202,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase):
 
     def train_single_node(self, node, train_barcodes=None, barcodes=None):
         if self.classification_mode == 'CPPN':
-            self.train_single_node_CPPN(node, barcodes=barcodes)
+            self.train_single_node_CPPN(node, train_barcodes=barcodes)
 
         elif self.classification_mode == 'CPN':
             self.train_single_node_CPN(node, train_barcodes=train_barcodes)

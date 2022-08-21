@@ -189,15 +189,10 @@ class DataBase():
 
         return total_top_genes
 
-    def feature_selection(self, barcodes_positive, barcodes_negative, data_type, n_features=300, method='f_classif', return_idx=False):
+    def feature_selection(self, barcodes_positive, barcodes_negative, data_type, n_features=300, method='f_classif', return_idx=False, max_n_features=10000):
         self.adata.obs.loc[barcodes_positive, 'node'] = 'yes'
         self.adata.obs.loc[barcodes_negative, 'node'] = 'no'
-        barcodes = barcodes_positive + barcodes_negative
-        pct_subset = len(barcodes_positive) / len(self.adata)
-        # n_features is simply overwritten if method=='hvg'
-        projected_positive_cells = pct_subset * self.projected_total_cells
-        # should not exceed a ratio of 1:100 of features to training samples as per google rules of ml
-        max_n_features = projected_positive_cells / 100
+        barcodes = barcodes_positive + barcodes_negative        
         n_features = min(n_features, max_n_features)
 
         if method == 'hvg':
@@ -214,11 +209,13 @@ class DataBase():
 
             table = sc.pp.highly_variable_genes(
                 self.adata[barcodes, :], 
-                n_top_genes=100, 
+                n_top_genes=n_features, 
                 inplace=False, 
                 flavor=flavor,
                 layer=layer)
-            hv_genes = list(table[table['highly_variable']].index)
+            hv_genes = table[table['highly_variable']].index
+            if type(hv_genes[0]) == int:
+                hv_genes = list(self.adata.var.index[hv_genes])
 
             gc.collect()
             return hv_genes

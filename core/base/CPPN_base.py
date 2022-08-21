@@ -81,6 +81,11 @@ class CPPNBase():
 
             return_idx = data_type not in ['counts', 'normlog']
             selected_var_names = []
+            pct_relevant = len(relevant_cells) / len(self.adata)
+            # n_features is simply overwritten if method=='hvg'
+            projected_relevant_cells = pct_relevant * self.projected_total_cells
+            # should not exceed a ratio of 1:100 of features to training samples as per google rules of ml
+            max_n_features = int(projected_relevant_cells / 100)
             for label in relevant_cells.obs[children_obs_key].unique():
                 positive_cells = relevant_cells[relevant_cells.obs[children_obs_key] == label]
                 negative_cells = relevant_cells[relevant_cells.obs[children_obs_key] != label]
@@ -90,8 +95,9 @@ class CPPNBase():
                     list(negative_cells.obs_names), 
                     data_type, 
                     n_features=self.n_top_genes_per_class, 
-                    method='hvg',
-                    return_idx=return_idx)
+                    method='f_classif',
+                    return_idx=return_idx,
+                    max_n_features=max_n_features)
                 selected_var_names = selected_var_names + [f for f in selected_var_names_node if f not in selected_var_names]
 
             print('Selected genes first defined.')
