@@ -193,6 +193,36 @@ class DataBase():
         self.adata.obs.loc[barcodes_positive, 'node'] = 'yes'
         self.adata.obs.loc[barcodes_negative, 'node'] = 'no'
         barcodes = barcodes_positive + barcodes_negative
+        pct_subset = len(barcodes_positive) / len(self.adata)
+        # n_features is simply overwritten if method=='hvg'
+        projected_positive_cells = pct_subset * self.projected_total_cells
+        # should not exceed a ratio of 1:100 of features to training samples as per google rules of ml
+        max_n_features = projected_positive_cells / 100
+        n_features = min(n_features, max_n_features)
+
+        if method == 'hvg':
+            if data_type == 'counts':
+                flavor = 'seurat_v3'
+                layer = None
+
+            elif data_type == 'normlog':
+                flavor = 'seurat'
+                layer = 'normlog'
+
+            else:
+                raise Exception('HVG selection not implemented for embeddings.')
+
+            table = sc.pp.highly_variable_genes(
+                self.adata[barcodes, :], 
+                n_top_genes=100, 
+                inplace=False, 
+                flavor=flavor,
+                layer=layer)
+            hv_genes = list(table[table['highly_variable']].index)
+
+            gc.collect()
+            return hv_genes
+
         if data_type == 'normlog':
             x = self.adata[barcodes, :].layers['normlog']
 
@@ -215,6 +245,9 @@ class DataBase():
         n_features = min(x.shape[1], n_features)
         warnings.filterwarnings(action='ignore', category=RuntimeWarning)
         warnings.filterwarnings(action='ignore', category=UserWarning)
+
+        
+
         selecter = SelectKBest(f_classif, k=n_features)
         selecter.fit(x, y)
 

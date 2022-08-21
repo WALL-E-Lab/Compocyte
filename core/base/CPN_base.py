@@ -80,8 +80,7 @@ class CPNBase():
             n_input,
             type_classifier,
             data_type,
-            discretization=self.discretization,
-            l2_reg_input=self.l2_reg_input)
+            **self.NN_arguments)
         if data_type == 'counts':
             x = relevant_cells[:, selected_var_names].X
 

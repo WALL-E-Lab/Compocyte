@@ -42,7 +42,9 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase):
         update_feature_selection=True, # Relevant for CPPN currently
         classification_mode='CPN',
         discretization=False,
-        l2_reg_input=False):
+        l2_reg_input=False,
+        projected_total_cells=100000,
+        hidden_layers=[64, 64]):
 
         self.save_path = save_path
         self.prob_based_stopping = prob_based_stopping
@@ -65,6 +67,13 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase):
         self.classification_mode = classification_mode
         self.discretization = discretization
         self.l2_reg_input = l2_reg_input
+        self.projected_total_cells = projected_total_cells
+        self.hidden_layers = hidden_layers
+        self.NN_arguments = {
+            'discretization': discretization,
+            'l2_reg_input': l2_reg_input,
+            'hidden_layers': hidden_layers,
+        }
         if type(sampling_method) != type(None):
             self.init_resampling(sampling_method, sampling_strategy)
 

@@ -94,16 +94,16 @@ class NeuralNetwork():
                 if self.discretization:
                     self.model.add(keras.layers.Discretization(bin_boundaries=[-0.675, 0, 0.675]))
 
-            if not l2_reg_input is None:
+            if self.l2_reg_input:
                 self.model.add(keras.layers.Dense(
                     input_shape=(layer[0], ),
                     units=layer[1],
                     kernel_initializer='glorot_uniform',                                          
                     bias_initializer='zeros',
                     activation=activation,
-                    kernel_regularizer=regularizers.L1L2(l1=1e-5, l2=1e-4),
-                    bias_regularizer=regularizers.L2(1e-4),
-                    activity_regularizer=regularizers.L2(1e-5)))
+                    kernel_regularizer=keras.regularizers.L1L2(l1=1e-5, l2=1e-4),
+                    bias_regularizer=keras.regularizers.L2(1e-4),
+                    activity_regularizer=keras.regularizers.L2(1e-5)))
 
             else:
                 self.model.add(keras.layers.Dense(

@@ -90,7 +90,7 @@ class CPPNBase():
                     list(negative_cells.obs_names), 
                     data_type, 
                     n_features=self.n_top_genes_per_class, 
-                    method='f_classif',
+                    method='hvg',
                     return_idx=return_idx)
                 selected_var_names = selected_var_names + [f for f in selected_var_names_node if f not in selected_var_names]
 
@@ -106,8 +106,7 @@ class CPPNBase():
             n_input,
             n_output=output_len,
             classifier=type_classifier,
-            discretization=self.discretization,
-            l2_reg_input=self.l2_reg_input)
+            **self.NN_arguments)
         if data_type == 'counts':
             x = relevant_cells[:, selected_var_names].X
 
