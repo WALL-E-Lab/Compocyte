@@ -2,6 +2,7 @@ from classiFire.core.base.data_base import DataBase
 from classiFire.core.base.hierarchy_base import HierarchyBase
 from classiFire.core.base.CPN_base import CPNBase
 from classiFire.core.base.CPPN_base import CPPNBase
+from classiFire.core.base.export_import_base import ExportImportBase
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.neural_network import NeuralNetwork
 from classiFire.core.models.logreg import LogRegWrapper
@@ -19,7 +20,7 @@ import os
 import pickle
 import scanpy as sc
 
-class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase):
+class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportImportBase):
     """Add explanation
     """
 

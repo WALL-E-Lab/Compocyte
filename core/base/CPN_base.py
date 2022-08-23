@@ -72,8 +72,10 @@ class CPNBase():
                 n_features=self.n_top_genes_per_class, 
                 method='f_classif',
                 return_idx=return_idx)
-            self.graph.nodes[node]['selected_var_names'] = selected_var_names
 
+        # Make sure that selected var names are exported even if all features are used
+        # for export compatibility
+        self.graph.nodes[node]['selected_var_names'] = selected_var_names
         n_input = len(selected_var_names)
         self.ensure_existence_OVR_classifier(
             node, 
