@@ -79,13 +79,14 @@ class DenseKeras(keras.Model, DenseBase):
         sequential_kwargs={}, 
         **kwargs):
 
+        super().__init__()
         if model is None:
             if n_input or n_output is None:
                 raise Exception('If the model is to be defined from scratch, input and output need to be defined.')
 
             self.init_sequential(n_input, n_output, **sequential_kwargs)
 
-        elif issubclass(model, keras.Model):
+        elif issubclass(type(model), keras.Model):
             self.model = model
 
         else:
@@ -188,7 +189,7 @@ class DenseKeras(keras.Model, DenseBase):
 
     @classmethod
     def import_external(cls, model, feature_names, data_type, label_encoding, label_decoding, is_binary=False):
-        if not issubclass(model, keras.Model):
+        if not issubclass(type(model), keras.Model):
             raise TypeException('To import an external model as DenseKeras, it must be a subclass of keras.Model.')
 
         pass
@@ -202,7 +203,7 @@ class DenseTorch(torch.nn.Module, DenseBase):
 
     @classmethod
     def import_external(cls, model, feature_names, data_type, label_encoding, label_decoding, is_binary=False):
-        if not issubclass(model, torch.nn.Module):
+        if not issubclass(type(model), torch.nn.Module):
             raise TypeException('To import an external model as DenseTorch, it must be a subclass of torch.nn.Module.')
 
         pass

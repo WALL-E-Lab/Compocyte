@@ -1,5 +1,5 @@
 from classiFire.core.tools import z_transform_properties
-from classiFire.core.models.neural_network import NeuralNetwork
+from classiFire.core.models.dense import DenseKeras, DenseTorch
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
 from sklearn.model_selection import train_test_split, StratifiedKFold
@@ -36,7 +36,7 @@ class CPPNBase():
 
         type_classifier = self.get_preferred_classifier(node)
         if type_classifier is None:
-            type_classifier = NeuralNetwork
+            type_classifier = DenseKeras
 
         if self.default_input_data in type_classifier.possible_data_types or self.default_input_data in self.adata.obsm:
             data_type = self.default_input_data
@@ -112,7 +112,7 @@ class CPPNBase():
             n_input,
             n_output=output_len,
             classifier=type_classifier,
-            **self.NN_arguments)
+            sequential_kwargs=self.sequential_kwargs)
         if data_type == 'counts':
             x = relevant_cells[:, selected_var_names].X
 
@@ -156,10 +156,7 @@ class CPPNBase():
         x = z_transform_properties(x)
         #print('After z transform')
         #print(psutil.Process().memory_info().rss / (1024 * 1024))
-        self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
-        train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
-        self.graph.nodes[node]['last_train_acc'] = train_acc
-        self.graph.nodes[node]['last_train_con_mat'] = train_con_mat
+        self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int, train_kwargs=self.train_kwargs)
         timestamp = str(time()).replace('.', '_')
         if not node in self.trainings.keys():
             self.trainings[node] = {}
@@ -169,9 +166,7 @@ class CPPNBase():
             'node': node,
             'data_type': data_type,
             'type_classifier': type(self.graph.nodes[node]['local_classifier']),
-            'var_names': selected_var_names,
-            'train_acc': train_acc,
-            'train_con_mat': train_con_mat,
+            'var_names': selected_var_names
         }
         gc.collect()
 
@@ -269,7 +264,7 @@ class CPPNBase():
             return
 
         data_type = self.graph.nodes[node]['local_classifier'].data_type
-        if type(self.graph.nodes[node]['local_classifier']) != NeuralNetwork:
+        if type(self.graph.nodes[node]['local_classifier']) != DenseKeras:
             raise Exception('CPPN classification mode currently only compatible with neural networks.')
 
         if data_type in ['counts', 'normlog']:
@@ -304,7 +299,7 @@ class CPPNBase():
         x = z_transform_properties(x)
 
         if not self.prob_based_stopping:
-            y_pred_int = self.graph.nodes[node]['local_classifier'].predict(x)
+            y_pred_int = np.argmax(self.graph.nodes[node]['local_classifier'].predict(x), axis=-1)
             label_decoding = {}
             for key in self.graph.nodes[node]['label_encoding'].keys():
                 i = self.graph.nodes[node]['label_encoding'][key]

@@ -4,7 +4,7 @@ from classiFire.core.base.CPN_base import CPNBase
 from classiFire.core.base.CPPN_base import CPPNBase
 from classiFire.core.base.export_import_base import ExportImportBase
 from classiFire.core.tools import z_transform_properties
-from classiFire.core.models.neural_network import NeuralNetwork
+from classiFire.core.models.dense import DenseKeras, DenseTorch
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
 from classiFire.core.models.local_classifiers import load
@@ -40,12 +40,11 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
         sampling_method=None,
         sampling_strategy='auto',
         batch_key='batch', 
-        update_feature_selection=True, # Relevant for CPPN currently
         classification_mode='CPN',
-        discretization=False,
-        l2_reg_input=False,
         projected_total_cells=100000,
-        hidden_layers=[64, 64]):
+        sequential_kwargs={}, # hidden_layers learning_rate momentum loss_function dropout discretization l2_reg_input
+        train_kwargs={} # batch_size epochs verbose plot
+        ):
 
         self.save_path = save_path
         self.prob_based_stopping = prob_based_stopping
@@ -64,17 +63,10 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
         self.hv_genes = hv_genes
         self.trainings = {}
         self.predictions = {}
-        self.update_feature_selection = update_feature_selection
         self.classification_mode = classification_mode
-        self.discretization = discretization
-        self.l2_reg_input = l2_reg_input
         self.projected_total_cells = projected_total_cells
-        self.hidden_layers = hidden_layers
-        self.NN_arguments = {
-            'discretization': discretization,
-            'l2_reg_input': l2_reg_input,
-            'hidden_layers': hidden_layers,
-        }
+        self.sequential_kwargs = sequential_kwargs
+        self.train_kwargs = train_kwargs
         if type(sampling_method) != type(None):
             self.init_resampling(sampling_method, sampling_strategy)
 
@@ -139,7 +131,16 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
 
             for key in self.graph.nodes[node].keys():
                 if key == 'local_classifier':
-                    self.graph.nodes[node]['local_classifier'].save(self.save_path, node)
+                    model_path = os.path.join(
+                        self.save_path, 
+                        'models',
+                        node,
+                        timestamp
+                    )
+                    if not os.path.exists(model_path):
+                        os.makedirs(model_path)
+
+                    self.graph.nodes[node]['local_classifier'].save(os.path.join(model_path, 'model.SavedModel'))
                     continue
 
                 with open(os.path.join(node_content_path, f'{key}.pickle'), 'wb') as f:
@@ -185,7 +186,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
             if os.path.exists(model_path):
                 timestamps = os.listdir(model_path)
                 last_timestamp = sorted(timestamps)[-1]
-                classifier = load(os.path.join(model_path, last_timestamp))
+                classifier = classifier.model = keras.models.load_model(os.path.join(model_path, last_timestamp, 'model.SavedModel'))
                 self.graph.nodes[node]['local_classifier'] = classifier
 
             if os.path.exists(node_content_path):

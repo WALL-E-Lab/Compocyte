@@ -1,5 +1,5 @@
 from classiFire.core.tools import z_transform_properties
-from classiFire.core.models.neural_network import NeuralNetwork
+from classiFire.core.models.dense import DenseKeras, DenseTorch
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
     make_graph_from_edges, set_node_to_depth
 from uncertainties import ufloat
@@ -19,7 +19,7 @@ class CPNBase():
 
         type_classifier = self.get_preferred_classifier(node)
         if type_classifier is None:
-            type_classifier = NeuralNetwork
+            type_classifier = DenseKeras
 
         if self.default_input_data in type_classifier.possible_data_types or self.default_input_data in self.adata.obsm:
             data_type = self.default_input_data
@@ -82,7 +82,7 @@ class CPNBase():
             n_input,
             type_classifier,
             data_type,
-            **self.NN_arguments)
+            sequential_kwargs=self.sequential_kwargs)
         if data_type == 'counts':
             x = relevant_cells[:, selected_var_names].X
 
@@ -106,10 +106,7 @@ class CPNBase():
         y_int = (y == node).astype(int)
         y_onehot = keras.utils.to_categorical(y_int, num_classes=2)
         x = z_transform_properties(x)
-        self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int)
-        train_acc, train_con_mat = self.graph.nodes[node]['local_classifier'].validate(x=x, y_int=y_int, y=y)
-        self.graph.nodes[node]['last_train_acc'] = train_acc
-        self.graph.nodes[node]['last_train_con_mat'] = train_con_mat
+        self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int, train_kwargs=self.train_kwargs)
         timestamp = str(time()).replace('.', '_')
         if not node in self.trainings.keys():
             self.trainings[node] = {}
@@ -120,8 +117,6 @@ class CPNBase():
             'data_type': self.graph.nodes[node]['local_classifier'].data_type,
             'type_classifier': type(self.graph.nodes[node]['local_classifier']),
             'var_names': selected_var_names,
-            'train_acc': train_acc,
-            'train_con_mat': train_con_mat,
         }
 
     def train_all_child_nodes_CPN(
@@ -188,7 +183,7 @@ class CPNBase():
 
             predicted_nodes.append(child_node)
             data_type = self.graph.nodes[child_node]['local_classifier'].data_type
-            if type(self.graph.nodes[child_node]['local_classifier']) != NeuralNetwork:
+            if type(self.graph.nodes[child_node]['local_classifier']) != DenseKeras:
                 raise Exception('CPN classification mode currently only compatible with neural networks.')
 
             selected_var_names = list(self.adata.var_names)
@@ -212,14 +207,14 @@ class CPNBase():
             x = z_transform_properties(x)
             # the second output node (at index 1) is defined to represent a positive prediction for the node in question
             if activations_positive is None:
-                activations_positive = self.graph.nodes[child_node]['local_classifier'].predict_proba(x)[:, 1]
+                activations_positive = self.graph.nodes[child_node]['local_classifier'].predict(x)[:, 1]
 
             else:
                 # each row represents all activations (across cells) for a single possible label
                 # each column represents the activations of the output node representing a positive result for all possible labels
                 activations_positive = np.vstack((
                     activations_positive,
-                    self.graph.nodes[child_node]['local_classifier'].predict_proba(x)[:, 1]))
+                    self.graph.nodes[child_node]['local_classifier'].predict(x)[:, 1]))
 
         if len(predicted_nodes) == 0:
             return

@@ -5,7 +5,7 @@ import tensorflow.keras as keras
 from sklearn.preprocessing import LabelEncoder
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
     make_graph_from_edges, set_node_to_depth
-from classiFire.core.models.neural_network import NeuralNetwork
+from classiFire.core.models.dense import DenseKeras, DenseTorch
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
 from sklearn.feature_selection import SelectKBest, f_classif
@@ -113,7 +113,7 @@ class HierarchyBase():
         self.graph.nodes[node]['local_classifier'].data_type = data_type
         print(f'OVR classifier set up as {type_classifier} with {data_type} data at {node}.')
 
-    def ensure_existence_classifier(self, node, input_len, classifier=NeuralNetwork, is_CPN=False, n_output=None, **kwargs):
+    def ensure_existence_classifier(self, node, input_len, classifier=DenseKeras, is_CPN=False, n_output=None, **kwargs):
         """Ensure that for the specified node in the graph, a local classifier exists under the
         key 'local_classifier'.
         """
@@ -184,8 +184,8 @@ class HierarchyBase():
         """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
         # print(f'type_classifier from predict_.._proba: {type_classifier}')
         type_classifier = type(self.graph.nodes[node]['local_classifier'])
-        if type_classifier == NeuralNetwork:
-            y_pred_proba = self.graph.nodes[node]['local_classifier'].predict_proba(x)
+        if type_classifier == DenseKeras:
+            y_pred_proba = self.graph.nodes[node]['local_classifier'].predict(x)
             #y_pred_proba array_like with length of predictable classes, entries of form x element [0,1]
             #with sum(y_pred) = 1 along axis 1 (for one cell)
 
