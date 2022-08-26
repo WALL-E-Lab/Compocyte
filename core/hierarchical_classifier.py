@@ -140,7 +140,9 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
                     if not os.path.exists(model_path):
                         os.makedirs(model_path)
 
-                    self.graph.nodes[node]['local_classifier'].save(os.path.join(model_path, 'model.SavedModel'))
+                    if type(self.graph.nodes[node]['local_classifier']) is DenseKeras:
+                        self.graph.nodes[node]['local_classifier'].save(os.path.join(model_path, 'model.SavedModel'))
+                        
                     continue
 
                 with open(os.path.join(node_content_path, f'{key}.pickle'), 'wb') as f:
@@ -186,7 +188,10 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
             if os.path.exists(model_path):
                 timestamps = os.listdir(model_path)
                 last_timestamp = sorted(timestamps)[-1]
-                classifier = keras.models.load_model(os.path.join(model_path, last_timestamp, 'model.SavedModel'))
+                model_folder = os.listdir(os.path.join(model_path, last_timestamp))[0]
+                if model_folder.endswith('SavedModel'):
+                    classifier = DenseKeras.load_model(os.path.join(model_path, last_timestamp, 'model.SavedModel'))
+
                 self.graph.nodes[node]['local_classifier'] = classifier
 
             if os.path.exists(node_content_path):

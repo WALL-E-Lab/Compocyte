@@ -7,6 +7,8 @@ class DenseBase():
     """
     """
 
+    possible_data_types = ['counts', 'normlog']
+
     def train(
         self,
         x,
@@ -189,6 +191,15 @@ class DenseKeras(keras.Model, DenseBase):
 
     def call(self, inputs):
         return self.model.call(inputs)
+
+    @classmethod
+    def load_model(cls, path):
+        # Reinitialize because simply using keras.load_model messes up the variable type of the model
+        loaded_model = keras.models.load_model(path)
+        model = cls(model=loaded_model.model)
+        model.set_data_type(loaded_model.data_type)
+
+        return model
 
     @classmethod
     def import_external(cls, model, feature_names, data_type, label_encoding, label_decoding, is_binary=False):
