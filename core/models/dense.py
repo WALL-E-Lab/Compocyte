@@ -51,7 +51,7 @@ class DenseBase():
             self.plot_training(history, 'loss')
 
     def predict(self, x):
-        return self.model.predict(x)
+        return self.predict(x)
 
     def plot_training(self, history, to_plot):
         plt.plot(history.history[f'{to_plot}'])
@@ -92,7 +92,7 @@ class DenseKeras(keras.Model, DenseBase):
             self.model = model
 
         else:
-            raise TypeException('To import an external model as DenseKeras, it must be a subclass of keras.Model.')
+            raise TypeError('To import an external model as DenseKeras, it must be a subclass of keras.Model.')
 
         callbacks = []
         if early_stopping: 
@@ -204,7 +204,7 @@ class DenseKeras(keras.Model, DenseBase):
     @classmethod
     def import_external(cls, model, feature_names, data_type, label_encoding, label_decoding, is_binary=False):
         if not issubclass(type(model), keras.Model):
-            raise TypeException('To import an external model as DenseKeras, it must be a subclass of keras.Model.')
+            raise TypeError('To import an external model as DenseKeras, it must be a subclass of keras.Model.')
 
         pass
 
@@ -218,6 +218,6 @@ class DenseTorch(torch.nn.Module, DenseBase):
     @classmethod
     def import_external(cls, model, feature_names, data_type, label_encoding, label_decoding, is_binary=False):
         if not issubclass(type(model), torch.nn.Module):
-            raise TypeException('To import an external model as DenseTorch, it must be a subclass of torch.nn.Module.')
+            raise TypeError('To import an external model as DenseTorch, it must be a subclass of torch.nn.Module.')
 
         pass
