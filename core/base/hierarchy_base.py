@@ -110,7 +110,7 @@ class HierarchyBase():
             return
 
         self.graph.nodes[node]['local_classifier'] = type_classifier(n_input=n_input, n_output=2, **kwargs)
-        self.graph.nodes[node]['local_classifier'].data_type = data_type
+        self.graph.nodes[node]['local_classifier'].set_data_type(data_type)
         print(f'OVR classifier set up as {type_classifier} with {data_type} data at {node}.')
 
     def ensure_existence_classifier(self, node, input_len, classifier=DenseKeras, is_CPN=False, n_output=None, **kwargs):
@@ -149,7 +149,7 @@ class HierarchyBase():
                 self.graph.nodes[node]['local_classifier'] = classifier(n_input=input_len, n_output=output_len, **kwargs)
 
         if hasattr(self, 'default_input_data') and self.default_input_data in self.graph.nodes[node]['local_classifier'].possible_data_types or self.default_input_data in self.adata.obsm:
-            self.graph.nodes[node]['local_classifier'].data_type = self.default_input_data
+            self.graph.nodes[node]['local_classifier'].set_data_type(self.default_input_data)
 
         print(f'Data type for {node} set to {self.graph.nodes[node]["local_classifier"].data_type}')
         return type(self.graph.nodes[node]['local_classifier'])

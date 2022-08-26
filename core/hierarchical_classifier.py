@@ -186,7 +186,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
             if os.path.exists(model_path):
                 timestamps = os.listdir(model_path)
                 last_timestamp = sorted(timestamps)[-1]
-                classifier = classifier.model = keras.models.load_model(os.path.join(model_path, last_timestamp, 'model.SavedModel'))
+                classifier = keras.models.load_model(os.path.join(model_path, last_timestamp, 'model.SavedModel'))
                 self.graph.nodes[node]['local_classifier'] = classifier
 
             if os.path.exists(node_content_path):

@@ -1,12 +1,12 @@
 import pickle
 import os
 import tensorflow.keras as keras
-from classiFire.core.models.neural_network import NeuralNetwork
+from classiFire.core.models.dense import DenseKeras
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
 
 _classifiers = {
-	'NN': NeuralNetwork,
+	'NN': DenseKeras,
 	'LogReg': LogRegWrapper,
 	'SA': SingleAssignment
 }

@@ -7,9 +7,6 @@ class DenseBase():
     """
     """
 
-    possible_data_types = ['counts', 'normlog']
-    data_type = 'normlog'
-
     def train(
         self,
         x,
@@ -18,7 +15,8 @@ class DenseBase():
         batch_size=40,
         epochs=1000,
         verbose=0,
-        plot=False):
+        plot=False,
+        **kwargs):
 
         if hasattr(self, 'callbacks'):
             callbacks = self.callbacks
@@ -37,7 +35,7 @@ class DenseBase():
             random_state=42)
         # TODO
         # Make sure this is transferable to torch
-        history = self.model.fit(
+        history = self.fit(
             x_train,
             y_train,
             batch_size=batch_size,
@@ -80,8 +78,10 @@ class DenseKeras(keras.Model, DenseBase):
         **kwargs):
 
         super().__init__()
+        self.possible_data_types = tf.Variable(['counts', 'normlog'])
+        self.data_type = tf.Variable('normlog')
         if model is None:
-            if n_input or n_output is None:
+            if n_input is None or n_output is None:
                 raise Exception('If the model is to be defined from scratch, input and output need to be defined.')
 
             self.init_sequential(n_input, n_output, **sequential_kwargs)
@@ -112,6 +112,9 @@ class DenseKeras(keras.Model, DenseBase):
         if not len(callbacks) == 0:
             self.callbacks = callbacks
 
+    def set_data_type(self, data_type):
+        self.data_type = tf.Variable(data_type)
+
     def init_sequential(
         self, 
         n_input, 
@@ -126,7 +129,7 @@ class DenseKeras(keras.Model, DenseBase):
 
         self.model = keras.models.Sequential()
         activation_function = lambda x: keras.activations.relu(x, alpha=0.1)
-        layers = [self.n_input] + self.hidden_layers + [self.n_output]
+        layers = [n_input] + hidden_layers + [n_output]
         layers_in_out = list(zip(layers[:-1], layers[1:]))
         for idx, layer in enumerate(layers_in_out):
             if idx == len(layers_in_out) - 1: # final layer
@@ -140,7 +143,7 @@ class DenseKeras(keras.Model, DenseBase):
             if idx == 0:
                 self.model.add(keras.Input(
                     shape=(layer[0], )))
-                if self.discretization:
+                if discretization:
                     self.model.add(keras.layers.Discretization(bin_boundaries=[-0.675, 0, 0.675]))
 
             if l2_reg_input:
@@ -166,11 +169,11 @@ class DenseKeras(keras.Model, DenseBase):
                 self.model.add(keras.layers.Dropout(dropout_layer))
 
         optimizer = keras.optimizers.SGD(
-            learning_rate = self.learning_rate, 
-            momentum = self.momentum)
-        self.model.compile(
-            optimizer = optimizer, 
-            loss = loss_function,
+            learning_rate=learning_rate, 
+            momentum=momentum)
+        self.compile(
+            optimizer=optimizer, 
+            loss=loss_function,
             metrics=['accuracy'])
 
     def reset_output(self, n_output):

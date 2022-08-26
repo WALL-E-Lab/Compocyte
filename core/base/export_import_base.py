@@ -1,5 +1,5 @@
 from copy import deepcopy
-from classiFire.core.models.neural_network import NeuralNetwork
+from classiFire.core.models.dense import DenseKeras, DenseTorch
 import networkx as nx
 
 class ExportImportBase():
@@ -24,7 +24,7 @@ class ExportImportBase():
         dict_of_cell_relations = deepcopy(self.dict_of_cell_relations)
         for node in list(self.graph):
             if 'local_classifier' in self.graph.nodes[node]:
-                if type(self.graph.nodes[node]['local_classifier']) is not NeuralNetwork:
+                if type(self.graph.nodes[node]['local_classifier']) is not DenseKeras:
                     raise Exception('Classifier exported not currently implemented for this type of classifier.')
 
                 path_to_node = nx.shortest_path(self.graph, self.root_node, node)
