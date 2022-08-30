@@ -3,6 +3,7 @@ import tensorflow as tf
 import torch
 import matplotlib
 import matplotlib.pyplot as plt
+import warnings
 from sklearn.model_selection import train_test_split
 
 class DenseKeras(keras.Model):
@@ -278,11 +279,17 @@ class DenseTorch(torch.nn.Module):
         for idx, layer in enumerate(layers_in_out):
             self.layers.append(
                 torch.nn.Linear(layer[0], layer[1])
-            )
-            if idx != len(layers_in_out) - 1 and dropout > 0:
+            )            
+            torch.nn.init.xavier_uniform_(self.layers[-1].weight, gain=nn.init.calculate_gain('leaky_relu', 0.1))
+            torch.nn.init.zeros_(self.layers[-1].bias)
+            if idx != len(layers_in_out) - 1:
                 self.layers.append(
-                    torch.nn.Dropout(dropout)
+                    torch.nn.LeakyReLU(0.1)
                 )
+                if dropout > 0:
+                    self.layers.append(
+                        torch.nn.Dropout(dropout)
+                    )
 
             if idx == len(layers_in_out) - 1:
                 self.layers.append(
@@ -290,7 +297,28 @@ class DenseTorch(torch.nn.Module):
                 )
 
     def reset_output(self, n_output):
-        pass
+        if self.imported:
+            if not 'reset_output' in dir(self.module):
+                raise Exception(
+                    'No method for resetting the output layer (appending new output nodes) defined. ' \
+                    'If you want to update the hierarchy at this node, you need to include reset_output in your imported classifier.')
+
+            else:
+                return getattr(self.module, 'reset_output')(n_output)
+
+        else:
+            in_features = self.layers[-2].in_features
+            del self.layers[-2] # last dense
+            del self.layers[-1] # softmax
+            self.layers.append(
+                torch.nn.Linear(in_features, n_output)
+            )
+            torch.nn.init.xavier_uniform_(self.layers[-1].weight, gain=nn.init.calculate_gain('leaky_relu', 0.1))
+            torch.nn.init.zeros_(self.layers[-1].bias)
+            self.layers.append(
+                torch.nn.Softmax(dim=1)
+            )
+
 
     def forward(self, x):
         x = torch.Tensor(x)
