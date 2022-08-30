@@ -1,9 +1,11 @@
 import tensorflow.keras as keras
 import tensorflow as tf
 import torch
+import os
+import pickle
 import matplotlib
 import matplotlib.pyplot as plt
-import warnings
+import numpy as np
 from sklearn.model_selection import train_test_split
 from copy import deepcopy
 
@@ -13,6 +15,8 @@ class DenseKeras(keras.Model):
     Deal with history
     Deal with plotting and callbacks, train_val split now outside of network class
     """
+
+    possible_data_types = ['counts', 'normlog']
 
     def __init__(
         self, 
@@ -222,6 +226,8 @@ class DenseTorch(torch.nn.Module):
     """
     """
 
+    possible_data_types = ['counts', 'normlog']
+
     def __init__(
         self, 
         n_input=None, 
@@ -279,7 +285,7 @@ class DenseTorch(torch.nn.Module):
             self.layers.append(
                 torch.nn.Linear(layer[0], layer[1])
             )            
-            torch.nn.init.xavier_uniform_(self.layers[-1].weight, gain=nn.init.calculate_gain('leaky_relu', 0.1))
+            torch.nn.init.xavier_uniform_(self.layers[-1].weight, gain=torch.nn.init.calculate_gain('leaky_relu', 0.1))
             torch.nn.init.zeros_(self.layers[-1].bias)
             if idx != len(layers_in_out) - 1:
                 self.layers.append(
@@ -312,7 +318,7 @@ class DenseTorch(torch.nn.Module):
             self.layers.append(
                 torch.nn.Linear(in_features, n_output)
             )
-            torch.nn.init.xavier_uniform_(self.layers[-1].weight, gain=nn.init.calculate_gain('leaky_relu', 0.1))
+            torch.nn.init.xavier_uniform_(self.layers[-1].weight, gain=torch.nn.init.calculate_gain('leaky_relu', 0.1))
             torch.nn.init.zeros_(self.layers[-1].bias)
             self.layers.append(
                 torch.nn.Softmax(dim=1)
@@ -365,10 +371,10 @@ class DenseTorch(torch.nn.Module):
                 weight_decay=weight_decay
             )
             history = {
-                'val_accuracy': []
-                'val_loss': []
-                'train_accuracy': []
-                'train_loss': [],
+                'val_accuracy': [],
+                'val_loss': [],
+                'accuracy': [],
+                'loss': [],
                 'state_dicts': []}
             for epoch in range(epochs):
                 self.eval()
@@ -377,7 +383,7 @@ class DenseTorch(torch.nn.Module):
                 if not validation_data is None:                    
                     pred_val = self(x_val)
                     pred_int = np.argmax(pred_val.detach().numpy(), axis=-1)
-                    y_int = np.argmax(y_val.detach.numpy(), axis=-1)
+                    y_int = np.argmax(y_val.detach().numpy(), axis=-1)
                     val_accuracy = np.mean(pred_int == y_int) * 100
                     val_loss = self.loss_function(pred_val, y_val).item()
                     history['val_accuracy'].append(val_accuracy)
@@ -385,11 +391,11 @@ class DenseTorch(torch.nn.Module):
 
                 pred = self(x)
                 pred_int = np.argmax(pred.detach().numpy(), axis=-1)
-                y_int = np.argmax(y.detach.numpy(), axis=-1)
+                y_int = np.argmax(y.detach().numpy(), axis=-1)
                 accuracy = np.mean(pred_int == y_int) * 100
                 loss = self.loss_function(pred, y).item()
-                history['accuracy'].append(train_accuracy)
-                history['loss'].append(train_loss)
+                history['accuracy'].append(accuracy)
+                history['loss'].append(loss)
 
                 self.train()
                 for i in range((n_cells - 1) // batch_size + 1):                    
@@ -403,13 +409,13 @@ class DenseTorch(torch.nn.Module):
                     optimizer.step()
                     optimizer.zero_grad()
 
-                if self.early_stopping:
+                if self.early_stopping and len(history['val_loss']) > 10:
                     if history['val_loss'][-1] <= history['val_loss'][-11]:
                         # Plateau reached, restore best weights and exit epoch loop
                         self.load_state_dict(history['state_dicts'][np.argmin(history['val_loss'])])
                         break
 
-                if self.reduce_LR_plateau:
+                if self.reduce_LR_plateau and len(history['val_loss']) > 5:
                     # Plateau reached, lower learning rate
                     if history['val_loss'][-1] <= history['val_loss'][-6]:
                         for g in optimizer.param_groups:
