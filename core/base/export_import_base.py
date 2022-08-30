@@ -24,7 +24,7 @@ class ExportImportBase():
         dict_of_cell_relations = deepcopy(self.dict_of_cell_relations)
         for node in list(self.graph):
             if 'local_classifier' in self.graph.nodes[node]:
-                if type(self.graph.nodes[node]['local_classifier']) is not DenseKeras:
+                if type(self.graph.nodes[node]['local_classifier']) not in [DenseKeras, DenseTorch]:
                     raise Exception('Classifier exported not currently implemented for this type of classifier.')
 
                 path_to_node = nx.shortest_path(self.graph, self.root_node, node)

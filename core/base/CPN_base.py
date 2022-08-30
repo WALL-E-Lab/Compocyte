@@ -19,7 +19,7 @@ class CPNBase():
 
         type_classifier = self.get_preferred_classifier(node)
         if type_classifier is None:
-            type_classifier = DenseKeras
+            type_classifier = DenseTorch
 
         if self.default_input_data in type_classifier.possible_data_types or self.default_input_data in self.adata.obsm:
             data_type = self.default_input_data
@@ -106,7 +106,7 @@ class CPNBase():
         y_int = (y == node).astype(int)
         y_onehot = keras.utils.to_categorical(y_int, num_classes=2)
         x = z_transform_properties(x)
-        self.graph.nodes[node]['local_classifier'].train(x=x, y_onehot=y_onehot, y=y, y_int=y_int, train_kwargs=self.train_kwargs)
+        self.graph.nodes[node]['local_classifier']._train(x=x, y_onehot=y_onehot, y=y, y_int=y_int, train_kwargs=self.train_kwargs)
         timestamp = str(time()).replace('.', '_')
         if not node in self.trainings.keys():
             self.trainings[node] = {}
@@ -183,7 +183,7 @@ class CPNBase():
 
             predicted_nodes.append(child_node)
             data_type = self.graph.nodes[child_node]['local_classifier'].data_type
-            if type(self.graph.nodes[child_node]['local_classifier']) != DenseKeras:
+            if type(self.graph.nodes[child_node]['local_classifier']) not in [DenseKeras, DenseTorch]:
                 raise Exception('CPN classification mode currently only compatible with neural networks.')
 
             selected_var_names = list(self.adata.var_names)

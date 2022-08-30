@@ -113,7 +113,7 @@ class HierarchyBase():
         self.graph.nodes[node]['local_classifier'].set_data_type(data_type)
         print(f'OVR classifier set up as {type_classifier} with {data_type} data at {node}.')
 
-    def ensure_existence_classifier(self, node, input_len, classifier=DenseKeras, is_CPN=False, n_output=None, **kwargs):
+    def ensure_existence_classifier(self, node, input_len, classifier=DenseTorch, is_CPN=False, n_output=None, **kwargs):
         """Ensure that for the specified node in the graph, a local classifier exists under the
         key 'local_classifier'.
         """
@@ -184,7 +184,7 @@ class HierarchyBase():
         """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
         # print(f'type_classifier from predict_.._proba: {type_classifier}')
         type_classifier = type(self.graph.nodes[node]['local_classifier'])
-        if type_classifier == DenseKeras:
+        if type_classifier in [DenseKeras, DenseTorch]:
             y_pred_proba = self.graph.nodes[node]['local_classifier'].predict(x)
             #y_pred_proba array_like with length of predictable classes, entries of form x element [0,1]
             #with sum(y_pred) = 1 along axis 1 (for one cell)

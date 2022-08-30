@@ -5,6 +5,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import warnings
 from sklearn.model_selection import train_test_split
+from copy import deepcopy
 
 class DenseKeras(keras.Model):
     """
@@ -16,7 +17,7 @@ class DenseKeras(keras.Model):
     def __init__(
         self, 
         n_input=None, 
-        n_output=None, 
+        n_output=None,
         model=None,
         early_stopping=True,
         reduce_LR_plateau=True,
@@ -171,8 +172,6 @@ class DenseKeras(keras.Model):
             stratify=y_int, 
             test_size=0.2, 
             random_state=42)
-        # TODO
-        # Make sure this is transferable to torch
         history = self.fit(
             x_train,
             y_train,
@@ -220,7 +219,7 @@ class DenseKeras(keras.Model):
         pass
 
 class DenseTorch(torch.nn.Module):
-    """Todo: and reset_output
+    """
     """
 
     def __init__(
@@ -373,7 +372,7 @@ class DenseTorch(torch.nn.Module):
                 'state_dicts': []}
             for epoch in range(epochs):
                 self.eval()
-                history['state_dicts'].append(self.state_dict())
+                history['state_dicts'].append(deepcopy(self.state_dict()))
                 # Record loss and accuracy
                 if not validation_data is None:                    
                     pred_val = self(x_val)
