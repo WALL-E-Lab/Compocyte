@@ -1,7 +1,8 @@
 import pickle
 import os
 import tensorflow.keras as keras
-from classiFire.core.models.dense import DenseKeras, DenseTorch
+from classiFire.core.models.dense import DenseKeras
+from classiFire.core.models.dense_torch import DenseTorch
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
 

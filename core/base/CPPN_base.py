@@ -1,5 +1,6 @@
 from classiFire.core.tools import z_transform_properties
-from classiFire.core.models.dense import DenseKeras, DenseTorch
+from classiFire.core.models.dense import DenseKeras
+from classiFire.core.models.dense_torch import DenseTorch
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
 from sklearn.model_selection import train_test_split, StratifiedKFold

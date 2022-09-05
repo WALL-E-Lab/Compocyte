@@ -1,1 +1,1 @@
-from classiFire.core.models import local_classifiers, dense, single_assignment, logreg
+from classiFire.core.models import local_classifiers, dense, single_assignment, logreg, dense_torch, auto_encoder

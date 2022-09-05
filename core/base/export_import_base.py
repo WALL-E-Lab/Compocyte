@@ -1,5 +1,6 @@
 from copy import deepcopy
-from classiFire.core.models.dense import DenseKeras, DenseTorch
+from classiFire.core.models.dense import DenseKeras
+from classiFire.core.models.dense_torch import DenseTorch
 import networkx as nx
 
 class ExportImportBase():

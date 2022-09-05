@@ -5,7 +5,8 @@ import tensorflow.keras as keras
 from sklearn.preprocessing import LabelEncoder
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
     make_graph_from_edges, set_node_to_depth
-from classiFire.core.models.dense import DenseKeras, DenseTorch
+from classiFire.core.models.dense import DenseKeras
+from classiFire.core.models.dense_torch import DenseTorch
 from classiFire.core.models.logreg import LogRegWrapper
 from classiFire.core.models.single_assignment import SingleAssignment
 from sklearn.feature_selection import SelectKBest, f_classif
