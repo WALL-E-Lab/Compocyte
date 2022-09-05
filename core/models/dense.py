@@ -216,8 +216,11 @@ class DenseKeras(keras.Model):
         return model
 
     @classmethod
-    def import_external(cls, model, feature_names, data_type, label_encoding, label_decoding, is_binary=False):
+    def import_external(cls, model, data_type, is_binary=False):
         if not issubclass(type(model), keras.Model):
             raise TypeError('To import an external model as DenseKeras, it must be a subclass of keras.Model.')
 
-        pass
+        dense_keras = cls(model=model)
+        dense_keras.set_data_type(data_type)
+
+        return dense_keras

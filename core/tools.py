@@ -3,6 +3,7 @@ import tensorflow.keras as keras
 from scipy.sparse.csr import csr_matrix
 import networkx as nx
 from sklearn.metrics import ConfusionMatrixDisplay
+from copy import deepcopy
 import matplotlib.pyplot as plt
 import scanpy as sc
 import pandas as pd
@@ -378,3 +379,23 @@ def last_level_con_mat(dict_of_cell_relations, adata, obs_name, labels, graph=No
     con_mat_disp.plot(xticks_rotation='vertical', ax=ax, values_format='.2f')
 
     return con_mat
+
+def delete_dict_entries(dictionary, del_key='classifier', first_run=True):
+    if first_run:
+        dictionary = deepcopy(dictionary)
+
+    keys = list(dictionary.keys())
+    deleted_key = False
+    for key in keys:
+        if key == del_key:
+            del dictionary[key]
+            deleted_key = True
+
+        else:
+            deleted_key = deleted_key or delete_dict_entries(dictionary[key], del_key=del_key, first_run=False)
+
+    if first_run:
+        return dictionary, deleted_key
+
+    else:
+        return deleted_key

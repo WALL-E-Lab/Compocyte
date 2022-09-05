@@ -4,7 +4,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from sklearn.preprocessing import LabelEncoder
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
-    make_graph_from_edges, set_node_to_depth
+    make_graph_from_edges, set_node_to_depth, delete_dict_entries
 from classiFire.core.models.dense import DenseKeras
 from classiFire.core.models.dense_torch import DenseTorch
 from classiFire.core.models.logreg import LogRegWrapper
@@ -24,6 +24,8 @@ class HierarchyBase():
         if self.root_node is not None and self.dict_of_cell_relations is not None and self.obs_names is not None:
             raise Exception('To redefine cell relations after initialization, call update_hierarchy.')
 
+        dict_of_cell_relations_with_classifiers = deepcopy(dict_of_cell_relations)
+        dict_of_cell_relations, contains_classifier = delete_dict_entries(dict_of_cell_relations, 'classifier')
         self.root_node = root_node
         self.ensure_depth_match(dict_of_cell_relations, obs_names)
         self.ensure_unique_nodes(dict_of_cell_relations)
@@ -31,7 +33,9 @@ class HierarchyBase():
         self.obs_names = obs_names
         self.all_nodes = flatten_dict(self.dict_of_cell_relations)
         self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
-        self.make_classifier_graph()
+        self.make_classifier_graph()        
+        if contains_classifier:
+            self.import_classifiers(dict_of_cell_relations_with_classifiers)
 
     def ensure_depth_match(self, dict_of_cell_relations, obs_names):
         """Check if the annotations supplied in .obs under obs_names are sufficiently deep to work 
@@ -242,7 +246,9 @@ class HierarchyBase():
 
         return parent_node
 
-    def update_hierarchy(self, dict_of_cell_relations, root_node=None):
+    def update_hierarchy(self, dict_of_cell_relations, root_node=None, overwrite=False):
+        dict_of_cell_relations_with_classifiers = deepcopy(dict_of_cell_relations)
+        dict_of_cell_relations, contains_classifier = delete_dict_entries(dict_of_cell_relations, 'classifier')
         if self.classification_mode == 'CPN':
             self.update_hierarchy_CPN(dict_of_cell_relations, root_node=root_node)
 
@@ -251,3 +257,6 @@ class HierarchyBase():
 
         else:
             raise Exception('Classification mode unknown.')
+
+        if contains_classifier:
+            self.import_classifiers(dict_of_cell_relations_with_classifiers, overwrite=overwrite)
