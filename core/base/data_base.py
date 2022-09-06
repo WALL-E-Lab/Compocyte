@@ -66,6 +66,25 @@ class DataBase():
 
         return new_adata
 
+    def add_variables(
+        self,
+        new_variables):
+
+        new_values = np.empty((
+            len(self.adata.obs_names),
+            len(new_variables)))
+        new_values[:] = 0
+        new_X = sparse.csr_matrix(
+            sparse.hstack(
+                [self.adata.X, sparse.csr_matrix(new_values)]))
+        new_var = pd.DataFrame(index=list(self.adata.var_names) + new_variables)
+        self.adata = sc.AnnData(
+            X=new_X,
+            var=new_var,
+            obs=self.adata.obs,
+            obsm=self.adata.obsm,
+            uns=self.adata.uns)
+
     def ensure_not_view(self):
         """Ensures that the AnnData object saved within is not a view.
         """

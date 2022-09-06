@@ -47,7 +47,7 @@ class ExportImportBase():
                 raise KeyError(f'Missing key {a} for successful classifier import.')
 
         classifier_exists = 'local_classifier' in self.graph.nodes[node]
-        if overwrite:
+        if (classifier_exists and overwrite) or not classifier_exists:
             if type(classifier_dict['classifier']) in [DenseKeras, DenseTorch]:
                 self.graph.nodes[node]['local_classifier'] = classifier_dict['classifier']
 
@@ -69,6 +69,12 @@ class ExportImportBase():
                 
             else:
                 raise Exception('Cannot currently import classifier of this type. Please post an issue on Github.')
+
+            sel_var = classifier_dict['selected_var_names']
+            if classifier_dict['data_type'] in ['counts', 'normlog']:
+                var_not_present = [v if v not in self.adata.var_names for v in sel_var]
+                if len(var_not_present) > 0:
+                    self.add_variables(var_not_present)
 
             for k in ['label_encoding', 'data_type', 'selected_var_names']:
                 self.graph.nodes[node][k] = classifier_dict[k]
