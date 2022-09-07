@@ -1,6 +1,7 @@
 from copy import deepcopy
 from classiFire.core.models.dense import DenseKeras
 from classiFire.core.models.dense_torch import DenseTorch
+from classiFire.core.models.log_reg import LogisticRegression
 import networkx as nx
 from tensorflow import keras
 import torch
@@ -29,7 +30,7 @@ class ExportImportBase():
         dict_of_cell_relations = deepcopy(self.dict_of_cell_relations)
         for node in list(self.graph):
             if 'local_classifier' in self.graph.nodes[node]:
-                if type(self.graph.nodes[node]['local_classifier']) not in [DenseKeras, DenseTorch]:
+                if type(self.graph.nodes[node]['local_classifier']) not in [DenseKeras, DenseTorch, LogisticRegression]:
                     raise Exception('Classifier exported not currently implemented for this type of classifier.')
 
                 path_to_node = nx.shortest_path(self.graph, self.root_node, node)
@@ -48,7 +49,7 @@ class ExportImportBase():
 
         classifier_exists = 'local_classifier' in self.graph.nodes[node]
         if (classifier_exists and overwrite) or not classifier_exists:
-            if type(classifier_dict['classifier']) in [DenseKeras, DenseTorch]:
+            if type(classifier_dict['classifier']) in [DenseKeras, DenseTorch, LogisticRegression]:
                 self.graph.nodes[node]['local_classifier'] = classifier_dict['classifier']
 
             elif issubclass(classifier_dict['classifier'], torch.nn.Module):
@@ -64,6 +65,11 @@ class ExportImportBase():
 
             elif issubclass(classifier_dict['classifier'], keras.Model):
                 self.graph.nodes[node]['local_classifier'] = DenseKeras.import_external(
+                    classifier_dict['classifier'], 
+                    classifier_dict['data_type'])
+
+            elif issubclass(classifier_dict['classifier'], sklearn.linear_model.LogisticRegression):
+                self.graph.nodes[node]['local_classifier'] = LogisticRegression(
                     classifier_dict['classifier'], 
                     classifier_dict['data_type'])
                 

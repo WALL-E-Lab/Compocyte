@@ -1,5 +1,6 @@
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.dense import DenseKeras
+from classiFire.core.models.log_reg import LogisticRegression
 from classiFire.core.models.dense_torch import DenseTorch
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
     make_graph_from_edges, set_node_to_depth
@@ -184,7 +185,7 @@ class CPNBase():
 
             predicted_nodes.append(child_node)
             data_type = self.graph.nodes[child_node]['local_classifier'].data_type
-            if type(self.graph.nodes[child_node]['local_classifier']) not in [DenseKeras, DenseTorch]:
+            if type(self.graph.nodes[child_node]['local_classifier']) not in [DenseKeras, DenseTorch, LogisticRegression]:
                 raise Exception('CPN classification mode currently only compatible with neural networks.')
 
             selected_var_names = list(self.adata.var_names)

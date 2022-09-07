@@ -1,8 +1,7 @@
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.dense import DenseKeras
 from classiFire.core.models.dense_torch import DenseTorch
-from classiFire.core.models.logreg import LogRegWrapper
-from classiFire.core.models.single_assignment import SingleAssignment
+from classiFire.core.models.log_reg import LogisticRegression
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import ConfusionMatrixDisplay
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
@@ -265,7 +264,7 @@ class CPPNBase():
             return
 
         data_type = self.graph.nodes[node]['local_classifier'].data_type
-        if type(self.graph.nodes[node]['local_classifier']) not in [DenseKeras, DenseTorch]:
+        if type(self.graph.nodes[node]['local_classifier']) not in [DenseKeras, DenseTorch, LogisticRegression]:
             raise Exception('CPPN classification mode currently only compatible with neural networks.')
 
         if data_type in ['counts', 'normlog']:
@@ -535,6 +534,10 @@ class CPPNBase():
             # Bad idea because you want to conserve as much of the training progress as possible,
             # resetting as little as possible, as much as necessary
             if True in [n in new_nodes or n in moved_nodes for n in [node] + list(child_nodes)]:
+                if type(self.graph.nodes[node]['local_classifier']) is LogisticRegression:
+                    print('Cannot adjust output structure of logistic regression classifier.')
+                    continue
+
                 # reset label encoding, unproblematic because the final layer is reinitilaized anyway
                 self.graph.nodes[node]['label_encoding'] = {}
                 self.graph.nodes[node]['local_classifier'].reset_output(len(child_nodes))

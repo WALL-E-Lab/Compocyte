@@ -5,10 +5,8 @@ from classiFire.core.base.CPPN_base import CPPNBase
 from classiFire.core.base.export_import_base import ExportImportBase
 from classiFire.core.tools import z_transform_properties
 from classiFire.core.models.dense import DenseKeras
+from classiFire.core.models.log_reg import LogisticRegression
 from classiFire.core.models.dense_torch import DenseTorch
-from classiFire.core.models.logreg import LogRegWrapper
-from classiFire.core.models.single_assignment import SingleAssignment
-from classiFire.core.models.local_classifiers import load
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import ConfusionMatrixDisplay
 from uncertainties import ufloat
@@ -141,7 +139,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
                     if not os.path.exists(model_path):
                         os.makedirs(model_path)
 
-                    if type(self.graph.nodes[node]['local_classifier']) in [DenseKeras, DenseTorch]:
+                    if type(self.graph.nodes[node]['local_classifier']) in [DenseKeras, DenseTorch, LogisticRegression]:
                         self.graph.nodes[node]['local_classifier']._save(model_path)
                         
                     continue

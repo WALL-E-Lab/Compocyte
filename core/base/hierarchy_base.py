@@ -7,8 +7,7 @@ from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_uniq
     make_graph_from_edges, set_node_to_depth, delete_dict_entries
 from classiFire.core.models.dense import DenseKeras
 from classiFire.core.models.dense_torch import DenseTorch
-from classiFire.core.models.logreg import LogRegWrapper
-from classiFire.core.models.single_assignment import SingleAssignment
+from classiFire.core.models.log_reg import LogisticRegression
 from sklearn.feature_selection import SelectKBest, f_classif
 from copy import deepcopy
 
@@ -189,7 +188,7 @@ class HierarchyBase():
         """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
         # print(f'type_classifier from predict_.._proba: {type_classifier}')
         type_classifier = type(self.graph.nodes[node]['local_classifier'])
-        if type_classifier in [DenseKeras, DenseTorch]:
+        if type_classifier in [DenseKeras, DenseTorch, LogisticRegression]:
             y_pred_proba = self.graph.nodes[node]['local_classifier'].predict(x)
             #y_pred_proba array_like with length of predictable classes, entries of form x element [0,1]
             #with sum(y_pred) = 1 along axis 1 (for one cell)
