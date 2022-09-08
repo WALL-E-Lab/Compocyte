@@ -1,1 +1,1 @@
-from classiFire.core.models import dense, logreg, dense_torch, auto_encoder
+from classiFire.core.models import dense, log_reg, dense_torch, auto_encoder

@@ -278,6 +278,45 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
         else:
             raise ValueError('Classification mode not supported.')
 
+    def calibrate_single_node(self, node, alpha=0.25, test_barcodes=None, barcodes=None):
+        if test_barcodes is None:
+            test_barcodes = list(self.adata.var_names)
+
+        if barcodes is None:
+            barcodes = list(self.adata[self.adata.obs[self.get_parent_obs_key(node)] == node])
+
+        if self.classification_mode == 'CPPN':
+            activations = self.predict_single_node_CPPN(node, barcodes=barcodes, get_activations=True)
+
+        elif self.classification_mode == 'CPN':
+            activations = self.predict_single_parent_node_CPN(
+                node, 
+                test_barcodes=test_barcodes, 
+                barcodes=barcodes,
+                get_activations=True)
+
+    def calibrate_all_child_nodes(self, alpha=0.25):
+        """Should only be called after initial training with an initial dataset.
+        Can theoretically be called with a holdout dataset from the initial dataset.
+        If using probability based stopping, this step is required prior to first prediction.
+        It sets the probability activation threshold at which possible labels are added
+        to a cells set of plausible predictions. If a set contains no plausible prediction
+        or more than one, the cell classification is too uncertain and further classification
+        is senseless => probability based stopping of the cell. Alpha determines what error rate
+        (i. e. falsely rejecting a cell's true label as part of the set) is deemed acceptable.
+        As the calibration is done on a near miss undersampled set of data, 25 % can be assumed
+        to lead to much lower false rejection rates overall in majority classes and higher
+        false rejection rates in minority classes. This is reasonable and in tune with the
+        observation that labels are less certain in general for minority classes.
+        Generally inspired by 
+        https://people.eecs.berkeley.edu/~angelopoulos/publications/downloads/gentle_intro_conformal_dfuq.pdf
+        """
+
+        if not self.prob_based_stopping:
+            raise Exception('Can only calibrate when using probability based stopping.')
+
+        pass
+
     def train_child_nodes_with_validation(
         self, 
         starting_node,

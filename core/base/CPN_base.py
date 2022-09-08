@@ -148,7 +148,7 @@ class CPNBase():
                 'current_node': node
             }
 
-    def predict_single_parent_node_CPN(self, node, test_barcodes=None, barcodes=None):
+    def predict_single_parent_node_CPN(self, node, test_barcodes=None, barcodes=None, get_activations=True):
         """"""
 
         print(f'Predicting at parent {node}.')
@@ -220,6 +220,9 @@ class CPNBase():
 
         if len(predicted_nodes) == 0:
             return
+
+        if get_activations:
+            return activations_positive
 
         if len(activations_positive.shape) > 1:
             y_int = np.argmax(activations_positive, axis = 0)

@@ -213,7 +213,8 @@ class CPPNBase():
         self,
         node,
         test_barcodes=None,
-        barcodes=None):
+        barcodes=None,
+        get_activations=False):
         """Uses an existing classifier at node to assign one of the child labels to the cells
         specified by barcodes. The predictions are stored in self.adata.obs by calling
         self.set_predictions under f'{obs_key}_pred' where obs_key is the key under
@@ -297,6 +298,8 @@ class CPPNBase():
             x = x.todense()
 
         x = z_transform_properties(x)
+        if get_activations:
+            return self.graph.nodes[node]['local_classifier'].predict(x)
 
         if not self.prob_based_stopping:
             y_pred_int = np.argmax(self.graph.nodes[node]['local_classifier'].predict(x), axis=-1)
