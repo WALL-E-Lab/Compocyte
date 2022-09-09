@@ -13,6 +13,7 @@ from uncertainties import ufloat
 from copy import deepcopy
 from imblearn.over_sampling import SMOTE
 from time import time
+from imblearn.under_sampling import NearMiss, RandomUnderSampler
 import tensorflow.keras as keras
 import numpy as np
 import os
@@ -279,6 +280,13 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
             raise ValueError('Classification mode not supported.')
 
     def calibrate_single_node(self, node, alpha=0.25, test_barcodes=None, barcodes=None):
+        if not self.prob_based_stopping:
+            raise Exception('Can only calibrate when using probability based stopping.')
+
+        if not 'local_classifier' in self.graph.nodes[node]:
+            print('Cannot calibrate an as yet untrained node.')
+            return
+
         if test_barcodes is None:
             test_barcodes = list(self.adata.var_names)
 
@@ -286,16 +294,29 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
             barcodes = list(self.adata[self.adata.obs[self.get_parent_obs_key(node)] == node])
 
         if self.classification_mode == 'CPPN':
-            activations = self.predict_single_node_CPPN(node, barcodes=barcodes, get_activations=True)
+            used_barcodes, activations = self.predict_single_node_CPPN(node, barcodes=barcodes, get_activations=True)
 
         elif self.classification_mode == 'CPN':
-            activations = self.predict_single_parent_node_CPN(
+            used_barcodes, activations = self.predict_single_parent_node_CPN(
                 node, 
                 test_barcodes=test_barcodes, 
                 barcodes=barcodes,
                 get_activations=True)
 
-    def calibrate_all_child_nodes(self, alpha=0.25):
+        label_enc = self.graph.nodes[node]['label_encoding']
+        labels = list(label_enc.keys())
+        y = np.array(self.adata[used_barcodes, :][self.get_children_obs_key(node)])
+        y = y[y.isin(labels)]
+        y_int = np.array([label_enc[l] for l in y])
+        activations_true = np.take_along_axis(activations, y_int[:, np.newaxis], axis=1)[:, 0]
+        conformal_score = 1 - activations_true
+        n = y_int.shape[0]
+        quantile_n = np.ceil((n + 1) * (1 - alpha)) / n
+        qhat = np.quantile(conformal_score, quantile_n)
+        threshold = 1 - qhat
+        self.graph.nodes[node]['threshold'] = threshold
+
+    def calibrate_all_child_nodes(self, current_node, alpha=0.25):
         """Should only be called after initial training with an initial dataset.
         Can theoretically be called with a holdout dataset from the initial dataset.
         If using probability based stopping, this step is required prior to first prediction.
@@ -314,6 +335,13 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
 
         if not self.prob_based_stopping:
             raise Exception('Can only calibrate when using probability based stopping.')
+
+        self.calibrate_single_node(current_node, alpha=0.25, test_barcodes=None, barcodes=None)
+        for child_node in self.get_child_nodes(current_node):
+            if len(self.get_child_nodes(child_node)) == 0:
+                continue
+
+            self.calibrate_all_child_nodes(child_node, alpha=alpha)
 
         pass
 

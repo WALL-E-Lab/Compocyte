@@ -200,22 +200,19 @@ class HierarchyBase():
             largest_idx = np.argmax(y_pred_proba, axis = -1)
 
             #print(f'largest_idx: {largest_idx[:10]}')
+            if 'threshold' in self.graph.nodes[node]:
+                threshold = self.graph.nodes[node]['threshold']
 
-            #y_pred is real prediction vector, with possible nans (else case)!
-            y_pred = []
-            for cell_idx, label_idx in enumerate(largest_idx):
-                if y_pred_proba[cell_idx][label_idx] > self.threshold:
-                    #in this case: set prediction and move on to next classifier
-                    y_pred.append(label_idx) #label_idx = class per definition
-                else: 
-                    #otherwise, set no new prediction, predition from superior node shall be set as 
-                    #the last prediction
-                    y_pred.append(np.nan)
+            else:
+                threshold = self.threshold
+
+            len_set = np.sum(y_pred_proba >= threshold, axis=1)
+            largest_idx[len_set != 1] = np.nan
 
         else:
             raise ValueError('Not yet supported probability classification classifier type')
 
-        return y_pred
+        return largest_idx
 
     def set_preferred_classifier(self, node, type_classifier):
         self.graph.nodes[node]['preferred_classifier'] = type_classifier

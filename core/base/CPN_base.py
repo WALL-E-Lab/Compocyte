@@ -222,7 +222,7 @@ class CPNBase():
             return
 
         if get_activations:
-            return activations_positive
+            return list(relevant_cells.var_names), activations_positive
 
         if len(activations_positive.shape) > 1:
             y_int = np.argmax(activations_positive, axis = 0)
@@ -231,19 +231,21 @@ class CPNBase():
             y_int = np.array([0 for i in activations_positive])
 
         if self.prob_based_stopping:
-            if len(activations_positive.shape) > 1:
-                y_probs = np.take_along_axis(activations_positive, np.array([y_int]), axis=0)[0]
+            if 'threshold' in self.graph.nodes[node]:
+                threshold = self.graph.nodes[node]['threshold']
 
             else:
-                y_probs = activations_positive
+                threshold = self.threshold
 
-            y = []
-            for i, p in zip(y_int, y_probs):
-                if p > self.threshold:
-                    y.append(predicted_nodes[i])
+            if len(activations_positive.shape) > 1:
+                len_set = np.sum(y_pred_proba >= threshold, axis=1)
 
-                else:
-                    y.append('stopped')
+            else:
+                len_set = np.zeros((y_pred_proba.shape[0]))
+                len_set[y_pred_proba >= threshold] = 1
+
+            y = np.array([predicted_nodes[i] for i in y_int])
+            y[len_set != 1] = 'stopped'
 
         else:
             y = [predicted_nodes[i] for i in y_int]
