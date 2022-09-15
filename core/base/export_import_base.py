@@ -21,8 +21,11 @@ class ExportImportBase():
             classifier_dict['selected_var_names'] = self.graph.nodes[node]['selected_var_names']
 
         else:
-            pass
-            # Upon reconstruction simply use all of data type as input
+            if classifier_dict['data_type'] in ['counts', 'normlog']:
+                classifier_dict['selected_var_names'] = list(self.adata.var_names)
+
+            else:
+                classifier_dict['selected_var_names'] = list(range(self.adata.obsm[classifier_dict['data_type']].shape[1]))
 
         return classifier_dict
 
@@ -52,7 +55,7 @@ class ExportImportBase():
             if type(classifier_dict['classifier']) in [DenseKeras, DenseTorch, LogisticRegression]:
                 self.graph.nodes[node]['local_classifier'] = classifier_dict['classifier']
 
-            elif issubclass(classifier_dict['classifier'], torch.nn.Module):
+            elif issubclass(type(classifier_dict['classifier']), torch.nn.Module):
                 if not 'fit_function' in classifier_dict or not 'predict_function' in classifier_dict:
                     raise KeyError(f'Missing key fit_function/predict_function for successful classifier import.')
 
@@ -63,12 +66,12 @@ class ExportImportBase():
                     predict_function=classifier_dict['predict_function']
                 )
 
-            elif issubclass(classifier_dict['classifier'], keras.Model):
+            elif issubclass(type(classifier_dict['classifier']), keras.Model):
                 self.graph.nodes[node]['local_classifier'] = DenseKeras.import_external(
                     classifier_dict['classifier'], 
                     classifier_dict['data_type'])
 
-            elif issubclass(classifier_dict['classifier'], sklearn.linear_model.LogisticRegression):
+            elif issubclass(type(classifier_dict['classifier']), sklearn.linear_model.LogisticRegression):
                 self.graph.nodes[node]['local_classifier'] = LogisticRegression(
                     classifier_dict['classifier'], 
                     classifier_dict['data_type'])
@@ -91,7 +94,7 @@ class ExportImportBase():
     def import_classifiers(self, dictionary, overwrite=False, parent_key=None):
         for key in dictionary.keys():
             if key == 'classifier':
-                import_classifier(parent_key, dictionary[key], overwrite=overwrite)
+                self.import_classifier(parent_key, dictionary[key], overwrite=overwrite)
             
             elif type(dictionary[key]) == dict and len(dictionary[key].keys()) > 0:
-                import_classifiers(dictionary[key], overwrite=True, parent_key=key)
+                self.import_classifiers(dictionary[key], overwrite=True, parent_key=key)
