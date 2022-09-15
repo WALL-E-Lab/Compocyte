@@ -129,7 +129,7 @@ class HierarchyBase():
             output_len = n_output
 
         define_classifier = False
-        if not 'local_classifier' in self.graph.nodes[node].keys() or type(self.graph.nodes[node]['local_classifier']) == SingleAssignment:
+        if not 'local_classifier' in self.graph.nodes[node].keys():
             define_classifier = True
 
         else:
@@ -207,6 +207,7 @@ class HierarchyBase():
                 threshold = self.threshold
 
             len_set = np.sum(y_pred_proba >= threshold, axis=1)
+            largest_idx = largest_idx.astype(np.float32)
             largest_idx[len_set != 1] = np.nan
 
         else:

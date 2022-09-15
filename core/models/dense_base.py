@@ -45,20 +45,19 @@ class DenseBase():
             return getattr(self.module, self.fit_function)(x=x, y=y, batch_size=batch_size, epochs=epochs)
 
         else:
-
             self.train()
             x, y = torch.Tensor(x), torch.Tensor(y)
-            x = self.standardize(x)
-            if torch.max(y) > 1: # test if output is counts (autencoder) or categories
-                y = self.standardize(y)
+            #x = self.standardize(x)
+            #if torch.max(y) > 1: # test if output is counts (autencoder) or categories
+            #    y = self.standardize(y)
 
             n_cells = x.shape[0]
             if not validation_data is None:
                 x_val, y_val = validation_data
                 x_val, y_val = torch.Tensor(x_val), torch.Tensor(y_val)
-                x_val = self.standardize(x_val)
-                if torch.max(y_val) > 1: # test if output is counts or categories
-                    y_val = self.standardize(y_val)
+                #x_val = self.standardize(x_val)
+                #if torch.max(y_val) > 1: # test if output is counts or categories
+                #    y_val = self.standardize(y_val)
 
                 n_val = x_val.shape[0]
 
@@ -110,6 +109,9 @@ class DenseBase():
                     idx_start = i * batch_size
                     idx_end = idx_start + batch_size
                     xb, yb = x[idx_start:idx_end], y[idx_start:idx_end]
+                    if xb.shape[0] == 1:
+                        continue
+
                     pred = self(xb)
                     pred = torch.clamp(pred, 0, 1)
                     loss = self.loss_function(pred, yb)

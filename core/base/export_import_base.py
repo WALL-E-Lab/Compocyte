@@ -78,7 +78,7 @@ class ExportImportBase():
 
             sel_var = classifier_dict['selected_var_names']
             if classifier_dict['data_type'] in ['counts', 'normlog']:
-                var_not_present = [v if v not in self.adata.var_names for v in sel_var]
+                var_not_present = [v for v in sel_var if not v in self.adata.var_names]
                 if len(var_not_present) > 0:
                     self.add_variables(var_not_present)
 
