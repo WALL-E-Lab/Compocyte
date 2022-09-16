@@ -159,7 +159,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
         )
         if os.path.exists(hc_path):
             timestamps = os.listdir(hc_path)
-            last_timestamp = timestamps[-1]
+            last_timestamp = sorted(timestamps)[-1]
             with open(os.path.join(hc_path, last_timestamp, 'hierarchical_classifier_settings.pickle'), 'rb') as f:
                 settings_dict = pickle.load(f)
                 for key in settings_dict.keys():
@@ -192,8 +192,11 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
                 if len([c for c in contents if c.endswith('SavedModel')]) > 0:
                     classifier = DenseKeras._load(os.path.join(model_path, last_timestamp))
 
-                else:
+                elif len([c for c in contents if c.startswith('non_param_dict')]) > 0:
                     classifier = DenseTorch._load(os.path.join(model_path, last_timestamp))
+
+                else:
+                    classifier = LogisticRegression._load(os.path.join(model_path, last_timestamp))
 
                 self.graph.nodes[node]['local_classifier'] = classifier
 

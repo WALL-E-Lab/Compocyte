@@ -1,6 +1,8 @@
 from sklearn.linear_model import LogisticRegression
 from torch.nn.functional import softmax
 import pickle
+import os
+import torch
 
 class LogisticRegression():
     def __init__(self, model, data_type):

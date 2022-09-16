@@ -91,7 +91,18 @@ class DenseBase():
                     pred_int = np.argmax(pred_val.detach().numpy(), axis=-1)
                     y_int = np.argmax(y_val.detach().numpy(), axis=-1)
                     val_accuracy = np.mean(pred_int == y_int) * 100
-                    val_loss = self.loss_function(pred_val, y_val).item()
+                    try:
+                        val_loss = self.loss_function(pred_val, y_val).item()
+
+                    except RuntimeError:
+                        print(pred_val)
+                        print(y_val)
+                        print(type(pred_val))
+                        print(type(y_val))
+                        print(pred_val.shape)
+                        print(y_val.shape)
+                        raise Exception()
+
                     history['val_accuracy'].append(val_accuracy)
                     history['val_loss'].append(val_loss)
 
