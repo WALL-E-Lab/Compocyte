@@ -291,10 +291,10 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
             return
 
         if test_barcodes is None:
-            test_barcodes = list(self.adata.var_names)
+            test_barcodes = list(self.adata.obs_names)
 
         if barcodes is None:
-            barcodes = list(self.adata[self.adata.obs[self.get_parent_obs_key(node)] == node])
+            barcodes = list(self.adata[self.adata.obs[self.get_parent_obs_key(node)] == node].obs_names)
 
         if self.classification_mode == 'CPPN':
             used_barcodes, activations = self.predict_single_node_CPPN(node, barcodes=barcodes, get_activations=True)
@@ -345,8 +345,6 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
                 continue
 
             self.calibrate_all_child_nodes(child_node, alpha=alpha)
-
-        pass
 
     def train_child_nodes_with_validation(
         self, 
