@@ -222,7 +222,7 @@ class CPNBase():
             return
 
         if get_activations:
-            return list(relevant_cells.var_names), activations_positive
+            return list(relevant_cells.obs_names), activations_positive
 
         if len(activations_positive.shape) > 1:
             y_int = np.argmax(activations_positive, axis = 0)

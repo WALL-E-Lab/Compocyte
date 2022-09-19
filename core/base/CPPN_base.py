@@ -299,7 +299,7 @@ class CPPNBase():
 
         x = z_transform_properties(x)
         if get_activations:
-            return list(relevant_cells.var_names), self.graph.nodes[node]['local_classifier'].predict(x)
+            return list(relevant_cells.obs_names), self.graph.nodes[node]['local_classifier'].predict(x)
 
         if not self.prob_based_stopping:
             y_pred_int = np.argmax(self.graph.nodes[node]['local_classifier'].predict(x), axis=-1)

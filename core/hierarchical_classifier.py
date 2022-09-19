@@ -293,8 +293,13 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
         if test_barcodes is None:
             test_barcodes = list(self.adata.obs_names)
 
+        label_enc = self.graph.nodes[node]['label_encoding']
+        labels = list(label_enc.keys())
         if barcodes is None:
-            barcodes = list(self.adata[self.adata.obs[self.get_parent_obs_key(node)] == node].obs_names)
+            barcodes = list(self.adata[
+                (self.adata.obs[self.get_parent_obs_key(node)] == node)
+                & (self.adata.obs[self.get_children_obs_key(node)].isin(labels))
+                ].obs_names)
 
         if self.classification_mode == 'CPPN':
             used_barcodes, activations = self.predict_single_node_CPPN(node, barcodes=barcodes, get_activations=True)
@@ -305,11 +310,8 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
                 test_barcodes=test_barcodes, 
                 barcodes=barcodes,
                 get_activations=True)
-
-        label_enc = self.graph.nodes[node]['label_encoding']
-        labels = list(label_enc.keys())
-        y = np.array(self.adata[used_barcodes, :][self.get_children_obs_key(node)])
-        y = y[y.isin(labels)]
+        
+        y = np.array(self.adata[used_barcodes, :].obs[self.get_children_obs_key(node)])
         y_int = np.array([label_enc[l] for l in y])
         activations_true = np.take_along_axis(activations, y_int[:, np.newaxis], axis=1)[:, 0]
         conformal_score = 1 - activations_true
