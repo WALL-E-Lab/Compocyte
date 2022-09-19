@@ -139,9 +139,11 @@ class DataBase():
             np.isin(
                 np.array(self.adata.obs_names), 
                 barcodes))[0]
-        for cat in np.unique(y_pred):
-            if not cat in self.adata.obs[f'{obs_key}_pred'].cat.categories:
-                self.adata.obs[f'{obs_key}_pred'].cat.add_categories(cat, inplace=True)
+        if f'{obs_key}_pred' in self.adata.obs.columns:
+            self.adata.obs[f'{obs_key}_pred'] = pd.Categorical(self.adata.obs[f'{obs_key}_pred'])
+            for cat in np.unique(y_pred):
+                if not cat in self.adata.obs[f'{obs_key}_pred'].cat.categories:
+                    self.adata.obs[f'{obs_key}_pred'].cat.add_categories(cat, inplace=True)
 
         try:
             existing_annotations = self.adata.obs[f'{obs_key}_pred']
