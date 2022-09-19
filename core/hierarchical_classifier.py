@@ -301,6 +301,9 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
                 & (self.adata.obs[self.get_children_obs_key(node)].isin(labels))
                 ].obs_names)
 
+        if len(barcodes) == 0:
+            return
+
         if self.classification_mode == 'CPPN':
             used_barcodes, activations = self.predict_single_node_CPPN(node, barcodes=barcodes, get_activations=True)
 
