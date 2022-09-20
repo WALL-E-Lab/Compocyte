@@ -6,6 +6,7 @@ from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_uniq
     make_graph_from_edges, set_node_to_depth
 from uncertainties import ufloat
 from time import time
+from copy import deepcopy
 import tensorflow.keras as keras
 import numpy as np
 import networkx as nx
@@ -148,7 +149,7 @@ class CPNBase():
                 'current_node': node
             }
 
-    def predict_single_parent_node_CPN(self, node, test_barcodes=None, barcodes=None, get_activations=True):
+    def predict_single_parent_node_CPN(self, node, test_barcodes=None, barcodes=None, get_activations=False):
         """"""
 
         print(f'Predicting at parent {node}.')
@@ -238,11 +239,11 @@ class CPNBase():
                 threshold = self.threshold
 
             if len(activations_positive.shape) > 1:
-                len_set = np.sum(y_pred_proba >= threshold, axis=1)
+                len_set = np.sum(activations_positive >= threshold, axis=0)
 
             else:
-                len_set = np.zeros((y_pred_proba.shape[0]))
-                len_set[y_pred_proba >= threshold] = 1
+                len_set = np.zeros((activations_positive.shape[0]))
+                len_set[activations_positive >= threshold] = 1
 
             y = np.array([predicted_nodes[i] for i in y_int])
             y[len_set != 1] = 'stopped'
