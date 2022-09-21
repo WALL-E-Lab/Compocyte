@@ -293,8 +293,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
         if test_barcodes is None:
             test_barcodes = list(self.adata.obs_names)
 
-        label_enc = self.graph.nodes[node]['label_encoding']
-        labels = list(label_enc.keys())
+        labels = self.get_child_nodes(node)
         if barcodes is None:
             barcodes = list(self.adata[
                 (self.adata.obs[self.get_parent_obs_key(node)] == node)
@@ -315,7 +314,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
                 get_activations=True)
         
         y = np.array(self.adata[used_barcodes, :].obs[self.get_children_obs_key(node)])
-        y_int = np.array([label_enc[l] for l in y])
+        y_int = np.ones(y.shape[0])
         activations_true = np.take_along_axis(activations, y_int[:, np.newaxis], axis=1)[:, 0]
         conformal_score = 1 - activations_true
         n = y_int.shape[0]
