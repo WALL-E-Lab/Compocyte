@@ -314,8 +314,13 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
                 get_activations=True)
         
         y = np.array(self.adata[used_barcodes, :].obs[self.get_children_obs_key(node)])
-        y_int = np.ones(y.shape[0])
-        activations_true = np.take_along_axis(activations, y_int[:, np.newaxis], axis=1)[:, 0]
+        y_int = np.ones(y.shape[0]).astype(int)
+        if len(activations.shape) > 1:
+            activations_true = np.take_along_axis(activations, y_int, axis=1)
+
+        else:
+            activations_true = activations
+
         conformal_score = 1 - activations_true
         n = y_int.shape[0]
         quantile_n = np.ceil((n + 1) * (1 - alpha)) / n
