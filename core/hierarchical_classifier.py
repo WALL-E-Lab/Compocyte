@@ -314,9 +314,10 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
                 get_activations=True)
         
         y = np.array(self.adata[used_barcodes, :].obs[self.get_children_obs_key(node)])
-        y_int = np.ones(y.shape[0]).astype(int)
+        enc = {l: i for i, l in enumerate(labels)}
+        y_int = np.array([enc[l] for l in y])
         if len(activations.shape) > 1:
-            activations_true = np.take_along_axis(activations, y_int, axis=1)
+            activations_true = np.take_along_axis(activations.T, y_int[:, np.newaxis], axis=1)[:, 0]
 
         else:
             activations_true = activations
