@@ -4,48 +4,53 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from sklearn.preprocessing import LabelEncoder
 from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
-    make_graph_from_edges, set_node_to_depth, set_node_to_scVI
-from classiFire.core.models.neural_network import NeuralNetwork
-from classiFire.core.models.logreg import LogRegWrapper
-from classiFire.core.models.single_assignment import SingleAssignment
-from sklearn.feature_selection import SelectKBest, chi2
+    make_graph_from_edges, set_node_to_depth, delete_dict_entries
+from classiFire.core.models.dense import DenseKeras
+from classiFire.core.models.dense_torch import DenseTorch
+from classiFire.core.models.log_reg import LogisticRegression
+from sklearn.feature_selection import SelectKBest, f_classif
+from copy import deepcopy
 
 class HierarchyBase():
     """Add explanation
     """
 
-    def set_cell_relations(self, dict_of_cell_relations, obs_names):
+    def set_cell_relations(self, root_node, dict_of_cell_relations, obs_names):
         """Once set, cell relations can only be changed one node at a time, using supplied methods,
         not by simply calling defining new cell relations
         """
 
-        if type(self.dict_of_cell_relations) != type(None) and type(self.obs_names) != type(None):
-            raise Exception('Cannot redefine cell relations after initialization.')
+        if self.root_node is not None and self.dict_of_cell_relations is not None and self.obs_names is not None:
+            raise Exception('To redefine cell relations after initialization, call update_hierarchy.')
 
+        dict_of_cell_relations_with_classifiers = deepcopy(dict_of_cell_relations)
+        dict_of_cell_relations, contains_classifier = delete_dict_entries(dict_of_cell_relations, 'classifier')
+        self.root_node = root_node
+        self.ensure_depth_match(dict_of_cell_relations, obs_names)
+        self.ensure_unique_nodes(dict_of_cell_relations)
         self.dict_of_cell_relations = dict_of_cell_relations
         self.obs_names = obs_names
-        self.ensure_depth_match()
-        self.ensure_unique_nodes()
         self.all_nodes = flatten_dict(self.dict_of_cell_relations)
         self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
-        self.node_to_scVI = set_node_to_scVI(self.dict_of_cell_relations)
-        self.make_classifier_graph()
+        self.make_classifier_graph()        
+        if contains_classifier:
+            self.import_classifiers(dict_of_cell_relations_with_classifiers)
 
-    def ensure_depth_match(self):
+    def ensure_depth_match(self, dict_of_cell_relations, obs_names):
         """Check if the annotations supplied in .obs under obs_names are sufficiently deep to work 
         with the hierarchy provided.
         """
 
-        if not dict_depth(self.dict_of_cell_relations) == len(self.obs_names):
+        if not dict_depth(dict_of_cell_relations) == len(obs_names):
             raise Exception('obs_names must contain an annotation key for every level of the '\
                 'hierarchy supplied in dict_of_cell_relations.')
 
-    def ensure_unique_nodes(self):
+    def ensure_unique_nodes(self, dict_of_cell_relations):
         """Check if keys within the hierarchy are unique across all levels as that is a requirement
         for uniquely identifying graph nodes with networkx.
         """
 
-        if not hierarchy_names_unique(self.dict_of_cell_relations):
+        if not hierarchy_names_unique(dict_of_cell_relations):
             raise Exception('Names given in the hierarchy must be unique.')
 
     def make_classifier_graph(self):
@@ -83,34 +88,48 @@ class HierarchyBase():
 
         return self.obs_names[depth_parent]
 
-    def set_chi2_feature_selecter(self, node, number_features=50):
-        """save chi2 feature selecter in one node, train only once""" 
+    def set_f_classif_feature_selecter(self, node, number_features=50):
+        """save f_classif feature selecter in one node, train only once""" 
 
         # To do: is this really only trained once or is that something that needs to be implemented???
 
-        self.graph.nodes[node]['chi2_feature_selecter'] = SelectKBest(chi2, k = number_features)
-        self.graph.nodes[node]['chi2_feature_selecter_trained'] = False
+        self.graph.nodes[node]['f_classif_feature_selecter'] = SelectKBest(f_classif, k = number_features)
+        self.graph.nodes[node]['f_classif_feature_selecter_trained'] = False
 
-    def fit_chi2_feature_selecter(self, node, x_feature_fit, y_feature_fit):
-        """fit chi2 feature selecter once, i.e. only with one trainings dataset"""
+    def fit_f_classif_feature_selecter(self, node, x_feature_fit, y_feature_fit):
+        """fit f_classif feature selecter once, i.e. only with one trainings dataset"""
 
         # To do: see above? need to be sure that features are not selected again for every new training run
 
-        if self.graph.nodes[node]['chi2_feature_selecter_trained'] == False:
-            self.graph.nodes[node]['chi2_feature_selecter'].fit(x_feature_fit, y_feature_fit)
-            self.graph.nodes[node]['chi2_feature_selecter_trained'] = True
+        if self.graph.nodes[node]['f_classif_feature_selecter_trained'] == False:
+            self.graph.nodes[node]['f_classif_feature_selecter'].fit(x_feature_fit, y_feature_fit)
+            self.graph.nodes[node]['f_classif_feature_selecter_trained'] = True
 
         else: 
-            print('Chi2 Feature selecter already trained, using trained selecter!')
+            print('f_classif Feature selecter already trained, using trained selecter!')
 
-    def ensure_existence_classifier(self, node, input_len, classifier=NeuralNetwork, **kwargs):
+    def ensure_existence_OVR_classifier(self, node, n_input, type_classifier, data_type, **kwargs):
+        print(f'Trying creating OVR at {node}')
+        if 'local_classifier' in self.graph.nodes[node].keys():
+            return
+
+        self.graph.nodes[node]['local_classifier'] = type_classifier(n_input=n_input, n_output=2, **kwargs)
+        self.graph.nodes[node]['local_classifier'].set_data_type(data_type)
+        print(f'OVR classifier set up as {type_classifier} with {data_type} data at {node}.')
+
+    def ensure_existence_classifier(self, node, input_len, classifier=DenseTorch, is_CPN=False, n_output=None, **kwargs):
         """Ensure that for the specified node in the graph, a local classifier exists under the
         key 'local_classifier'.
         """
         
-        output_len = len(list(self.graph.adj[node].keys()))
+        if n_output is None:
+            output_len = len(list(self.graph.adj[node].keys()))
+
+        else:
+            output_len = n_output
+
         define_classifier = False
-        if not 'local_classifier' in self.graph.nodes[node].keys() or type(self.graph.nodes[node]['local_classifier']) == SingleAssignment:
+        if not 'local_classifier' in self.graph.nodes[node].keys():
             define_classifier = True
 
         else:
@@ -123,8 +142,7 @@ class HierarchyBase():
                     define_classifier = True
 
             except AttributeError:
-                print('There has either been an issue setting up input and output length of the local '\
-                    'classifier or you\'re using a model that does not rely on these arguments.')
+                pass
 
         if define_classifier:
             if 'preferred_classifier' in self.graph.nodes[node].keys():
@@ -133,8 +151,12 @@ class HierarchyBase():
             else:
                 self.graph.nodes[node]['local_classifier'] = classifier(n_input=input_len, n_output=output_len, **kwargs)
 
-        if hasattr(self, 'default_input_data') and self.default_input_data in self.graph.nodes[node]['local_classifier'].possible_data_types:
-            self.graph.nodes[node]['local_classifier'].data_type = self.default_input_data
+        try:
+            if hasattr(self, 'default_input_data') and self.default_input_data in self.graph.nodes[node]['local_classifier'].possible_data_types or self.default_input_data in self.adata.obsm:
+                self.graph.nodes[node]['local_classifier'].set_data_type(self.default_input_data)
+
+        except AttributeError:
+            pass # occurs whent trying to set data type for imported log reg model
 
         print(f'Data type for {node} set to {self.graph.nodes[node]["local_classifier"].data_type}')
         return type(self.graph.nodes[node]['local_classifier'])
@@ -169,8 +191,8 @@ class HierarchyBase():
         """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
         # print(f'type_classifier from predict_.._proba: {type_classifier}')
         type_classifier = type(self.graph.nodes[node]['local_classifier'])
-        if type_classifier == NeuralNetwork:
-            y_pred_proba = self.graph.nodes[node]['local_classifier'].predict_proba(x)
+        if type_classifier in [DenseKeras, DenseTorch, LogisticRegression]:
+            y_pred_proba = self.graph.nodes[node]['local_classifier'].predict(x)
             #y_pred_proba array_like with length of predictable classes, entries of form x element [0,1]
             #with sum(y_pred) = 1 along axis 1 (for one cell)
 
@@ -181,47 +203,23 @@ class HierarchyBase():
             largest_idx = np.argmax(y_pred_proba, axis = -1)
 
             #print(f'largest_idx: {largest_idx[:10]}')
+            if 'threshold' in self.graph.nodes[node]:
+                threshold = self.graph.nodes[node]['threshold']
 
-            #y_pred is real prediction vector, with possible nans (else case)!
-            y_pred = []
-            for cell_idx, label_idx in enumerate(largest_idx):
-                if y_pred_proba[cell_idx][label_idx] > self.threshold:
-                    #in this case: set prediction and move on to next classifier
-                    y_pred.append(label_idx) #label_idx = class per definition
-                else: 
-                    #otherwise, set no new prediction, predition from superior node shall be set as 
-                    #the last prediction
-                    y_pred.append(np.nan)
+            else:
+                threshold = self.threshold
+
+            len_set = np.sum(y_pred_proba >= threshold, axis=1)
+            largest_idx = largest_idx.astype(np.float32)
+            largest_idx[len_set != 1] = np.nan
 
         else:
             raise ValueError('Not yet supported probability classification classifier type')
 
-        return y_pred
+        return largest_idx
 
     def set_preferred_classifier(self, node, type_classifier):
         self.graph.nodes[node]['preferred_classifier'] = type_classifier
-
-    def get_selected_var_names(self, node, barcodes, obs_name_children=None, data_type='normlog'):
-        if data_type == 'scVI':
-            return None
-
-        if not 'selected_var_names' in self.graph.nodes[node].keys():
-            var_names = None
-
-        else:
-            var_names = self.graph.nodes[node]['selected_var_names']
-
-        if type(var_names) == type(None) and self.use_feature_selection == True:
-            var_names = self.get_top_genes(
-                barcodes, 
-                obs_name_children, 
-                self.n_top_genes_per_class)
-            self.set_selected_var_names(node, var_names)
-
-        return var_names
-
-    def set_selected_var_names(self, node, selected_var_names):
-        self.graph.nodes[node]['selected_var_names'] = selected_var_names
 
     def get_preferred_classifier(self, node):
         if 'preferred_classifier' in self.graph.nodes[node].keys():
@@ -236,3 +234,29 @@ class HierarchyBase():
             if self.graph.out_degree(x) == 0 \
             and self.graph.in_degree(x) == 1
         ]
+
+    def get_parent_node(self, node, graph=None):
+        if graph is None:
+            graph = self.graph
+
+        edges = np.array(graph.edges)
+        # In a directed graph there should only be one edge leading TO any given node
+        idx_child_node_edges = np.where(edges[:, 1] == node)
+        parent_node = edges[idx_child_node_edges][0, 0]
+
+        return parent_node
+
+    def update_hierarchy(self, dict_of_cell_relations, root_node=None, overwrite=False):
+        dict_of_cell_relations_with_classifiers = deepcopy(dict_of_cell_relations)
+        dict_of_cell_relations, contains_classifier = delete_dict_entries(dict_of_cell_relations, 'classifier')
+        if self.classification_mode == 'CPN':
+            self.update_hierarchy_CPN(dict_of_cell_relations, root_node=root_node)
+
+        elif self.classification_mode == 'CPPN':
+            self.update_hierarchy_CPPN(dict_of_cell_relations, root_node=root_node)
+
+        else:
+            raise Exception('Classification mode unknown.')
+
+        if contains_classifier:
+            self.import_classifiers(dict_of_cell_relations_with_classifiers, overwrite=overwrite)

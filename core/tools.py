@@ -3,6 +3,7 @@ import tensorflow.keras as keras
 from scipy.sparse.csr import csr_matrix
 import networkx as nx
 from sklearn.metrics import ConfusionMatrixDisplay
+from copy import deepcopy
 import matplotlib.pyplot as plt
 import scanpy as sc
 import pandas as pd
@@ -89,7 +90,7 @@ def hierarchy_names_unique(hierarchy_dict):
     
     return len(all_nodes) == len(set(all_nodes))
 
-def z_transform_properties(data_arr):
+def z_transform_properties(data_arr, discretization=False):
     """Calculates a z transformation to center properties across cells in data_arr \
     around mean zero
     """
@@ -97,6 +98,9 @@ def z_transform_properties(data_arr):
     mean_vals = np.mean(data_arr, axis=0)
     std_val = np.std(data_arr)
     data_transformed = (data_arr - mean_vals) / std_val
+    bin_boundaries = [-0.675, 0, 0.675]
+    if discretization:
+        data_transformed = np.digitize(data_transformed, bin_boundaries)
 
     return data_transformed
 
@@ -287,26 +291,37 @@ def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names, fig_size=(12, 
     con_mat = con_mat_leaf_nodes(hierarchy, adata, graph, obs_names[1:], plot=False)
     graph_weights = graph.copy()
     leaf_nodes = get_leaf_nodes(hierarchy)
-    # Get each confusion affecting more than 20 % of cells truly belonging to a given cell type
-    # Confusions across all levels and trees of the hierarchy
+    
     hierarchy_list = []
     generate_node_level_list(hierarchy, hierarchy_list)
     node_list = np.array(hierarchy_list)[:, 0]
+    # Get pct of true cells stopped at some point along the hierarchy
     for node, level in zip(
         np.array(hierarchy_list)[:, 0], 
         np.array(hierarchy_list)[:, 1].astype(int)
     ):
         obs_name_node = obs_names[level]
+        """
         if (level + 1) == len(obs_names) or node in leaf_nodes:
             graph_weights.nodes[node]['pct_stopped'] = 0.0
-            continue
+            continue"""
 
-        obs_name_children = obs_names[level + 1]
         adata_node = adata[adata.obs[obs_name_node] == node]
-        adata_node_stopped = adata_node[adata_node.obs[f'{obs_name_children}_pred'] == 'stopped']
+        does_contain_stopped = None
+        for obs_name in obs_names[1:]:
+            if does_contain_stopped is None:
+                does_contain_stopped = adata_node.obs[f'{obs_name}_pred'] == 'stopped'
+
+            else:
+                does_contain_stopped = (does_contain_stopped) | (adata_node.obs[f'{obs_name}_pred'] == 'stopped')
+
+        # create index representing whether 'stopped' is in any pred column for any given cell
+        adata_node_stopped = adata_node[does_contain_stopped]
         pct_stopped = len(adata_node_stopped) / max(len(adata_node), 1)
         graph_weights.nodes[node]['pct_stopped'] = pct_stopped
 
+    # Get each confusion affecting more than 5 % of cells truly belonging to a given cell type
+    # Confusions across all levels and trees of the hierarchy
     for confusion in np.dstack(np.where(con_mat > 0.05))[0]:
         true_label = hierarchy_list[confusion[0]][0]
         pred_label = hierarchy_list[confusion[1]][0]
@@ -349,7 +364,7 @@ def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names, fig_size=(12, 
     plt.colorbar(sm, label='% of cells early stopped at this node', orientation='horizontal', fraction=0.052, pad=0.04) # perfect match
     # plt.colorbar(sm, label='% of cells early stopped at this node', orientation='horizontal', fraction=0.03, pad=0.04)
     plt.title(
-        'Confusions of > 5 % of true cells, visualized as directed edge to the earliest misstep in the hierarchical classification process, proportion of cells subjected to early stopping visualized as node color',
+        'Confusions of > 5 % of true cells, visualized as directed edge to the earliest misstep in the hierarchical classification process, proportion of true cells subjected to early stopping visualized as node color',
         fontdict={'fontsize': 'x-large'}
     )
 
@@ -364,3 +379,23 @@ def last_level_con_mat(dict_of_cell_relations, adata, obs_name, labels, graph=No
     con_mat_disp.plot(xticks_rotation='vertical', ax=ax, values_format='.2f')
 
     return con_mat
+
+def delete_dict_entries(dictionary, del_key='classifier', first_run=True):
+    if first_run:
+        dictionary = deepcopy(dictionary)
+
+    keys = list(dictionary.keys())
+    deleted_key = False
+    for key in keys:
+        if key == del_key:
+            del dictionary[key]
+            deleted_key = True
+
+        else:
+            deleted_key = deleted_key or delete_dict_entries(dictionary[key], del_key=del_key, first_run=False)
+
+    if first_run:
+        return dictionary, deleted_key
+
+    else:
+        return deleted_key
