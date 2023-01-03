@@ -399,3 +399,83 @@ def delete_dict_entries(dictionary, del_key='classifier', first_run=True):
 
     else:
         return deleted_key
+    
+   class Hierarchical_Metric():
+
+    def __init__(self, true_labels, predicted_labels, hierarchy_structure):
+        '''hierarchy_structure: NetworkX graph of hierarchical classifier'''
+        self.true_labels = np.array(true_labels) 
+        self.predicted_labels = np.array(predicted_labels) 
+        self.hierarchy_structure = hierarchy_structure
+
+    def augmented_set_of_node_n(self, node):
+        '''Assuming a tree hierarchy structure, ancestors of node n, including node, excluding root'''
+        
+        ancestors = nx.ancestors(self.hierarchy_structure, node)
+        ancestors.add(node)
+
+        return np.array(list(ancestors))[1:]
+
+    def hP(self, true_labels, predicted_labels):
+        numerator = []
+        denominator = []
+        for t_label, p_label in zip(true_labels, predicted_labels):
+            t_label_augmented = self.augmented_set_of_node_n(t_label)
+            p_label_augmented = self.augmented_set_of_node_n(p_label) 
+
+            cardinality_intersect_t_p = len(np.intersect1d(t_label_augmented, p_label_augmented))
+
+            #test for over specialization and in case cut augmented p to len of augmented true
+            if len(np.intersect1d(t_label_augmented, p_label_augmented)) == len(t_label_augmented):
+                over_spec_len = len(p_label_augmented) - len(t_label_augmented)
+                slice_len = len(p_label_augmented) - over_spec_len
+                p_label_augmented = p_label_augmented[:slice_len] 
+
+            cardinality_p_label_augmented = len(p_label_augmented)
+
+            numerator.append(cardinality_intersect_t_p)
+            denominator.append(cardinality_p_label_augmented)
+        
+        return np.sum(np.array(numerator)) / np.sum(np.array(denominator))
+
+
+    def hR(self, true_labels, predicted_labels):
+        numerator = []
+        denominator = []
+        for t_label, p_label in zip(true_labels, predicted_labels):
+            t_label_augmented = self.augmented_set_of_node_n(t_label)
+            p_label_augmented = self.augmented_set_of_node_n(p_label) 
+
+            cardinality_intersect_t_p = len(np.intersect1d(t_label_augmented, p_label_augmented))
+            cardinality_t_label_augmented = len(t_label_augmented)
+
+            numerator.append(cardinality_intersect_t_p)
+            denominator.append(cardinality_t_label_augmented)
+        
+        return np.sum(np.array(numerator)) / np.sum(np.array(denominator)) 
+
+    def hF(self, beta):
+
+        hP = self.hP(self.true_labels, self.predicted_labels) 
+        hR = self.hR(self.true_labels, self.predicted_labels)
+        
+        hF = (beta**2 + 1) * hP * hR / (beta**2 * hP + hR)
+
+        return hF
+
+    def macro_hF(self, beta):
+        '''Macro averaged hF-Score (average of micro hF1's for each label)'''
+
+        labels = pd.Series(self.true_labels).value_counts().keys()
+        
+        label_Fb = []
+
+        for label in labels: 
+            true_label_idcs = np.where(self.true_labels == label)[0]
+            hP = self.hP(self.true_labels[true_label_idcs], self.predicted_labels[true_label_idcs])
+            hR = self.hR(self.true_labels[true_label_idcs], self.predicted_labels[true_label_idcs])
+
+            Fb = (beta**2 + 1) * hP * hR / (beta**2 * hP + hR)
+            label_Fb.append(Fb)
+
+        return np.sum(np.array(label_Fb))/len(labels)
