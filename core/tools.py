@@ -362,8 +362,7 @@ def delete_dict_entries(dictionary, del_key='classifier', first_run=True):
     else:
         return deleted_key
     
-   class Hierarchical_Metric():
-
+class Hierarchical_Metric():
     def __init__(self, true_labels, predicted_labels, hierarchy_structure):
         '''hierarchy_structure: NetworkX graph of hierarchical classifier'''
         self.true_labels = np.array(true_labels) 
