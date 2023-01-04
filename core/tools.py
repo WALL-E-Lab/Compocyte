@@ -16,29 +16,6 @@ def set_node_to_depth(dictionary, depth=0, node_to_depth={}):
 
     return node_to_depth
 
-def set_node_to_scVI(dictionary, parent_node=None, depth=0, max_depth_scVI=2, node_to_scVI={}):
-    """Create dict assigning to each node in the hierarchy the node whose scVI dimensions should
-    be used. The idea is that running scVI separately for the first max_depth_scVI + 1 levels
-    will better bring out subtle differences between cells, improving classifier accuracy.
-    """
-
-    if len(dictionary.keys()) == 0:
-        pass
-
-    else:
-        for key in dictionary.keys():
-            deeper_assignments = set_node_to_scVI(dictionary[key], parent_node=key, depth=depth+1)
-            if depth <= max_depth_scVI:
-                node_to_scVI[key] = key
-
-            else:
-                node_to_scVI[key] = parent_node
-
-            for deeper_key, value in deeper_assignments.items():
-                node_to_scVI[deeper_key] = value
-
-    return node_to_scVI
-
 def is_counts(matrix, n_rows_to_try=100):
     """Determines whether or not a matrix (such as adata.X, adata.raw.X or an adata layer) contains
     count data by manually checking a subsample of the supplied matrix.
@@ -117,21 +94,6 @@ def make_graph_from_edges(d, g, parent_key=''):
 
         else:
             make_graph_from_edges(d[key], g, parent_key=key)
-
-def list_subgraph_nodes(g, parent_node):
-    """Add explanation
-    """
-
-    list_of_nodes = []
-    for node in g.adj[parent_node].keys():
-        if len(g.adj[parent_node].keys()) != 0:
-            list_of_nodes.append(node)
-            list_of_nodes = list_of_nodes + list_subgraph_nodes(g, node)
-
-        else:
-            list_of_nodes.append(node)
-
-    return list_of_nodes
 
 def get_last_annotation(obs_names, adata, barcodes=None, true_only=False):
     if barcodes is None:

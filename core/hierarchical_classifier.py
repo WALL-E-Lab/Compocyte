@@ -40,7 +40,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
         sampling_method=None,
         sampling_strategy='auto',
         batch_key='batch', 
-        classification_mode='CPN',
+        classification_mode='CPPN',
         projected_total_cells=100000,
         sequential_kwargs={}, # hidden_layers learning_rate momentum loss_function dropout discretization l2_reg_input
         train_kwargs={} # batch_size epochs verbose plot
