@@ -375,7 +375,7 @@ class Hierarchical_Metric():
         ancestors = nx.ancestors(self.hierarchy_structure, node)
         ancestors.add(node)
 
-        return np.array(list(ancestors))[1:]
+        return np.array(list(ancestors))
 
     def hP(self, true_labels, predicted_labels):
         numerator = []
@@ -440,3 +440,15 @@ class Hierarchical_Metric():
             label_Fb.append(Fb)
 
         return np.sum(np.array(label_Fb))/len(labels)
+
+    def list_micro_metrics(self, beta):
+        label_metrics = pd.DataFrame(columns=[f'hF{beta}', 'hR', 'hP'])
+        for label in np.unique(self.true_labels): 
+            true_label_idcs = np.where(self.true_labels == label)[0]
+            hP = self.hP(self.true_labels[true_label_idcs], self.predicted_labels[true_label_idcs])
+            hR = self.hR(self.true_labels[true_label_idcs], self.predicted_labels[true_label_idcs])
+
+            Fb = (beta**2 + 1) * hP * hR / (beta**2 * hP + hR)
+            label_metrics.loc[label] = [np.round(Fb, 2), np.round(hR, 2), np.round(hP, 2)]
+
+        return label_metrics
