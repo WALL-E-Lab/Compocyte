@@ -376,6 +376,10 @@ class CPPNBase():
         if type(current_barcodes) == type(None):
             current_barcodes = self.adata.obs_names
 
+        elif type(current_barcodes) == list:
+            if len(current_barcodes) == 0:
+                return
+
         if type(test_barcodes) != type(None):
             current_barcodes = [b for b in current_barcodes if b in test_barcodes]
 
