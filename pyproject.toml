@@ -19,9 +19,8 @@ classifiers = [
 dependencies = ["scanpy", "uncertainties"]
 
 [options]
-package_dir =
-    = src
-    
+package_dir = src
+
 [project.urls]
 "Homepage" = "https://github.com/pypa/sampleproject"
 "Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
