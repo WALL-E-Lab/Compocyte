@@ -1,1 +1,1 @@
-from . import core, tests
+from . import core
