@@ -317,7 +317,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
         enc = {l: i for i, l in enumerate(labels)}
         y_int = np.array([enc[l] for l in y])
         if len(activations.shape) > 1:
-            activations_true = np.take_along_axis(activations.T, y_int[:, np.newaxis], axis=1)[:, 0]
+            activations_true = np.take_along_axis(activations.T, y_int[:, np.newaxis], axis=0)[:, 0]
 
         else:
             activations_true = activations

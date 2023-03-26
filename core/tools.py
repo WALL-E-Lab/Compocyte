@@ -468,3 +468,18 @@ class Hierarchical_Metric():
             label_metrics.loc[label] = [np.round(Fb, 2), np.round(hR, 2), np.round(hP, 2)]
 
         return label_metrics
+    
+    
+   
+def annotate_hierarchical(adata, graph, annotate_from_obs_key, root):
+    adata_length = len(adata.obs_names)
+    for cell_number, cell_name in enumerate(adata.obs[annotate_from_obs_key]):
+        ancestors = nx.shortest_path(graph, source = root, target = cell_name)
+        for i,a in enumerate(ancestors):
+            try:
+                temp_vec = list(adata.obs[f'Level_{i}'])
+            except KeyError:
+                adata.obs[f'Level_{i}'] = np.nan
+                temp_vec = list(adata.obs[f'Level_{i}'])
+            temp_vec[cell_number] = a
+            adata.obs[f'Level_{i}'] = temp_vec
