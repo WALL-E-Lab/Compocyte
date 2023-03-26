@@ -1,8 +1,8 @@
-from classiFire.core.tools import z_transform_properties
-from classiFire.core.models.dense import DenseKeras
-from classiFire.core.models.log_reg import LogisticRegression
-from classiFire.core.models.dense_torch import DenseTorch
-from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
+from scFlorist.core.tools import z_transform_properties
+from scFlorist.core.models.dense import DenseKeras
+from scFlorist.core.models.log_reg import LogisticRegression
+from scFlorist.core.models.dense_torch import DenseTorch
+from scFlorist.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
     make_graph_from_edges, set_node_to_depth
 from uncertainties import ufloat
 from time import time

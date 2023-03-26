@@ -1,4 +1,4 @@
-from classiFire import core
+from scFlorist import core
 from .generate_test_data import *
 
 adata = generate_random_anndata(n_cells=600)

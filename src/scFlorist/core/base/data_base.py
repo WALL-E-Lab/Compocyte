@@ -5,7 +5,7 @@ import numpy as np
 import scanpy as sc
 import pandas as pd
 from datetime import datetime
-from classiFire.core.tools import is_counts, z_transform_properties
+from scFlorist.core.tools import is_counts, z_transform_properties
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from scipy import sparse
 from sklearn.feature_selection import SelectKBest, chi2, f_classif

@@ -1,1 +1,1 @@
-from classiFire.core import hierarchical_classifier, tools, models, base
+from scFlorist.core import hierarchical_classifier, tools, models, base

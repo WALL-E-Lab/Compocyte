@@ -1,7 +1,7 @@
 from copy import deepcopy
-from classiFire.core.models.dense import DenseKeras
-from classiFire.core.models.dense_torch import DenseTorch
-from classiFire.core.models.log_reg import LogisticRegression
+from scFlorist.core.models.dense import DenseKeras
+from scFlorist.core.models.dense_torch import DenseTorch
+from scFlorist.core.models.log_reg import LogisticRegression
 import networkx as nx
 from tensorflow import keras
 import torch

@@ -3,11 +3,11 @@ import numpy as np
 import tensorflow as tf 
 import tensorflow.keras as keras
 from sklearn.preprocessing import LabelEncoder
-from classiFire.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
+from scFlorist.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
     make_graph_from_edges, set_node_to_depth, delete_dict_entries
-from classiFire.core.models.dense import DenseKeras
-from classiFire.core.models.dense_torch import DenseTorch
-from classiFire.core.models.log_reg import LogisticRegression
+from scFlorist.core.models.dense import DenseKeras
+from scFlorist.core.models.dense_torch import DenseTorch
+from scFlorist.core.models.log_reg import LogisticRegression
 from sklearn.feature_selection import SelectKBest, f_classif
 from copy import deepcopy
 
