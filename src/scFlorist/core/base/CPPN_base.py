@@ -58,7 +58,7 @@ class CPPNBase():
 
         n_cell_types = len(relevant_cells.obs[children_obs_key].unique())
         if n_cell_types == 0:
-            return
+            return False
 
         print(f'Training at {node}.')
         if data_type in ['counts', 'normlog']:
@@ -192,10 +192,13 @@ class CPPNBase():
             classifier. Necessary to enable separation of training and test data for cross-validation.
         """
 
-        self.train_single_node_CPPN(current_node, train_barcodes)
+        continue_training = self.train_single_node_CPPN(current_node, train_barcodes)
         for child_node in self.get_child_nodes(current_node):
             if len(self.get_child_nodes(child_node)) == 0:
                 continue
+
+            elif type(continue_training) is bool and not continue_training:
+                break
 
             self.train_all_child_nodes_CPPN(child_node, train_barcodes=train_barcodes, initial_call=False)
 
