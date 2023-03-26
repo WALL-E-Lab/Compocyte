@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "classiFire"
+name = "scFlorist"
 version = "1.0.2.1"
 authors = [
   { name="Example Author", email="author@example.com" },
@@ -19,7 +19,7 @@ classifiers = [
 dependencies = ["scanpy", "uncertainties"]
 
 [options]
-package_dir = "."
+package_dir = "src"
 
 [project.urls]
 "Homepage" = "https://github.com/pypa/sampleproject"
