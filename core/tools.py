@@ -361,6 +361,22 @@ def delete_dict_entries(dictionary, del_key='classifier', first_run=True):
 
     else:
         return deleted_key
+
+def get_last_labels(labels, empty_labels):
+    is_not_empty_label = np.copy(labels)
+    for label in empty_labels:
+        is_not_empty_label[is_not_empty_label == label] = 0
+
+    is_not_empty_label[is_not_empty_label != is_not_empty_label] = 0 # remove nans
+    is_not_empty_label[is_not_empty_label != 0] = 1
+    number_of_non_empty_labels = np.sum(is_not_empty_label, axis=1).astype(int)
+    last_labels = np.take_along_axis(
+        labels,
+        (number_of_non_empty_labels - 1)[:, np.newaxis],
+        axis = 1
+    )[:, 0]
+
+    return last_labels
     
 class Hierarchical_Metric():
     def __init__(self, true_labels, predicted_labels, hierarchy_structure):
