@@ -111,7 +111,10 @@ class DataBase():
 
         else:
             if hasattr(self.adata, 'raw') and self.adata.raw != None and is_counts(self.adata.raw.X):
-                pass
+                self.adata.X = self.adata.raw.X
+
+            elif hasattr(self.adata, 'layers') and 'raw' in self.adata.layers and is_counts(self.adata.layers['raw']):
+                self.adata.X = self.adata.layers['raw']
 
             else:
                 raise ValueError('No raw counts found in adata.X or adata.raw.X.')
@@ -139,6 +142,7 @@ class DataBase():
             np.isin(
                 np.array(self.adata.obs_names), 
                 barcodes))[0]
+
         if f'{obs_key}_pred' in self.adata.obs.columns:
             self.adata.obs[f'{obs_key}_pred'] = pd.Categorical(self.adata.obs[f'{obs_key}_pred'])
             for cat in np.unique(y_pred):
