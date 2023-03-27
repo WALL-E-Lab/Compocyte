@@ -379,15 +379,19 @@ def get_last_labels(labels, empty_labels):
     return last_labels
     
 class Hierarchical_Metric():
-    def __init__(self, true_labels, predicted_labels, hierarchy_structure):
+    def __init__(self, true_labels, predicted_labels, hierarchy_structure, root_node='Blood'):
         '''hierarchy_structure: NetworkX graph of hierarchical classifier'''
         self.true_labels = np.array(true_labels) 
         self.predicted_labels = np.array(predicted_labels) 
         self.hierarchy_structure = hierarchy_structure
+        self.root_node = root_node
 
     def augmented_set_of_node_n(self, node):
         '''Assuming a tree hierarchy structure, ancestors of node n, including node, excluding root'''
         
+        if not node in self.hierarchy_structure.nodes:
+            node = self.root_node
+
         ancestors = nx.ancestors(self.hierarchy_structure, node)
         ancestors.add(node)
 
