@@ -329,7 +329,7 @@ class CPPNBase():
 
             y_pred_not_nan_str = np.array(
                 [label_decoding[i] for i in y_pred[y_pred_not_nan_idx]])
-            y_pred = y_pred.astype(str)
+            y_pred = y_pred.astype(dtype="object") # important to avoid long cell types being truncated
             y_pred[y_pred_not_nan_idx] = y_pred_not_nan_str
             y_pred[y_pred_nan_idx] = 'stopped'
             #child_obs_key says at which hierarchy level the predictions have to be saved
