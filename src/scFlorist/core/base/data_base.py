@@ -24,9 +24,10 @@ class DataBase():
             if batch_key != self.batch_key:
                 raise Exception('Batch key must match previously used batch key.')
 
-            self.adata = self.variable_match_adata(adata)
             self.ensure_not_view()
             self.check_for_counts()
+            self.adata = self.variable_match_adata(adata)
+            self.ensure_not_view()
             self.ensure_batch_assignment()
 
         else:
@@ -117,7 +118,7 @@ class DataBase():
                 self.adata.X = self.adata.layers['raw']
 
             else:
-                raise ValueError('No raw counts found in adata.X or adata.raw.X.')
+                raise ValueError('No raw counts found in adata.X or adata.raw.X or adata.layers["raw"].')
 
     def ensure_normlog(self):
         if not 'normlog' in self.adata.layers:            
