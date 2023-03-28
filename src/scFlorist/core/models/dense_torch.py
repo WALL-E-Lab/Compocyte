@@ -37,7 +37,7 @@ class DenseTorch(torch.nn.Module, DenseBase):
         super().__init__()
         if torch.cuda.is_available():
             torch.set_default_tensor_type('torch.cuda.FloatTensor')
-            self.to("cuda" if torch.cuda.is_availble() else "cpu")
+            self.to("cuda" if torch.cuda.is_available() else "cpu")
 
         self.layers = torch.nn.ModuleList()
         if weight is not None:
@@ -157,7 +157,7 @@ class DenseTorch(torch.nn.Module, DenseBase):
         else:
             self.eval()
             x = torch.Tensor(x)
-            y = self(x).detach().numpy()
+            y = self(x).detach().cpu().numpy()
 
         return y
 

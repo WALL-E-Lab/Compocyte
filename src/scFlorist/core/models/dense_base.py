@@ -88,8 +88,8 @@ class DenseBase():
                 if not validation_data is None:                    
                     pred_val = self(x_val)
                     pred_val = torch.clamp(pred_val, 0, 1)
-                    pred_int = np.argmax(pred_val.detach().numpy(), axis=-1)
-                    y_int = np.argmax(y_val.detach().numpy(), axis=-1)
+                    pred_int = np.argmax(pred_val.detach().cpu().numpy(), axis=-1)
+                    y_int = np.argmax(y_val.detach().cpu().numpy(), axis=-1)
                     val_accuracy = np.mean(pred_int == y_int) * 100
                     try:
                         val_loss = self.loss_function(pred_val, y_val).item()
@@ -108,8 +108,8 @@ class DenseBase():
 
                 pred = self(x)
                 pred = torch.clamp(pred, 0, 1)
-                pred_int = np.argmax(pred.detach().numpy(), axis=-1)
-                y_int = np.argmax(y.detach().numpy(), axis=-1)
+                pred_int = np.argmax(pred.detach().cpu().numpy(), axis=-1)
+                y_int = np.argmax(y.detach().cpu().numpy(), axis=-1)
                 accuracy = np.mean(pred_int == y_int) * 100
                 loss = self.loss_function(pred, y).item()
                 history['accuracy'].append(accuracy)

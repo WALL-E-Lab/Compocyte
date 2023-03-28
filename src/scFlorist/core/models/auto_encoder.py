@@ -101,4 +101,4 @@ class AutoEncoder(torch.nn.Module, DenseBase):
         for l in self.encoder:
             x = l(x)
 
-        return x.detach().numpy()
+        return x.detach().cpu().numpy()
