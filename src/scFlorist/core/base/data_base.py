@@ -24,9 +24,10 @@ class DataBase():
             if batch_key != self.batch_key:
                 raise Exception('Batch key must match previously used batch key.')
 
+            self.adata = adata
             self.ensure_not_view()
             self.check_for_counts()
-            self.adata = self.variable_match_adata(adata)
+            self.adata = self.variable_match_adata(self.adata)
             self.ensure_not_view()
             self.ensure_batch_assignment()
 
