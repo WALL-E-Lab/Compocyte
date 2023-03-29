@@ -24,11 +24,9 @@ class DataBase():
             if batch_key != self.batch_key:
                 raise Exception('Batch key must match previously used batch key.')
 
-            self.adata = adata
+            self.adata = self.variable_match_adata(adata)
             self.ensure_not_view()
             self.check_for_counts()
-            self.adata = self.variable_match_adata(self.adata)
-            self.ensure_not_view()
             self.ensure_batch_assignment()
 
         else:
@@ -52,6 +50,16 @@ class DataBase():
         new_adata):
 
         new_var_names = [v for v in self.adata.var_names if not v in new_adata.var_names]
+        if is_counts(new_adata.X):
+            pass
+
+        else:
+            if hasattr(new_adata, 'raw') and new_adata.raw != None and is_counts(new_adata.raw.X):
+                new_adata.X = new_adata.raw.X
+
+            elif hasattr(new_adata, 'layers') and 'raw' in new_adata.layers and is_counts(new_adata.layers['raw']):
+                new_adata.X = new_adata.layers['raw']
+                
         if len(new_var_names) > 0:
             new_values = np.empty(
                 (len(new_adata.obs_names), len(new_var_names))
