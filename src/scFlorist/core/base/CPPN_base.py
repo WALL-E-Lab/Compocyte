@@ -382,6 +382,9 @@ class CPPNBase():
         if type(test_barcodes) != type(None):
             current_barcodes = [b for b in current_barcodes if b in test_barcodes]
 
+        if not self.is_trained_at(current_node):
+            return
+
         self.predict_single_node_CPPN(current_node, barcodes=current_barcodes)
         obs_key = self.get_children_obs_key(current_node)
         for child_node in self.get_child_nodes(current_node):
