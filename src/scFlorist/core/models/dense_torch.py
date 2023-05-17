@@ -167,7 +167,7 @@ class DenseTorch(torch.nn.Module, DenseBase):
         y_onehot,
         y_int,
         batch_size=40,
-        epochs=1000,
+        epochs=40,
         verbose=0,
         plot=False,
         fit_arguments={},

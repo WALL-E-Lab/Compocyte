@@ -33,9 +33,10 @@ class DenseBase():
         x, 
         y,
         batch_size=40,
-        epochs=1000,
+        epochs=40,
         validation_data=None,
-        plot_live=False):
+        plot_live=False,
+        max_lr=0.1):
         """x is torch.Tensor with shape (n_cells, n_features)
         y is torch.Tensor with shape (n_cells, n_output), containing onehot encoding"""
         if plot_live:
@@ -73,11 +74,20 @@ class DenseBase():
                 momentum=self.momentum,
                 weight_decay=weight_decay
             )
+            scheduler = torch.optim.lr_scheduler.OneCycleLR(
+                optimizer, 
+                max_lr=max_lr,
+                div_factor=10,
+                epochs=epochs,
+                steps_per_epoch=((n_cells - 1) // batch_size + 1),
+                verbose=False
+            )
             history = {
                 'val_accuracy': [],
                 'val_loss': [],
                 'accuracy': [],
                 'loss': [],
+                'lr': [],
                 'state_dicts': []}
             counter_stopping = 0
             counter_lr = 0
@@ -114,6 +124,7 @@ class DenseBase():
                 loss = self.loss_function(pred, y).item()
                 history['accuracy'].append(accuracy)
                 history['loss'].append(loss)
+                history['lr'].append(scheduler.get_last_lr()[0])
 
                 self.train()
                 for i in range((n_cells - 1) // batch_size + 1):                    
@@ -129,34 +140,33 @@ class DenseBase():
                     loss_train = loss.item()
                     loss.backward()
                     optimizer.step()
+                    scheduler.step()
                     optimizer.zero_grad()
 
                 if plot_live:
                     clear_output()
-                    self.plot_training(history, 'loss')
+                    fig, ax_left = plt.subplots()
+                    ax_left.plot(history[f'lr'], label='lr', color='green')
+                    ax_left.set_ylabel('model lr')
+                    ax_right = ax_left.twinx()
+                    ax_right.plot(history[f'val_loss'], label='val_loss', color='orange')
+                    ax_right.set_ylabel('val_loss')
+                    
+                    plt.legend(['model lr', 'val_los'], loc='upper left')
+                    plt.show()
 
+                best_index = np.argmin(history['val_loss'])
                 patience = 5
-                is_plateau = np.std(history['val_loss'][-3:]) < (0.01 * (np.max(history['val_loss']) - np.min(history['val_loss'])))
+                is_plateau = (history['val_loss'][-1] - history['val_loss'][best_index]) < 0 
                 if self.early_stopping and is_plateau:
                     counter_stopping += 1
                     if counter_stopping == patience:
-                        self.load_state_dict(history['state_dicts'][np.argmin(history['val_loss'])])
                         break
 
                 else:
                     counter_stopping = 0
 
-                patience = 2
-                if self.reduce_LR_plateau and is_plateau:
-                    counter_lr += 1
-                    if counter_lr == patience:
-                        print('Learning rate reduced by factor 0.2 due to plateau in val_loss.')
-                        for g in optimizer.param_groups:
-                            g['lr'] = g['lr'] * 0.2
-
-                else:
-                    counter_lr = 0
-
+            self.load_state_dict(history['state_dicts'][np.argmin(history['val_loss'])])
             del history['state_dicts']
             return history
 

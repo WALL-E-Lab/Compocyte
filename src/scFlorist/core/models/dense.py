@@ -156,7 +156,7 @@ class DenseKeras(keras.Model):
         y_onehot,
         y_int,
         batch_size=40,
-        epochs=1000,
+        epochs=40,
         verbose=0,
         plot=False,
         **kwargs):
