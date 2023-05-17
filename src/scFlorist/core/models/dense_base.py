@@ -95,7 +95,8 @@ class DenseBase():
                 self.eval()
                 history['state_dicts'].append(deepcopy(self.state_dict()))
                 # Record loss and accuracy
-                if not validation_data is None:                    
+                if not validation_data is None:
+                    to_minimize = 'val_loss'                 
                     pred_val = self(x_val)
                     pred_val = torch.clamp(pred_val, 0, 1)
                     pred_int = np.argmax(pred_val.detach().cpu().numpy(), axis=-1)
@@ -115,6 +116,9 @@ class DenseBase():
 
                     history['val_accuracy'].append(val_accuracy)
                     history['val_loss'].append(val_loss)
+
+                else:
+                    to_minimize = 'loss'
 
                 pred = self(x)
                 pred = torch.clamp(pred, 0, 1)
@@ -149,15 +153,15 @@ class DenseBase():
                     ax_left.plot(history[f'lr'], label='lr', color='green')
                     ax_left.set_ylabel('model lr')
                     ax_right = ax_left.twinx()
-                    ax_right.plot(history[f'val_loss'], label='val_loss', color='orange')
-                    ax_right.set_ylabel('val_loss')
+                    ax_right.plot(history[to_minimize], label=to_minimize, color='orange')
+                    ax_right.set_ylabel(to_minimize)
                     
-                    plt.legend(['model lr', 'val_los'], loc='upper left')
+                    plt.legend(['model lr', to_minimize], loc='upper left')
                     plt.show()
 
-                best_index = np.argmin(history['val_loss'])
+                best_index = np.argmin(history[to_minimize])
                 patience = 5
-                is_plateau = (history['val_loss'][-1] - history['val_loss'][best_index]) < 0 
+                is_plateau = (history[to_minimize][-1] - history[to_minimize][best_index]) < 0 
                 if self.early_stopping and is_plateau:
                     counter_stopping += 1
                     if counter_stopping == patience:
@@ -166,7 +170,7 @@ class DenseBase():
                 else:
                     counter_stopping = 0
 
-            self.load_state_dict(history['state_dicts'][np.argmin(history['val_loss'])])
+            self.load_state_dict(history['state_dicts'][np.argmin(history[to_minimize])])
             del history['state_dicts']
             return history
 
