@@ -385,6 +385,8 @@ class Hierarchical_Metric():
         self.predicted_labels = np.array(predicted_labels) 
         self.hierarchy_structure = hierarchy_structure
         self.root_node = root_node
+        self.augmented_lookups = {}
+        self.intersect_lookups = {}
 
     def augmented_set_of_node_n(self, node):
         '''Assuming a tree hierarchy structure, ancestors of node n, including node, excluding root'''
@@ -392,28 +394,35 @@ class Hierarchical_Metric():
         if not node in self.hierarchy_structure.nodes:
             node = self.root_node
 
-        ancestors = nx.ancestors(self.hierarchy_structure, node)
-        ancestors.add(node)
+        if not node in self.augmented_lookups.keys(): # avoid having to call nx ancestors for every single true and predicted label
+            ancestors = nx.ancestors(self.hierarchy_structure, node)
+            ancestors.add(node)
+            self.augmented_lookups[node] = np.array(list(ancestors))
 
-        return np.array(list(ancestors))
+        return self.augmented_lookups[node]
+
+    def calculate_intersects(self, t_label_augmented, p_label_augmented):
+        cardinality_intersect_t_p = len(np.intersect1d(t_label_augmented, p_label_augmented))
+
+        #test for over specialization and in case cut augmented p to len of augmented true
+        if len(np.intersect1d(t_label_augmented, p_label_augmented)) == len(t_label_augmented):
+            over_spec_len = len(p_label_augmented) - len(t_label_augmented)
+            slice_len = len(p_label_augmented) - over_spec_len
+            p_label_augmented = p_label_augmented[:slice_len] 
+
+        cardinality_p_label_augmented = len(p_label_augmented)
+        self.intersect_lookups[t_label][p_label] = (cardinality_intersect_t_p, cardinality_p_label_augmented)
 
     def hP(self, true_labels, predicted_labels):
         numerator = []
         denominator = []
         for t_label, p_label in zip(true_labels, predicted_labels):
-            t_label_augmented = self.augmented_set_of_node_n(t_label)
-            p_label_augmented = self.augmented_set_of_node_n(p_label) 
+            if not (t_label in self.intersect_lookups.keys() and p_label in self.intersect_lookups[t_label].keys()):
+                t_label_augmented = self.augmented_set_of_node_n(t_label)
+                p_label_augmented = self.augmented_set_of_node_n(p_label) 
+                calculate_intersects(t_label_augmented, p_label_augmented)                
 
-            cardinality_intersect_t_p = len(np.intersect1d(t_label_augmented, p_label_augmented))
-
-            #test for over specialization and in case cut augmented p to len of augmented true
-            if len(np.intersect1d(t_label_augmented, p_label_augmented)) == len(t_label_augmented):
-                over_spec_len = len(p_label_augmented) - len(t_label_augmented)
-                slice_len = len(p_label_augmented) - over_spec_len
-                p_label_augmented = p_label_augmented[:slice_len] 
-
-            cardinality_p_label_augmented = len(p_label_augmented)
-
+            cardinality_intersect_t_p, cardinality_p_label_augmented = self.intersect_lookups[t_label][p_label]
             numerator.append(cardinality_intersect_t_p)
             denominator.append(cardinality_p_label_augmented)
         
@@ -425,9 +434,11 @@ class Hierarchical_Metric():
         denominator = []
         for t_label, p_label in zip(true_labels, predicted_labels):
             t_label_augmented = self.augmented_set_of_node_n(t_label)
-            p_label_augmented = self.augmented_set_of_node_n(p_label) 
+            p_label_augmented = self.augmented_set_of_node_n(p_label)
+            if not (t_label in self.intersect_lookups.keys() and p_label in self.intersect_lookups[t_label].keys()):
+                calculate_intersects(t_label_augmented, p_label_augmented)  
 
-            cardinality_intersect_t_p = len(np.intersect1d(t_label_augmented, p_label_augmented))
+            cardinality_intersect_t_p, _ = self.intersect_lookups[t_label][p_label]
             cardinality_t_label_augmented = len(t_label_augmented)
 
             numerator.append(cardinality_intersect_t_p)
