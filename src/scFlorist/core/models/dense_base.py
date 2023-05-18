@@ -114,6 +114,7 @@ class DenseBase():
                         print(y_val.shape)
                         raise Exception()
 
+                    del pred_val
                     history['val_accuracy'].append(val_accuracy)
                     history['val_loss'].append(val_loss)
 
@@ -126,6 +127,7 @@ class DenseBase():
                 y_int = np.argmax(y.detach().cpu().numpy(), axis=-1)
                 accuracy = np.mean(pred_int == y_int) * 100
                 loss = self.loss_function(pred, y).item()
+                del pred
                 history['accuracy'].append(accuracy)
                 history['loss'].append(loss)
                 history['lr'].append(scheduler.get_last_lr()[0])
@@ -143,6 +145,10 @@ class DenseBase():
                     loss = self.loss_function(pred, yb)
                     loss_train = loss.item()
                     loss.backward()
+                    del xb
+                    del yb
+                    del pred
+                    del loss
                     optimizer.step()
                     scheduler.step()
                     optimizer.zero_grad()

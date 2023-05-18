@@ -37,7 +37,10 @@ class DenseTorch(torch.nn.Module, DenseBase):
         super().__init__()
         if torch.cuda.is_available():
             torch.set_default_tensor_type('torch.cuda.FloatTensor')
-            self.to("cuda" if torch.cuda.is_available() else "cpu")
+            self.to("cuda")
+
+        else:
+            self.to("cpu")
 
         self.layers = torch.nn.ModuleList()
         if weight is not None:
