@@ -145,10 +145,7 @@ class DenseBase():
                     loss = self.loss_function(pred, yb)
                     loss_train = loss.item()
                     loss.backward()
-                    del xb
-                    del yb
-                    del pred
-                    del loss
+                    del xb, yb, pred, loss
                     optimizer.step()
                     scheduler.step()
                     optimizer.zero_grad()

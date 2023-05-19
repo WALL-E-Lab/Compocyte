@@ -401,7 +401,7 @@ class Hierarchical_Metric():
 
         return self.augmented_lookups[node]
 
-    def calculate_intersects(self, t_label_augmented, p_label_augmented):
+    def calculate_intersects(self, t_label, p_label, t_label_augmented, p_label_augmented):
         cardinality_intersect_t_p = len(np.intersect1d(t_label_augmented, p_label_augmented))
 
         #test for over specialization and in case cut augmented p to len of augmented true
@@ -420,7 +420,7 @@ class Hierarchical_Metric():
             if not (t_label in self.intersect_lookups.keys() and p_label in self.intersect_lookups[t_label].keys()):
                 t_label_augmented = self.augmented_set_of_node_n(t_label)
                 p_label_augmented = self.augmented_set_of_node_n(p_label) 
-                self.calculate_intersects(t_label_augmented, p_label_augmented)                
+                self.calculate_intersects(t_label, p_label, t_label_augmented, p_label_augmented)                
 
             cardinality_intersect_t_p, cardinality_p_label_augmented = self.intersect_lookups[t_label][p_label]
             numerator.append(cardinality_intersect_t_p)
@@ -436,7 +436,7 @@ class Hierarchical_Metric():
             t_label_augmented = self.augmented_set_of_node_n(t_label)
             p_label_augmented = self.augmented_set_of_node_n(p_label)
             if not (t_label in self.intersect_lookups.keys() and p_label in self.intersect_lookups[t_label].keys()):
-                self.calculate_intersects(t_label_augmented, p_label_augmented)  
+                self.calculate_intersects(t_label, p_label, t_label_augmented, p_label_augmented)  
 
             cardinality_intersect_t_p, _ = self.intersect_lookups[t_label][p_label]
             cardinality_t_label_augmented = len(t_label_augmented)
