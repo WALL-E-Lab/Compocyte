@@ -411,6 +411,9 @@ class Hierarchical_Metric():
             p_label_augmented = p_label_augmented[:slice_len] 
 
         cardinality_p_label_augmented = len(p_label_augmented)
+        if not t_label in self.intersect_lookups.keys():
+            self.intersect_lookups[t_label] = {}
+            
         self.intersect_lookups[t_label][p_label] = (cardinality_intersect_t_p, cardinality_p_label_augmented)
 
     def hP(self, true_labels, predicted_labels):
