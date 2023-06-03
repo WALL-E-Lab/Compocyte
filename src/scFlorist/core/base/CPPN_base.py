@@ -124,11 +124,7 @@ class CPPNBase():
             raise Exception('Data type not currently supported.')
 
         if hasattr(x, 'todense'):
-            #print('Before todense')
-            #print(psutil.Process().memory_info().rss / (1024 * 1024))
             x = x.todense()
-            #print('After todense')
-            #print(psutil.Process().memory_info().rss / (1024 * 1024))
 
         y = np.array(relevant_cells.obs[children_obs_key])
         if hasattr(self, 'sampling_method') and type(self.sampling_method) != type(None):
@@ -149,11 +145,7 @@ class CPPNBase():
                 [self.graph.nodes[node]['label_encoding'][label] for label in y]
             ).astype(int)
         y_onehot = keras.utils.to_categorical(y_int, num_classes=output_len)
-        #print('Before z transform')
-        #print(psutil.Process().memory_info().rss / (1024 * 1024))
         x = z_transform_properties(x)
-        #print('After z transform')
-        #print(psutil.Process().memory_info().rss / (1024 * 1024))
         self.graph.nodes[node]['local_classifier']._train(x=x, y_onehot=y_onehot, y=y, y_int=y_int, train_kwargs=self.train_kwargs)
         timestamp = str(time()).replace('.', '_')
         if node not in self.trainings.keys():
