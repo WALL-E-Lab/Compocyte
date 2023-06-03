@@ -1,14 +1,12 @@
-import os
 import gc
 import warnings
 import numpy as np
 import scanpy as sc
 import pandas as pd
-from datetime import datetime
 from scFlorist.core.tools import is_counts, z_transform_properties
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from scipy import sparse
-from sklearn.feature_selection import SelectKBest, chi2, f_classif
+from sklearn.feature_selection import SelectKBest, f_classif
 import matplotlib.pyplot as plt
 
 class DataBase():
@@ -49,12 +47,12 @@ class DataBase():
         self, 
         new_adata):
 
-        new_var_names = [v for v in self.adata.var_names if not v in new_adata.var_names]
+        new_var_names = [v for v in self.adata.var_names if v not in new_adata.var_names]
         if is_counts(new_adata.X):
             pass
 
         else:
-            if hasattr(new_adata, 'raw') and new_adata.raw != None and is_counts(new_adata.raw.X):
+            if hasattr(new_adata, 'raw') and new_adata.raw is not None and is_counts(new_adata.raw.X):
                 new_adata.X = new_adata.raw.X
 
             elif hasattr(new_adata, 'layers') and 'raw' in new_adata.layers and is_counts(new_adata.layers['raw']):
@@ -109,7 +107,7 @@ class DataBase():
         """Ensures that self.batch_key is actually a key in self.adata.obs.
         """
 
-        if not self.batch_key in self.adata.obs.columns:
+        if self.batch_key not in self.adata.obs.columns:
             raise KeyError('The batch key supplied does not match any column in adata.obs.')
 
     def check_for_counts(self):
@@ -120,7 +118,7 @@ class DataBase():
             pass
 
         else:
-            if hasattr(self.adata, 'raw') and self.adata.raw != None and is_counts(self.adata.raw.X):
+            if hasattr(self.adata, 'raw') and self.adata.raw is not None and is_counts(self.adata.raw.X):
                 self.adata.X = self.adata.raw.X
 
             elif hasattr(self.adata, 'layers') and 'raw' in self.adata.layers and is_counts(self.adata.layers['raw']):
@@ -130,7 +128,7 @@ class DataBase():
                 raise ValueError('No raw counts found in adata.X or adata.raw.X or adata.layers["raw"].')
 
     def ensure_normlog(self):
-        if not 'normlog' in self.adata.layers:            
+        if 'normlog' not in self.adata.layers:            
             copy_adata = self.adata.copy()
             sc.pp.normalize_total(copy_adata, target_sum=10000)
             sc.pp.log1p(copy_adata)
@@ -140,7 +138,7 @@ class DataBase():
         adata = adata[adata.obs[obs_key] != '']
         adata = adata[adata.obs[obs_key] != 'nan']
         adata = adata[adata.obs[obs_key] != np.nan]
-        adata = adata[(adata.obs[obs_key] != adata.obs[obs_key]) != True]
+        adata = adata[(adata.obs[obs_key] != adata.obs[obs_key]) is not True]
 
         return adata
 
@@ -156,7 +154,7 @@ class DataBase():
         if f'{obs_key}_pred' in self.adata.obs.columns:
             self.adata.obs[f'{obs_key}_pred'] = pd.Categorical(self.adata.obs[f'{obs_key}_pred'])
             for cat in np.unique(y_pred):
-                if not cat in self.adata.obs[f'{obs_key}_pred'].cat.categories:
+                if cat not in self.adata.obs[f'{obs_key}_pred'].cat.categories:
                     self.adata.obs[f'{obs_key}_pred'].cat.add_categories(cat, inplace=True)
 
         try:
@@ -223,7 +221,7 @@ class DataBase():
         total_top_genes = []
         for label in adata_subset.obs[obs_name_children].unique():
             for gene in list(adata_subset.uns['rank_genes_groups']['names'][label]):
-                if not gene in total_top_genes:
+                if gene not in total_top_genes:
                     total_top_genes.append(gene)
 
         return total_top_genes

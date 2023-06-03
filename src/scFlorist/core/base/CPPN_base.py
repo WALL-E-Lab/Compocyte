@@ -4,14 +4,12 @@ from scFlorist.core.models.dense_torch import DenseTorch
 from scFlorist.core.models.log_reg import LogisticRegression
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import ConfusionMatrixDisplay
-from scFlorist.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
-    make_graph_from_edges, set_node_to_depth
+from scFlorist.core.tools import flatten_dict, make_graph_from_edges, set_node_to_depth
 from uncertainties import ufloat
 from copy import deepcopy
 from time import time
 import tensorflow.keras as keras
 import numpy as np
-import psutil
 import networkx as nx
 import gc
 
@@ -137,7 +135,7 @@ class CPPNBase():
             res = self.sampling_method(sampling_strategy=self.sampling_strategy)
             x, y = res.fit_resample(x, y)
 
-        if not 'label_encoding' in self.graph.nodes[node]:
+        if "label_encoding" not in self.graph.nodes[node]:
             self.graph.nodes[node]['label_encoding'] = {}
 
         for label in child_nodes:
@@ -158,7 +156,7 @@ class CPPNBase():
         #print(psutil.Process().memory_info().rss / (1024 * 1024))
         self.graph.nodes[node]['local_classifier']._train(x=x, y_onehot=y_onehot, y=y, y_int=y_int, train_kwargs=self.train_kwargs)
         timestamp = str(time()).replace('.', '_')
-        if not node in self.trainings.keys():
+        if node not in self.trainings.keys():
             self.trainings[node] = {}
 
         self.trainings[node][timestamp] = {
@@ -200,7 +198,7 @@ class CPPNBase():
             self.train_all_child_nodes_CPPN(child_node, train_barcodes=train_barcodes, initial_call=False)
 
         if initial_call:
-            if not 'overall' in self.trainings.keys():
+            if "overall" not in self.trainings.keys():
                 self.trainings['overall'] = {}
 
             timestamp = str(time()).replace('.', '_')
@@ -235,7 +233,7 @@ class CPPNBase():
             test_barcodes = list(self.adata.obs_names)
 
         parent_obs_key = self.get_parent_obs_key(node)
-        if not f'{parent_obs_key}_pred' in self.adata.obs.columns and barcodes is None and not node == self.root_node:
+        if f"{parent_obs_key}_pred" not in self.adata.obs.columns and barcodes is None and not node == self.root_node:
             raise Exception('If previous nodes were not predicted, barcodes for prediction need to \
                 be given explicitly.')
 
@@ -247,7 +245,7 @@ class CPPNBase():
                 ' types')
             return
 
-        if not 'label_encoding' in self.graph.nodes[node] or len(self.graph.nodes[node]['label_encoding'].keys()) == 0:
+        if "label_encoding" not in self.graph.nodes[node] or len(self.graph.nodes[node]['label_encoding'].keys()) == 0:
             raise Exception('No label encoding saved in selected node. \
                 The local classifier has either not been trained or the hierarchy updated and thus the output layer reset.')
 
@@ -320,7 +318,7 @@ class CPPNBase():
         elif self.prob_based_stopping:
             y_pred = np.array(self.predict_single_node_proba(node, x))
             y_pred_nan_idx = np.where(np.isnan(y_pred))
-            y_pred_not_nan_idx = np.where(np.isnan(y_pred) != True)
+            y_pred_not_nan_idx = np.where(np.isnan(y_pred) is not True)
             y_pred = y_pred.astype(int)
             label_decoding = {}
             for key in self.graph.nodes[node]['label_encoding'].keys():
@@ -336,7 +334,7 @@ class CPPNBase():
             obs_key = self.get_children_obs_key(node)
             self.set_predictions(obs_key, list(relevant_cells.obs_names), y_pred)
 
-        if not node in self.predictions.keys():
+        if node not in self.predictions.keys():
             self.predictions[node] = {}
 
         timestamp = str(time()).replace('.', '_')
@@ -402,7 +400,7 @@ class CPPNBase():
                 break         
 
         if initial_call:
-            if not 'overall' in self.predictions.keys():
+            if "overall" not in self.predictions.keys():
                 self.predictions['overall'] = {}
 
             timestamp = str(time()).replace('.', '_')
@@ -495,7 +493,7 @@ class CPPNBase():
             print(f'Test accuracy was {test_score_mean}')
 
     def update_hierarchy_CPPN(self, dict_of_cell_relations, root_node=None):
-        if not root_node is None:
+        if root_node is not None:
             self.root_node = root_node
 
         if dict_of_cell_relations == self.dict_of_cell_relations:
@@ -511,8 +509,8 @@ class CPPNBase():
         new_graph = nx.DiGraph()
         make_graph_from_edges(self.dict_of_cell_relations, new_graph)
 
-        new_nodes = [n for n in all_nodes_post if not n in all_nodes_pre]
-        removed_nodes = [n for n in all_nodes_pre if not n in all_nodes_post]
+        new_nodes = [n for n in all_nodes_post if n not in all_nodes_pre]
+        [n for n in all_nodes_pre if n not in all_nodes_post]
         moved_nodes = []
         classifier_nodes = []
         for node in all_nodes_post:

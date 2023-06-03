@@ -1,11 +1,6 @@
-import tensorflow.keras as keras
-import tensorflow as tf
 import torch
 import os
 import pickle
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
 from sklearn.model_selection import train_test_split
 from copy import deepcopy
 try:
@@ -115,7 +110,7 @@ class DenseTorch(torch.nn.Module, DenseBase):
 
     def reset_output(self, n_output):
         if self.imported:
-            if not 'reset_output' in dir(self.module):
+            if 'reset_output' not in dir(self.module):
                 raise Exception(
                     'No method for resetting the output layer (appending new output nodes) defined. ' \
                     'If you want to update the hierarchy at this node, you need to include reset_output in your imported classifier.')
@@ -242,7 +237,7 @@ class DenseTorch(torch.nn.Module, DenseBase):
             raise TypeError('To import an external model as DenseTorch, it must be a subclass of torch.nn.Module.')
 
         dir_model = dir(model)
-        if not fit_function in dir_model or not predict_function in dir_model:
+        if fit_function not in dir_model or predict_function not in dir_model:
             raise Exception('fit_function and predict_function must be of type str and point to the relevant functions in the import module.')
 
         denseTorch = cls(module=model, fit_function=fit_function, predict_function=predict_function)

@@ -1,12 +1,6 @@
-import tensorflow.keras as keras
-import tensorflow as tf
 import torch
-import os
-import pickle
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.model_selection import train_test_split
 from copy import deepcopy
 
 class DenseBase():
@@ -53,14 +47,14 @@ class DenseBase():
             #    y = self.standardize(y)
 
             n_cells = x.shape[0]
-            if not validation_data is None:
+            if validation_data is not None:
                 x_val, y_val = validation_data
                 x_val, y_val = torch.Tensor(x_val), torch.Tensor(y_val)
                 #x_val = self.standardize(x_val)
                 #if torch.max(y_val) > 1: # test if output is counts or categories
                 #    y_val = self.standardize(y_val)
 
-                n_val = x_val.shape[0]
+                x_val.shape[0]
 
             if self.l2_reg_input:
                 weight_decay = 1e-5
@@ -90,12 +84,11 @@ class DenseBase():
                 'lr': [],
                 'state_dicts': []}
             counter_stopping = 0
-            counter_lr = 0
             for epoch in range(epochs):
                 self.eval()
                 history['state_dicts'].append(deepcopy(self.state_dict()))
                 # Record loss and accuracy
-                if not validation_data is None:
+                if validation_data is not None:
                     to_minimize = 'val_loss'                 
                     pred_val = self(x_val)
                     pred_val = torch.clamp(pred_val, 0, 1)
@@ -143,7 +136,7 @@ class DenseBase():
                     pred = self(xb)
                     pred = torch.clamp(pred, 0, 1)
                     loss = self.loss_function(pred, yb)
-                    loss_train = loss.item()
+                    loss.item()
                     loss.backward()
                     del xb, yb, pred, loss
                     optimizer.step()
@@ -153,7 +146,7 @@ class DenseBase():
                 if plot_live:
                     clear_output()
                     fig, ax_left = plt.subplots()
-                    ax_left.plot(history[f'lr'], label='lr', color='green')
+                    ax_left.plot(history['lr'], label='lr', color='green')
                     ax_left.set_ylabel('model lr')
                     ax_right = ax_left.twinx()
                     ax_right.plot(history[to_minimize], label=to_minimize, color='orange')

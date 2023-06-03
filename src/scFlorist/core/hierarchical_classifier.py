@@ -3,48 +3,48 @@ from scFlorist.core.base.hierarchy_base import HierarchyBase
 from scFlorist.core.base.CPN_base import CPNBase
 from scFlorist.core.base.CPPN_base import CPPNBase
 from scFlorist.core.base.export_import_base import ExportImportBase
-from scFlorist.core.tools import z_transform_properties
 from scFlorist.core.models.dense import DenseKeras
 from scFlorist.core.models.log_reg import LogisticRegression
 from scFlorist.core.models.dense_torch import DenseTorch
-from sklearn.model_selection import train_test_split, StratifiedKFold
-from sklearn.metrics import ConfusionMatrixDisplay
-from uncertainties import ufloat
-from copy import deepcopy
-from imblearn.over_sampling import SMOTE
 from time import time
-from imblearn.under_sampling import NearMiss, RandomUnderSampler
-import tensorflow.keras as keras
 import numpy as np
 import os
 import pickle
 import scanpy as sc
 
-class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportImportBase):
+
+class HierarchicalClassifier(
+        DataBase,
+        HierarchyBase,
+        CPNBase,
+        CPPNBase,
+        ExportImportBase):
     """Add explanation
     """
 
     def __init__(
-        self,
-        save_path,
-        adata = None,
-        root_node=None,
-        dict_of_cell_relations=None, 
-        obs_names=None,
-        prob_based_stopping = False,
-        threshold=None,
-        default_input_data='normlog',
-        use_feature_selection=True,
-        n_top_genes_per_class=300,
-        hv_genes=-1,
-        sampling_method=None,
-        sampling_strategy='auto',
-        batch_key='batch', 
-        classification_mode='CPPN',
-        projected_total_cells=100000,
-        sequential_kwargs={}, # hidden_layers learning_rate momentum loss_function dropout discretization l2_reg_input
-        train_kwargs={} # batch_size epochs verbose plot
-        ):
+            self,
+            save_path,
+            adata=None,
+            root_node=None,
+            dict_of_cell_relations=None, 
+            obs_names=None,
+            prob_based_stopping=False,
+            threshold=None,
+            default_input_data='normlog',
+            use_feature_selection=True,
+            n_top_genes_per_class=300,
+            hv_genes=-1,
+            sampling_method=None,
+            sampling_strategy='auto',
+            batch_key='batch', 
+            classification_mode='CPPN',
+            projected_total_cells=100000,
+            sequential_kwargs={},
+            # hidden_layers learning_rate momentum loss_function
+            # dropout discretization l2_reg_input
+            train_kwargs={}  # batch_size epochs verbose plot
+            ):
 
         self.save_path = save_path
         self.prob_based_stopping = prob_based_stopping
@@ -286,7 +286,7 @@ class HierarchicalClassifier(DataBase, HierarchyBase, CPNBase, CPPNBase, ExportI
         if not self.prob_based_stopping:
             raise Exception('Can only calibrate when using probability based stopping.')
 
-        if not 'local_classifier' in self.graph.nodes[node]:
+        if 'local_classifier' not in self.graph.nodes[node]:
             print('Cannot calibrate an as yet untrained node.')
             return
 

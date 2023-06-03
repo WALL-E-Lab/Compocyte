@@ -1,5 +1,4 @@
 import numpy as np
-import tensorflow.keras as keras
 from scipy.sparse.csr import csr_matrix
 import networkx as nx
 from sklearn.metrics import ConfusionMatrixDisplay
@@ -108,10 +107,10 @@ def get_last_annotation(obs_names, adata, barcodes=None, true_only=False):
             else:
                 obs_df = adata.obs.loc[barcodes, [true_key, pred_key]]
 
-            obs_df = obs_df[obs_df[true_key].isin([np.nan, '', 'nan']) != True]
+            obs_df = obs_df[obs_df[true_key].isin([np.nan, "", "nan"]) is not True]
             obs_df.rename(columns={true_key: 'true_last'}, inplace=True)
             if not true_only:
-                obs_df = obs_df[obs_df[pred_key].isin([np.nan, '', 'nan']) != True]
+                obs_df = obs_df[obs_df[pred_key].isin([np.nan, "", "nan"]) is not True]
                 obs_df.rename(columns={pred_key: 'pred_last'}, inplace=True)
 
             obs_df = obs_df.astype(str)     
@@ -126,11 +125,11 @@ def get_last_annotation(obs_names, adata, barcodes=None, true_only=False):
                 obs_df_level.rename(columns={true_key: 'true_last', pred_key: 'pred_last'}, inplace=True)
 
             obs_df_level = obs_df_level.astype(str)
-            obs_df_level_true = obs_df_level[obs_df_level['true_last'].isin([np.nan, '', 'nan']) != True]           
+            obs_df_level_true = obs_df_level[obs_df_level["true_last"].isin([np.nan, "", "nan"]) is not True]           
             level_barcodes_true = [x for x in obs_df_level_true.index if x in obs_df.index]
             obs_df.loc[level_barcodes_true, 'true_last'] = obs_df_level_true.loc[level_barcodes_true, 'true_last']
             if not true_only:
-                obs_df_level_pred = obs_df_level[obs_df_level['pred_last'].isin([np.nan, '', 'nan']) != True] 
+                obs_df_level_pred = obs_df_level[obs_df_level["pred_last"].isin([np.nan, "", "nan"]) is not True] 
                 level_barcodes_pred = [x for x in obs_df_level_pred.index if x in obs_df.index]
                 obs_df.loc[level_barcodes_pred, 'pred_last'] = obs_df_level_pred.loc[level_barcodes_pred, 'pred_last']
 
@@ -252,11 +251,11 @@ def is_pred_parent_or_child_or_equal(graph, true_label, pred_label, root_node):
 def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names, fig_size=(12, 12)):
     con_mat = con_mat_leaf_nodes(hierarchy, adata, graph, obs_names[1:], plot=False)
     graph_weights = graph.copy()
-    leaf_nodes = get_leaf_nodes(hierarchy)
+    get_leaf_nodes(hierarchy)
     
     hierarchy_list = []
     generate_node_level_list(hierarchy, hierarchy_list)
-    node_list = np.array(hierarchy_list)[:, 0]
+    np.array(hierarchy_list)[:, 0]
     # Get pct of true cells stopped at some point along the hierarchy
     for node, level in zip(
         np.array(hierarchy_list)[:, 0], 
@@ -303,7 +302,7 @@ def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names, fig_size=(12, 
             graph_weights.add_edge(true_label, pred_label, weight=round(con_mat[confusion[0], confusion[1]] * 100, 1))
 
     edges_hierarchy = list(graph.edges())
-    edges_confusion = [e for e in graph_weights.edges() if not e in edges_hierarchy]
+    [e for e in graph_weights.edges() if e not in edges_hierarchy]
     fig, ax = plt.subplots(figsize=fig_size)
     pos = nx.drawing.nx_agraph.graphviz_layout(graph, prog='twopi')
     node_colors = [
@@ -391,10 +390,10 @@ class Hierarchical_Metric():
     def augmented_set_of_node_n(self, node):
         '''Assuming a tree hierarchy structure, ancestors of node n, including node, excluding root'''
         
-        if not node in self.hierarchy_structure.nodes:
+        if node not in self.hierarchy_structure.nodes:
             node = self.root_node
 
-        if not node in self.augmented_lookups.keys(): # avoid having to call nx ancestors for every single true and predicted label
+        if node not in self.augmented_lookups.keys(): # avoid having to call nx ancestors for every single true and predicted label
             ancestors = nx.ancestors(self.hierarchy_structure, node)
             ancestors.add(node)
             self.augmented_lookups[node] = np.array(list(ancestors))
@@ -411,7 +410,7 @@ class Hierarchical_Metric():
             p_label_augmented = p_label_augmented[:slice_len] 
 
         cardinality_p_label_augmented = len(p_label_augmented)
-        if not t_label in self.intersect_lookups.keys():
+        if t_label not in self.intersect_lookups.keys():
             self.intersect_lookups[t_label] = {}
             
         self.intersect_lookups[t_label][p_label] = (cardinality_intersect_t_p, cardinality_p_label_augmented)
@@ -490,7 +489,7 @@ class Hierarchical_Metric():
     
    
 def annotate_hierarchical(adata, graph, annotate_from_obs_key, root):
-    adata_length = len(adata.obs_names)
+    len(adata.obs_names)
     for cell_number, cell_name in enumerate(adata.obs[annotate_from_obs_key]):
         ancestors = nx.shortest_path(graph, source = root, target = cell_name)
         for i,a in enumerate(ancestors):

@@ -2,9 +2,7 @@ from scFlorist.core.tools import z_transform_properties
 from scFlorist.core.models.dense import DenseKeras
 from scFlorist.core.models.log_reg import LogisticRegression
 from scFlorist.core.models.dense_torch import DenseTorch
-from scFlorist.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
-    make_graph_from_edges, set_node_to_depth
-from uncertainties import ufloat
+from scFlorist.core.tools import flatten_dict, make_graph_from_edges, set_node_to_depth
 from time import time
 from copy import deepcopy
 import tensorflow.keras as keras
@@ -111,7 +109,7 @@ class CPNBase():
         x = z_transform_properties(x)
         self.graph.nodes[node]['local_classifier']._train(x=x, y_onehot=y_onehot, y=y, y_int=y_int, train_kwargs=self.train_kwargs)
         timestamp = str(time()).replace('.', '_')
-        if not node in self.trainings.keys():
+        if node not in self.trainings.keys():
             self.trainings[node] = {}
 
         self.trainings[node][timestamp] = {
@@ -140,7 +138,7 @@ class CPNBase():
             self.train_all_child_nodes_CPN(child_node, train_barcodes=train_barcodes, initial_call=False)
 
         if initial_call:
-            if not 'overall' in self.trainings.keys():
+            if "overall" not in self.trainings.keys():
                 self.trainings['overall'] = {}
 
             timestamp = str(time()).replace('.', '_')
@@ -157,7 +155,7 @@ class CPNBase():
             test_barcodes = list(self.adata.obs_names)
 
         parent_obs_key = self.get_parent_obs_key(node)
-        if not f'{parent_obs_key}_pred' in self.adata.obs.columns and barcodes is None and not node == self.root_node:
+        if f"{parent_obs_key}_pred" not in self.adata.obs.columns and barcodes is None and not node == self.root_node:
             raise Exception('If previous nodes were not predicted, barcodes for prediction need to \
                 be given explicitly.')
 
@@ -181,7 +179,7 @@ class CPNBase():
         predicted_nodes = []
         child_nodes = self.get_child_nodes(node)
         for child_node in child_nodes:
-            if not 'local_classifier' in self.graph.nodes[child_node].keys():
+            if "local_classifier" not in self.graph.nodes[child_node].keys():
                 continue
 
             predicted_nodes.append(child_node)
@@ -253,7 +251,7 @@ class CPNBase():
 
         obs_key = self.get_children_obs_key(node)
         self.set_predictions(obs_key, list(relevant_cells.obs_names), y)
-        if not node in self.predictions.keys():
+        if node not in self.predictions.keys():
             self.predictions[node] = {}
 
         timestamp = str(time()).replace('.', '_')
@@ -279,7 +277,7 @@ class CPNBase():
             self.predict_all_child_nodes_CPN(child_node, test_barcodes=test_barcodes, initial_call=False)
 
         if initial_call:
-            if not 'overall' in self.predictions.keys():
+            if "overall" not in self.predictions.keys():
                 self.predictions['overall'] = {}
 
             timestamp = str(time()).replace('.', '_')
@@ -291,7 +289,7 @@ class CPNBase():
     def update_hierarchy_CPN(self, dict_of_cell_relations, root_node=None):
         """"""
 
-        if not root_node is None:
+        if root_node is not None:
             self.root_node = root_node
 
         if dict_of_cell_relations == self.dict_of_cell_relations:
@@ -307,8 +305,8 @@ class CPNBase():
         new_graph = nx.DiGraph()
         make_graph_from_edges(self.dict_of_cell_relations, new_graph)
 
-        new_nodes = [n for n in all_nodes_post if not n in all_nodes_pre]
-        removed_nodes = [n for n in all_nodes_pre if not n in all_nodes_post]
+        new_nodes = [n for n in all_nodes_post if n not in all_nodes_pre]
+        [n for n in all_nodes_pre if n not in all_nodes_post]
         moved_nodes = []
         for node in all_nodes_post:
             if node in new_nodes:

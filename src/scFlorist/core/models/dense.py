@@ -1,13 +1,8 @@
 import tensorflow.keras as keras
-import tensorflow as tf
-import torch
 import os
 import pickle
-import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 from sklearn.model_selection import train_test_split
-from copy import deepcopy
 
 class DenseKeras(keras.Model):
     """
@@ -79,7 +74,8 @@ class DenseKeras(keras.Model):
         l2_reg_input=False):
 
         self.model = keras.models.Sequential()
-        activation_function = lambda x: keras.activations.relu(x, alpha=0.1)
+        def activation_function(x):
+            return keras.activations.relu(x, alpha=0.1)
         layers = [n_input] + hidden_layers + [n_output]
         layers_in_out = list(zip(layers[:-1], layers[1:]))
         for idx, layer in enumerate(layers_in_out):

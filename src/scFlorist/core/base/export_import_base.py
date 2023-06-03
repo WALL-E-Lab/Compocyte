@@ -47,7 +47,7 @@ class ExportImportBase():
 
     def import_classifier(self, node, classifier_dict, overwrite=False):
         for a in ['classifier', 'label_encoding', 'data_type', 'selected_var_names']:
-            if not a in classifier_dict and not (a == 'label_encoding' and self.classification_mode == 'CPN'):
+            if a not in classifier_dict and not (a == 'label_encoding' and self.classification_mode == 'CPN'):
                 raise KeyError(f'Missing key {a} for successful classifier import.')
 
         classifier_exists = 'local_classifier' in self.graph.nodes[node]
@@ -56,8 +56,8 @@ class ExportImportBase():
                 self.graph.nodes[node]['local_classifier'] = classifier_dict['classifier']
 
             elif issubclass(type(classifier_dict['classifier']), torch.nn.Module):
-                if not 'fit_function' in classifier_dict or not 'predict_function' in classifier_dict:
-                    raise KeyError(f'Missing key fit_function/predict_function for successful classifier import.')
+                if 'fit_function' not in classifier_dict or 'predict_function' not in classifier_dict:
+                    raise KeyError('Missing key fit_function/predict_function for successful classifier import.')
 
                 self.graph.nodes[node]['local_classifier'] = DenseTorch.import_external(
                     model=classifier_dict['classifier'],
@@ -81,7 +81,7 @@ class ExportImportBase():
 
             sel_var = classifier_dict['selected_var_names']
             if classifier_dict['data_type'] in ['counts', 'normlog']:
-                var_not_present = [v for v in sel_var if not v in self.adata.var_names]
+                var_not_present = [v for v in sel_var if v not in self.adata.var_names]
                 if len(var_not_present) > 0:
                     self.add_variables(var_not_present)
 

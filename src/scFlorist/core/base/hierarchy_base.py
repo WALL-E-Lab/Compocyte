@@ -1,6 +1,5 @@
 import networkx as nx
 import numpy as np
-import tensorflow as tf 
 import tensorflow.keras as keras
 from sklearn.preprocessing import LabelEncoder
 from scFlorist.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
@@ -101,7 +100,7 @@ class HierarchyBase():
 
         # To do: see above? need to be sure that features are not selected again for every new training run
 
-        if self.graph.nodes[node]['f_classif_feature_selecter_trained'] == False:
+        if self.graph.nodes[node]['f_classif_feature_selecter_trained'] is False:
             self.graph.nodes[node]['f_classif_feature_selecter'].fit(x_feature_fit, y_feature_fit)
             self.graph.nodes[node]['f_classif_feature_selecter_trained'] = True
 
@@ -129,7 +128,7 @@ class HierarchyBase():
             output_len = n_output
 
         define_classifier = False
-        if not 'local_classifier' in self.graph.nodes[node].keys():
+        if 'local_classifier' not in self.graph.nodes[node].keys():
             define_classifier = True
 
         else:
@@ -165,7 +164,7 @@ class HierarchyBase():
         """Add explanation.
         """
 
-        if not 'label_encoder' in self.graph.nodes[node].keys():
+        if 'label_encoder' not in self.graph.nodes[node].keys():
             label_encoder = LabelEncoder()
             children_labels = list(self.graph.adj[node].keys())
             label_encoder.fit(np.array(children_labels))
