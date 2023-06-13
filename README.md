@@ -1,1 +1,5 @@
-# sc_Hierarchical_Classifier
+# scFlorist
+
+## Overview 
+
+scFlorist uses an ensemble of local classifiers at branching points in taxonomy to modularize cell type classification. Local predictions are used to partition the data into subsets which are then passed to their subset-specific downstream classifiers mimicking approaches used for manual cell tying. Each local classifier can be continuously updated and exchanged allowing with flexibility in model choice (all scikit-learn- and PyTorch-models). This allows local classifiers to be trained at different centers with distinct domain expertise (e.g. T specialist, ILC specialist) and combined to a global classifier. To counter error propagation along the hierarchy, scFlorist uses a thresholding method which allows it to learn from both granular and less granular cell type annotations. Moreover, we implemented distribution free uncertainty quantification and show that scFlorist can correctly detect new cell types as well as cell types with insufficient quality for more granular annotations, a frequent problem scRNAseq data.
