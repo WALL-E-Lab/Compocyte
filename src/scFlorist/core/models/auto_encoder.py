@@ -20,6 +20,12 @@ class AutoEncoder(torch.nn.Module, DenseBase):
         **kwargs):
         
         super().__init__()
+        if torch.cuda.is_available():
+            self.device = 'cuda'
+
+        else:
+            self.device = 'cpu'
+
         self.encoder = torch.nn.ModuleList()
         self.decoder = torch.nn.ModuleList()
         self.loss_function = torch.nn.functional.mse_loss
@@ -77,7 +83,7 @@ class AutoEncoder(torch.nn.Module, DenseBase):
                 self.decoder.append(new_dropout)
 
     def forward(self, x):
-        x = torch.Tensor(x)
+        x = torch.Tensor(x).to(self.device)
         for layer in self.encoder:            
             x = layer(x)
 
@@ -88,7 +94,7 @@ class AutoEncoder(torch.nn.Module, DenseBase):
 
     def get_latent_dimensions(self, x):
         self.eval()
-        x = torch.Tensor(x)
+        x = torch.Tensor(x).to(self.device)
         for l in self.encoder:
             x = l(x)
 

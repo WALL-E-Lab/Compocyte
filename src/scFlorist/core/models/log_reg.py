@@ -21,7 +21,7 @@ class LogisticRegression():
 
     def predict(self, x):
         pred_activations = self.model.predict_log_proba(x)
-        return softmax(torch.Tensor(pred_activations), dim=1).numpy()
+        return softmax(torch.Tensor(pred_activations), dim=1).detach().cpu().numpy()
 
     def _save(self, path):
         with open(os.path.join(path, 'model.pickle'), 'wb') as f:

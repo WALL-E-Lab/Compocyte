@@ -41,7 +41,7 @@ class DenseBase():
 
         else:
             self.train()
-            x, y = torch.Tensor(x), torch.Tensor(y)
+            x, y = torch.Tensor(x).to(self.device), torch.Tensor(y).to(self.device)
             #x = self.standardize(x)
             #if torch.max(y) > 1: # test if output is counts (autencoder) or categories
             #    y = self.standardize(y)
@@ -49,7 +49,7 @@ class DenseBase():
             n_cells = x.shape[0]
             if validation_data is not None:
                 x_val, y_val = validation_data
-                x_val, y_val = torch.Tensor(x_val), torch.Tensor(y_val)
+                x_val, y_val = torch.Tensor(x_val).to(self.device), torch.Tensor(y_val).to(self.device)
                 #x_val = self.standardize(x_val)
                 #if torch.max(y_val) > 1: # test if output is counts or categories
                 #    y_val = self.standardize(y_val)

@@ -31,15 +31,14 @@ class DenseTorch(torch.nn.Module, DenseBase):
         
         super().__init__()
         if torch.cuda.is_available():
-            torch.set_default_tensor_type('torch.cuda.FloatTensor')
-            self.to("cuda")
+            self.device = 'cuda'
 
         else:
-            self.to("cpu")
+            self.device = 'cpu'
 
         self.layers = torch.nn.ModuleList()
         if weight is not None:
-            weight = torch.Tensor(weight)
+            weight = torch.Tensor(weight).to(self.device)
 
         self.loss_function = torch.nn.CrossEntropyLoss(weight=weight)
         self.possible_data_types = ['counts', 'normlog']
@@ -134,9 +133,9 @@ class DenseTorch(torch.nn.Module, DenseBase):
 
     def forward(self, x):
         torch.autograd.set_detect_anomaly(True)
-        x = torch.Tensor(x)
+        x = torch.Tensor(x).to(self.device)
         if self.discretization:
-            x = torch.bucketize(x, torch.Tensor([-0.675, 0, 0.675]))
+            x = torch.bucketize(x, torch.Tensor([-0.675, 0, 0.675]).to(self.device)).to(self.device)
 
         x = x.type(torch.float32)
         if self.encoder_based:
@@ -154,7 +153,7 @@ class DenseTorch(torch.nn.Module, DenseBase):
 
         else:
             self.eval()
-            x = torch.Tensor(x)
+            x = torch.Tensor(x).to(self.device)
             y = self(x).detach().cpu().numpy()
 
         return y
