@@ -2,6 +2,7 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 from copy import deepcopy
+from torch.utils.data import DataLoader, TensorDataset, random_split
 
 class DenseBase():
     """
@@ -84,6 +85,12 @@ class DenseBase():
                 'lr': [],
                 'state_dicts': []}
             counter_stopping = 0
+            dataset = TensorDataset(x, y)
+            train_data_loader = DataLoader(
+                dataset=dataset,
+                batch_size=batch_size,
+                shuffle=True
+            )
             for epoch in range(epochs):
                 self.eval()
                 history['state_dicts'].append(deepcopy(self.state_dict()))
@@ -126,17 +133,10 @@ class DenseBase():
                 history['lr'].append(scheduler.get_last_lr()[0])
 
                 self.train()
-                for i in range((n_cells - 1) // batch_size + 1):                    
-                    idx_start = i * batch_size
-                    idx_end = idx_start + batch_size
-                    xb, yb = x[idx_start:idx_end], y[idx_start:idx_end]
-                    if xb.shape[0] == 1:
-                        continue
-
+                for xb, yb in train_data_loader:
                     pred = self(xb)
                     pred = torch.clamp(pred, 0, 1)
                     loss = self.loss_function(pred, yb)
-                    loss.item()
                     loss.backward()
                     del xb, yb, pred, loss
                     optimizer.step()
