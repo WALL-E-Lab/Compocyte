@@ -66,8 +66,11 @@ class DenseTorch(torch.nn.Module, DenseBase):
             self.predict_function = predict_function
             if type(fit_function) != str or type(predict_function) != str:
                 raise TypeError('fit_function and predict_function must be of type str and point to the relevant functions in the import module.')
-            
-        self.module = self.module.to(self.device)
+
+        if self.module is not None:    
+            self.module = self.module.to(self.device)
+
+        self.layers = self.layers.to(self.device)
 
     def init_sequential(
         self, 
