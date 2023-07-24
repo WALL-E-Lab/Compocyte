@@ -355,26 +355,3 @@ class HierarchicalClassifier(
                 continue
 
             self.calibrate_all_child_nodes(child_node, alpha=alpha)
-
-    def train_child_nodes_with_validation(
-        self, 
-        starting_node,
-        y_obs=None,
-        barcodes=None,
-        k=None,
-        test_size=0.25,
-        isolate_test_network=True):
-        if self.classification_mode == 'CPPN':
-            self.train_child_nodes_with_validation_CPPN(
-                starting_node,
-                y_obs=y_obs,
-                barcodes=barcodes,
-                k=k,
-                test_size=test_size,
-                isolate_test_network=isolate_test_network)
-
-        elif self.classification_mode == 'CPN':
-            raise Exception('Not currently implemented for this classification mode.')
-
-        else:
-            raise ValueError('Classification mode not supported.')

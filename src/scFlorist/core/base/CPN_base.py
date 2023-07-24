@@ -31,16 +31,18 @@ class CPNBase():
         
         parent_node = self.get_parent_node(node)
         parent_obs_key = self.get_parent_obs_key(parent_node)
+        child_nodes = self.get_child_nodes(node)
         node_obs_key = self.get_children_obs_key(parent_node)
         # We use the sibling policy for defining positive and negative training samples
         # for a 1 vs all classifier. All cells that are classified at the appropriate
         # level as parent_node are siblings of node.
-        potential_cells = self.adata[self.adata.obs[parent_obs_key] == parent_node]
+        is_parent_node = self.adata.obs[parent_obs_key] == parent_node
+        is_labeled = self.adata.obs[node_obs_key].isin(child_nodes)
+        potential_cells = self.adata[is_parent_node & is_labeled]
         # To avoid training with cells that should be reserved for testing, make sure to limit
         # to train_barcodes.
         relevant_cells = self.adata[[b for b in potential_cells.obs_names if b in train_barcodes], :]
         # Cells that are unlabeled (nan or '') are not certain to not belong to the cell type in question
-        relevant_cells = self.throw_out_nan(relevant_cells, node_obs_key)
         positive_cells = relevant_cells[relevant_cells.obs[node_obs_key] == node]
         negative_cells = relevant_cells[relevant_cells.obs[node_obs_key] != node]
         if data_type == 'normlog':

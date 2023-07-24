@@ -25,6 +25,9 @@ class DataBase():
             self.adata = self.variable_match_adata(adata)
             self.ensure_not_view()
             self.check_for_counts()
+            if hasattr(self.adata.X, 'todense'):
+                self.adata.X = np.array(self.adata.X.todense())
+
             self.ensure_batch_assignment()
 
         else:
@@ -32,6 +35,9 @@ class DataBase():
             self.ensure_not_view()
             self.batch_key = batch_key
             self.check_for_counts()
+            if hasattr(self.adata.X, 'todense'):
+                self.adata.X = np.array(self.adata.X.todense())
+
             self.ensure_batch_assignment()
 
             if hasattr(self, 'hv_genes') and self.hv_genes > 0:
@@ -133,14 +139,8 @@ class DataBase():
             sc.pp.normalize_total(copy_adata, target_sum=10000)
             sc.pp.log1p(copy_adata)
             self.adata.layers['normlog'] = copy_adata.X
-
-    def throw_out_nan(self, adata, obs_key):
-        adata = adata[adata.obs[obs_key] != '']
-        adata = adata[adata.obs[obs_key] != 'nan']
-        adata = adata[adata.obs[obs_key] != np.nan]
-        adata = adata[(adata.obs[obs_key] != adata.obs[obs_key]) is not True]
-
-        return adata
+            if hasattr(self.adata.layers['normlog'], 'todense'):
+                self.adata.layers['normlog'] = np.array(self.adata.layers['normlog'].todense())
 
     def set_predictions(self, obs_key, barcodes, y_pred):
         """Add explanation.
@@ -183,31 +183,6 @@ class DataBase():
             predicted_barcodes = adata_subset.obs_names
 
         return predicted_barcodes
-
-    def get_total_accuracy(self, obs_key, test_barcodes):
-        """Add explanation.
-        """
-
-        adata_subset = self.adata[test_barcodes, :]
-        adata_subset = self.throw_out_nan(adata_subset, obs_key)
-        known_type = np.array(adata_subset.obs[obs_key])
-        pred_type = np.array(adata_subset.obs[f'{obs_key}_pred'])
-        possible_labels = np.concatenate((known_type, pred_type))
-        possible_labels = np.unique(possible_labels)
-        acc = np.sum(known_type == pred_type, axis = 0) / len(known_type)
-        con_mat = confusion_matrix(
-            y_true=known_type, 
-            y_pred=pred_type, 
-            normalize='true',
-            labels=possible_labels)
-        acc = round(acc * 100, 2)
-        print(f'Overall accuracy is {acc} %')
-        disp = ConfusionMatrixDisplay(con_mat, display_labels=possible_labels)
-        fig, ax = plt.subplots(figsize=(10, 10))
-        disp.plot(xticks_rotation='vertical', ax=ax, values_format='.2f')
-        plt.show()
-
-        return acc, con_mat, possible_labels
 
     def get_top_genes(self, classifier_node, barcodes, n_genes):
         if type(barcodes) == type(None):

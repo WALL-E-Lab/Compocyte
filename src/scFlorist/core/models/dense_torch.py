@@ -184,8 +184,6 @@ class DenseTorch(torch.nn.Module, DenseBase):
             stratify=y_int, 
             test_size=0.2, 
             random_state=42)
-        # TODO
-        # Make sure this is transferable to torch
         history = self.fit(
             x_train,
             y_train,

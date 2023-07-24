@@ -20,11 +20,11 @@ def is_counts(matrix, n_rows_to_try=100):
     count data by manually checking a subsample of the supplied matrix.
     """
 
-    if not (type(matrix) == np.matrix or type(matrix) == csr_matrix):
-        raise ValueError(f'Matrix supplied must be of type {csr_matrix} or {np.matrix}.')
+    if not (isinstance(matrix, np.matrix) or isinstance(matrix, csr_matrix) or isinstance(matrix, np.array)):
+        raise ValueError(f'Matrix supplied must be of type {csr_matrix} or {np.matrix} or {np.array}.')
 
     test_data = matrix[:n_rows_to_try]
-    if type(test_data) == csr_matrix:
+    if hasattr(test_data, 'todense'):
         test_data = test_data.todense()
 
     contains_negative_values = np.any(test_data < 0)

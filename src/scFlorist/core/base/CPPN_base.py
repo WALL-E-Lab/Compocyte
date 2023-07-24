@@ -45,12 +45,15 @@ class CPPNBase():
 
         parent_obs_key = self.get_parent_obs_key(node)
         children_obs_key = self.get_children_obs_key(node)
-        potential_cells = self.adata[self.adata.obs[parent_obs_key] == node]
+        child_nodes = self.get_child_nodes(node)
+        # Avoid problems with argmax for prediction by ensuring output activation is 2d
+        output_len = max(len(child_nodes), 2)
+        is_parent_node = self.adata.obs[parent_obs_key] == node
+        is_child_node = self.adata.obs[children_obs_key].isin(child_nodes)
+        potential_cells = self.adata[is_parent_node & is_child_node]
         # To avoid training with cells that should be reserved for testing, make sure to limit
         # to train_barcodes.
         relevant_cells = self.adata[[b for b in potential_cells.obs_names if b in train_barcodes], :]
-        # Cells that are unlabeled (nan or '') are not certain to not belong to the cell type in question
-        relevant_cells = self.throw_out_nan(relevant_cells, children_obs_key)
         if data_type == 'normlog':
             self.ensure_normlog()
 
@@ -102,9 +105,7 @@ class CPPNBase():
             self.graph.nodes[node]['selected_var_names'] = selected_var_names  
 
         n_input = len(selected_var_names)
-        child_nodes = self.get_child_nodes(node)
-        # Avoid problems with argmax for prediction by ensuring output activation is 2d
-        output_len = max(len(child_nodes), 2)
+        
         self.ensure_existence_classifier(
             node, 
             n_input,
@@ -401,88 +402,6 @@ class CPPNBase():
                 'current_barcodes': current_barcodes,
                 'current_node': current_node
             }
-
-    def train_child_nodes_with_validation_CPPN(
-        self, 
-        starting_node,
-        y_obs=None,
-        barcodes=None,
-        k=None,
-        test_size=0.25,
-        isolate_test_network=True):
-        """Implements automatic hierarchical/recursive classification along the hierarchy
-        in combination with a test/train split (simple or k-fold CV if k is not None).
-
-        Parameters
-        ----------
-        starting_node
-            When initially calling the method this refers to the node in the hierarchy at which
-            to start training and later on testing. Keeps track of which node is currently being
-            trained or tested over the course of the recursion.
-        y_obs
-            Specifies which obs key/level of labels is considered for overall accuracy determination
-            and construction of the confusion matrix. If y_obs == None, is set to the last level
-            in the hierarchy.
-        barcodes
-            Barcodes of cells to consider for training and testing.
-        k
-            Number of test splits for k-fold CV. If k == None, a simpel train_test_split is used.
-        test_size
-            Percentage of barcodes to withhold for testing in the event a simple train_test_split
-            is used.
-        isolate_test_network
-            If true, the classification models stored in the hierarchy are left untouched by this 
-            method, restoring them to their original state after each train/test sequence. If false,
-            the models would have previously seen any test data at least once after the first
-            train/test sequence of k-fold CV, rendering all results basically useless.
-        """
-
-        if type(y_obs) == type(None):
-            y_obs = self.obs_names[-1]
-        
-        y = self.adata.obs[y_obs]
-        if type(barcodes) == type(None):
-            barcodes = self.adata.obs_names
-
-        if type(k) == type(None):
-            if isolate_test_network:
-                self_copy = deepcopy(self)
-
-            barcodes_train, barcodes_test = train_test_split(barcodes, test_size=test_size, stratify = y)
-            self.train_all_child_nodes_CPPN(starting_node, barcodes_train)
-            self.predict_all_child_nodes_CPPN(starting_node, test_barcodes=barcodes_test)
-            self.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
-            #integrate preliminary hierarchical confusion matrix
-            # self.get_hierarchical_accuracy(test_barcodes=barcodes_test, level_obs_keys=self.obs_names, all_labels = self.all_nodes, overview_obs_key = 'Level_2' )
-            if isolate_test_network:
-                self = deepcopy(self_copy)
-
-        else:
-            skf = StratifiedKFold(n_splits=k)
-            con_mats = []
-            accs = []
-            for barcodes_train_idx, barcodes_test_idx in skf.split(barcodes, y):
-                if isolate_test_network:
-                    self_copy = deepcopy(self)
-
-                barcodes_train = barcodes[barcodes_train_idx]
-                barcodes_test = barcodes[barcodes_test_idx]
-                self.train_all_child_nodes_CPPN(starting_node, barcodes_train)
-                self.predict_all_child_nodes_CPPN(starting_node, test_barcodes=barcodes_test)
-                acc, con_mat, possible_labels = self.get_total_accuracy(y_obs, test_barcodes=barcodes_test)
-                # acc, con_mat, possible_labels, con_mat_overview, possible_labels_overview = self.get_hierarchical_accuracy(test_barcodes=barcodes_test, level_obs_keys=self.obs_names, all_labels=self.all_nodes, overview_obs_key = 'Level_2')
-                con_mats.append(con_mat)
-                # con_mats.append(con_mat_overview)
-                accs.append(acc)
-                if isolate_test_network:
-                    self = deepcopy(self_copy)
-
-            averaged_con_mat = np.sum(con_mats, axis=0) / np.sum(np.sum(con_mats, axis=0), axis=1)
-            test_score_mean = ufloat(np.mean(accs), np.std(accs))
-            print('Average con mat')
-            disp = ConfusionMatrixDisplay(confusion_matrix=averaged_con_mat, display_labels=possible_labels)
-            disp.plot(xticks_rotation='vertical')
-            print(f'Test accuracy was {test_score_mean}')
 
     def update_hierarchy_CPPN(self, dict_of_cell_relations, root_node=None):
         if root_node is not None:
