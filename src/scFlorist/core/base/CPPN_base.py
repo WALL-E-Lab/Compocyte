@@ -311,7 +311,7 @@ class CPPNBase():
         elif self.prob_based_stopping:
             y_pred = np.array(self.predict_single_node_proba(node, x))
             y_pred_nan_idx = np.where(np.isnan(y_pred))
-            y_pred_not_nan_idx = np.where(np.isnan(y_pred) is not True)
+            y_pred_not_nan_idx = np.where(~np.isnan(y_pred))
             y_pred = y_pred.astype(int)
             label_decoding = {}
             for key in self.graph.nodes[node]['label_encoding'].keys():
