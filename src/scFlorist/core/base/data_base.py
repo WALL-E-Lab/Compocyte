@@ -155,12 +155,13 @@ class DataBase():
             self.adata.obs[f'{obs_key}_pred'] = pd.Categorical(self.adata.obs[f'{obs_key}_pred'])
             for cat in np.unique(y_pred):
                 if cat not in self.adata.obs[f'{obs_key}_pred'].cat.categories:
-                    self.adata.obs[f'{obs_key}_pred'].cat.add_categories(cat, inplace=True)
+                    self.adata.obs[f'{obs_key}_pred'] = self.adata.obs[f'{obs_key}_pred'].astype(str)
 
         try:
             existing_annotations = self.adata.obs[f'{obs_key}_pred']
             existing_annotations[barcodes_np_index] = y_pred
             self.adata.obs[f'{obs_key}_pred'] = existing_annotations
+            self.adata.obs[f'{obs_key}_pred'] = pd.Categorical(self.adata.obs[f'{obs_key}_pred'])
 
         except KeyError:            
             pred_template = np.empty(shape=len(self.adata))

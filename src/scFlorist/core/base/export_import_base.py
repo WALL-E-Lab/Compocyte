@@ -92,10 +92,10 @@ class ExportImportBase():
         else:
             print(f'Classifier already exists at {node} and overwrite is set to False.')
 
-    def import_classifiers(self, dictionary, overwrite=False, parent_key=None):
+    def import_classifiers(self, dictionary, parent_key, overwrite=False):
         for key in dictionary.keys():
             if key == 'classifier':
                 self.import_classifier(parent_key, dictionary[key], overwrite=overwrite)
             
-            elif type(dictionary[key]) == dict and len(dictionary[key].keys()) > 0:
+            elif isinstance(dictionary[key], dict) and len(dictionary[key].keys()) > 0:
                 self.import_classifiers(dictionary[key], overwrite=True, parent_key=key)
