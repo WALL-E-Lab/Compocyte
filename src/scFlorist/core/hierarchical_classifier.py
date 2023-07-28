@@ -246,7 +246,6 @@ class HierarchicalClassifier(
     def predict_single_node(
         self, 
         node, 
-        test_barcodes=None, 
         barcodes=None):
         if self.classification_mode == 'CPPN':
             self.predict_single_node_CPPN(node, barcodes=barcodes)
@@ -254,7 +253,6 @@ class HierarchicalClassifier(
         elif self.classification_mode == 'CPN':
             self.predict_single_parent_node_CPN(
                 node, 
-                test_barcodes=test_barcodes, 
                 barcodes=barcodes)
 
         else:
@@ -263,35 +261,29 @@ class HierarchicalClassifier(
     def predict_all_child_nodes(
         self, 
         node, 
-        test_barcodes=None, 
         initial_call=True, 
         current_barcodes=None):
         if self.classification_mode == 'CPPN':
             self.predict_all_child_nodes_CPPN(
                 node,
                 current_barcodes=current_barcodes,
-                test_barcodes=test_barcodes,
                 initial_call=initial_call)
 
         elif self.classification_mode == 'CPN':
             self.predict_all_child_nodes_CPN(
                 node, 
-                test_barcodes=test_barcodes, 
                 initial_call=initial_call)
 
         else:
             raise ValueError('Classification mode not supported.')
 
-    def calibrate_single_node(self, node, alpha=0.25, test_barcodes=None, barcodes=None):
+    def calibrate_single_node(self, node, alpha=0.25, barcodes=None):
         if not self.prob_based_stopping:
             raise Exception('Can only calibrate when using probability based stopping.')
 
         if 'local_classifier' not in self.graph.nodes[node]:
             print('Cannot calibrate an as yet untrained node.')
             return
-
-        if test_barcodes is None:
-            test_barcodes = list(self.adata.obs_names)
 
         labels = self.get_child_nodes(node)
         if barcodes is None:
@@ -309,7 +301,6 @@ class HierarchicalClassifier(
         elif self.classification_mode == 'CPN':
             used_barcodes, activations = self.predict_single_parent_node_CPN(
                 node, 
-                test_barcodes=test_barcodes, 
                 barcodes=barcodes,
                 get_activations=True)
         
@@ -349,7 +340,7 @@ class HierarchicalClassifier(
         if not self.prob_based_stopping:
             raise Exception('Can only calibrate when using probability based stopping.')
 
-        self.calibrate_single_node(current_node, alpha=0.25, test_barcodes=None, barcodes=None)
+        self.calibrate_single_node(current_node, alpha=0.25, barcodes=None)
         for child_node in self.get_child_nodes(current_node):
             if len(self.get_child_nodes(child_node)) == 0:
                 continue
