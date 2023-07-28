@@ -4,7 +4,6 @@ import numpy as np
 import scanpy as sc
 import pandas as pd
 from scFlorist.core.tools import is_counts, z_transform_properties
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from scipy import sparse
 from sklearn.feature_selection import SelectKBest, f_classif
 import matplotlib.pyplot as plt
@@ -168,19 +167,13 @@ class DataBase():
             pred_template[barcodes_np_index] = y_pred
             self.adata.obs[f'{obs_key}_pred'] = pred_template
 
-    def get_predicted_barcodes(self, obs_key, child_node, predicted_from=None):
+    def get_predicted_barcodes(self, obs_key, child_node):
         """Add explanation.
         """
 
         adata_subset = self.adata[self.adata.obs[f'{obs_key}_pred'] == child_node]
-        if type(predicted_from) != type(None):
-            predicted_from = list(predicted_from)
-            predicted_barcodes = [b for b in adata_subset.obs_names if b in predicted_from]
 
-        else:
-            predicted_barcodes = adata_subset.obs_names
-
-        return predicted_barcodes
+        return list(adata_subset.obs_names)
 
     def get_top_genes(self, classifier_node, barcodes, n_genes):
         if type(barcodes) == type(None):

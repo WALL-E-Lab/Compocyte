@@ -203,7 +203,6 @@ class CPPNBase():
     def predict_single_node_CPPN(
         self,
         node,
-        test_barcodes=None,
         barcodes=None,
         get_activations=False):
         """Uses an existing classifier at node to assign one of the child labels to the cells
@@ -222,8 +221,6 @@ class CPPNBase():
         """
 
         print(f'Predicting at parent {node}.')
-        if test_barcodes is None:
-            test_barcodes = list(self.adata.obs_names)
 
         parent_obs_key = self.get_parent_obs_key(node)
         if f"{parent_obs_key}_pred" not in self.adata.obs.columns and barcodes is None and not node == self.root_node:
@@ -231,7 +228,7 @@ class CPPNBase():
                 be given explicitly.')
 
         elif node == self.root_node and barcodes is None:
-            barcodes = test_barcodes
+            barcodes = list(self.adata.obs_names)
 
         if not self.is_trained_at(node):
             print(f'Must train local classifier for {node} before trying to predict cell'\
@@ -242,12 +239,9 @@ class CPPNBase():
             raise Exception('No label encoding saved in selected node. \
                 The local classifier has either not been trained or the hierarchy updated and thus the output layer reset.')
 
-        potential_cells = self.adata[test_barcodes, :]
-        if barcodes is not None:
-            potential_cells = self.adata[[b for b in barcodes if b in test_barcodes], :]
-
+        potential_cells = self.adata[barcodes, :]
         if f'{parent_obs_key}_pred' in self.adata.obs.columns:
-            relevant_cells = potential_cells[potential_cells.obs[parent_obs_key] == node]
+            relevant_cells = potential_cells[potential_cells.obs[f'{parent_obs_key}_pred'] == node]
 
         else:
             relevant_cells = potential_cells
@@ -344,34 +338,13 @@ class CPPNBase():
         self,
         current_node,
         current_barcodes=None,
-        test_barcodes=None,
         initial_call=True):
-        """Starts at current_node, predicting cell label affiliation using its local classifier.
-        Recursively predicts affiliation to cell type labels lower in the hierarchy, using as relevant
-        cell subgroup those cells that were predicted to belong to the parent node label. If 
-        test_barcodes is not None, only cells within that subset are used for prediction, enabling
-        cross-validation.
-
-        Parameters
-        ----------
-        current_node
-            When initially calling the method this refers to the node in the hierarchy at which
-            to start prediction. Keeps track of which node is currently being predicted for over 
-            the course of the recursion.
-        test_barcodes
-            Barcodes (adata.obs_names) of those cells that are available for prediction. Necessary 
-            to enable separation of training and test data for cross-validation and make predictions
-            only for those cells which the classifier has not yet seen.
-        """
 
         if type(current_barcodes) == type(None):
             current_barcodes = self.adata.obs_names
 
         if len(current_barcodes) == 0:
             return
-
-        if type(test_barcodes) != type(None):
-            current_barcodes = [b for b in current_barcodes if b in test_barcodes]
 
         if not self.is_trained_at(current_node):
             return
@@ -385,9 +358,8 @@ class CPPNBase():
             try:
                 child_node_barcodes = self.get_predicted_barcodes(
                     obs_key, 
-                    child_node,
-                    predicted_from=test_barcodes)
-                self.predict_all_child_nodes_CPPN(child_node, child_node_barcodes, initial_call=False)
+                    child_node)
+                self.predict_all_child_nodes_CPPN(child_node, barcodes=child_node_barcodes, initial_call=False)
             except KeyError:
                 print(f'Tried to predict children of {current_node}, current_barcodes is {current_barcodes}')   
                 break         
@@ -398,7 +370,6 @@ class CPPNBase():
 
             timestamp = str(time()).replace('.', '_')
             self.predictions['overall'][timestamp] = {
-                'test_barcodes': test_barcodes,
                 'current_barcodes': current_barcodes,
                 'current_node': current_node
             }

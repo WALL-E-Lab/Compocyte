@@ -149,12 +149,10 @@ class CPNBase():
                 'current_node': node
             }
 
-    def predict_single_parent_node_CPN(self, node, test_barcodes=None, barcodes=None, get_activations=False):
+    def predict_single_parent_node_CPN(self, node, barcodes=None, get_activations=False):
         """"""
 
         print(f'Predicting at parent {node}.')
-        if test_barcodes is None:
-            test_barcodes = list(self.adata.obs_names)
 
         parent_obs_key = self.get_parent_obs_key(node)
         if f"{parent_obs_key}_pred" not in self.adata.obs.columns and barcodes is None and not node == self.root_node:
@@ -162,14 +160,12 @@ class CPNBase():
                 be given explicitly.')
 
         elif node == self.root_node and barcodes is None:
-            barcodes = test_barcodes
+            barcodes = list(self.adata.obs_names)
 
-        potential_cells = self.adata[test_barcodes, :]
-        if barcodes is not None:
-            potential_cells = self.adata[[b for b in barcodes if b in test_barcodes], :]
+        potential_cells = self.adata[barcodes, :]
 
         if f'{parent_obs_key}_pred' in self.adata.obs.columns:
-            relevant_cells = potential_cells[potential_cells.obs[parent_obs_key] == node]
+            relevant_cells = potential_cells[potential_cells.obs[f'{parent_obs_key}_pred'] == node]
 
         else:
             relevant_cells = potential_cells
@@ -265,18 +261,15 @@ class CPNBase():
             'var_names': selected_var_names,
         }
 
-    def predict_all_child_nodes_CPN(self, node, test_barcodes=None, initial_call=True):
+    def predict_all_child_nodes_CPN(self, node, initial_call=True):
         """"""
-
-        if test_barcodes is None:
-            test_barcodes = list(self.adata.obs_names)
 
         # Can not train root node classifier as there are no negative cells
         if len(self.get_child_nodes(node)) != 0:
-            self.predict_single_parent_node_CPN(node, test_barcodes)
+            self.predict_single_parent_node_CPN(node)
 
         for child_node in self.get_child_nodes(node):
-            self.predict_all_child_nodes_CPN(child_node, test_barcodes=test_barcodes, initial_call=False)
+            self.predict_all_child_nodes_CPN(child_node, initial_call=False)
 
         if initial_call:
             if "overall" not in self.predictions.keys():
@@ -284,7 +277,6 @@ class CPNBase():
 
             timestamp = str(time()).replace('.', '_')
             self.predictions['overall'][timestamp] = {
-                'test_barcodes': test_barcodes,
                 'current_node': node
             }
 
