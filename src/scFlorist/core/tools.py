@@ -107,10 +107,10 @@ def get_last_annotation(obs_names, adata, barcodes=None, true_only=False):
             else:
                 obs_df = adata.obs.loc[barcodes, [true_key, pred_key]]
 
-            obs_df = obs_df[obs_df[true_key].isin([np.nan, "", "nan"]) is not True]
+            obs_df = obs_df[~obs_df[true_key].isin([np.nan, "", "nan"])]
             obs_df.rename(columns={true_key: 'true_last'}, inplace=True)
             if not true_only:
-                obs_df = obs_df[obs_df[pred_key].isin([np.nan, "", "nan"]) is not True]
+                obs_df = obs_df[~obs_df[pred_key].isin([np.nan, "", "nan"])]
                 obs_df.rename(columns={pred_key: 'pred_last'}, inplace=True)
 
             obs_df = obs_df.astype(str)     
@@ -125,11 +125,11 @@ def get_last_annotation(obs_names, adata, barcodes=None, true_only=False):
                 obs_df_level.rename(columns={true_key: 'true_last', pred_key: 'pred_last'}, inplace=True)
 
             obs_df_level = obs_df_level.astype(str)
-            obs_df_level_true = obs_df_level[obs_df_level["true_last"].isin([np.nan, "", "nan"]) is not True]           
+            obs_df_level_true = obs_df_level[~obs_df_level["true_last"].isin([np.nan, "", "nan"])]           
             level_barcodes_true = [x for x in obs_df_level_true.index if x in obs_df.index]
             obs_df.loc[level_barcodes_true, 'true_last'] = obs_df_level_true.loc[level_barcodes_true, 'true_last']
             if not true_only:
-                obs_df_level_pred = obs_df_level[obs_df_level["pred_last"].isin([np.nan, "", "nan"]) is not True] 
+                obs_df_level_pred = obs_df_level[~obs_df_level["pred_last"].isin([np.nan, "", "nan"])] 
                 level_barcodes_pred = [x for x in obs_df_level_pred.index if x in obs_df.index]
                 obs_df.loc[level_barcodes_pred, 'pred_last'] = obs_df_level_pred.loc[level_barcodes_pred, 'pred_last']
 

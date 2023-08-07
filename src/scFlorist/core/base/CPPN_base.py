@@ -359,7 +359,7 @@ class CPPNBase():
                 child_node_barcodes = self.get_predicted_barcodes(
                     obs_key, 
                     child_node)
-                self.predict_all_child_nodes_CPPN(child_node, barcodes=child_node_barcodes, initial_call=False)
+                self.predict_all_child_nodes_CPPN(child_node, current_barcodes=child_node_barcodes, initial_call=False)
             except KeyError:
                 print(f'Tried to predict children of {current_node}, current_barcodes is {current_barcodes}')   
                 break         

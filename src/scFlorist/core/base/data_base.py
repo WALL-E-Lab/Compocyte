@@ -119,6 +119,9 @@ class DataBase():
         """Checks self.adata.X and self.adata.raw.X for presence of raw count data.
         """
 
+        if self.ignore_counts:
+            return
+
         if is_counts(self.adata.X):
             pass
 

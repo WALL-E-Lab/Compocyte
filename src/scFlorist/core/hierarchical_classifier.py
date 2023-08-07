@@ -39,6 +39,7 @@ class HierarchicalClassifier(
             sampling_strategy='auto',
             batch_key='batch', 
             classification_mode='CPPN',
+            ignore_counts=False, # if True, X is kept as is
             projected_total_cells=100000,
             sequential_kwargs={},
             # hidden_layers learning_rate momentum loss_function
@@ -64,6 +65,7 @@ class HierarchicalClassifier(
         self.trainings = {}
         self.predictions = {}
         self.classification_mode = classification_mode
+        self.ignore_counts = ignore_counts
         self.projected_total_cells = projected_total_cells
         self.sequential_kwargs = sequential_kwargs
         self.train_kwargs = train_kwargs
