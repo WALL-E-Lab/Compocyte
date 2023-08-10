@@ -86,10 +86,12 @@ class DenseBase():
                 'state_dicts': []}
             counter_stopping = 0
             dataset = TensorDataset(x, y)
+            leaves_remainder = len(dataset) % batch_size == 1
             train_data_loader = DataLoader(
                 dataset=dataset,
                 batch_size=batch_size,
-                shuffle=True
+                shuffle=True,
+                drop_last=leaves_remainder
             )
             for epoch in range(epochs):
                 self.eval()
