@@ -71,7 +71,7 @@ class DenseBase():
             )
             scheduler = torch.optim.lr_scheduler.OneCycleLR(
                 optimizer, 
-                max_lr=max_lr,
+                max_lr=self.learning_rate * 10,
                 div_factor=10,
                 epochs=epochs,
                 steps_per_epoch=((n_cells - 1) // batch_size + 1),

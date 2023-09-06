@@ -17,7 +17,7 @@ class DataBase():
         adata,
         batch_key='batch'):
 
-        if type(self.adata) != type(None): # Load new adata for transfer learning/prediction
+        if self.adata is not None: # Load new adata for transfer learning/prediction
             if batch_key != self.batch_key:
                 raise Exception('Batch key must match previously used batch key.')
 
@@ -75,9 +75,9 @@ class DataBase():
             new_adata = sc.AnnData(
                 X=new_X, 
                 var=new_var, 
-                obs=new_adata.obs)[:, self.adata.var_names]
+                obs=new_adata.obs)
 
-        return new_adata
+        return new_adata[:, self.adata.var_names]
 
     def add_variables(
         self,

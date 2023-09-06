@@ -312,21 +312,30 @@ def delete_dict_entries(dictionary, del_key='classifier', first_run=True):
     else:
         return deleted_key
 
-def get_last_labels(labels, empty_labels):
-    is_not_empty_label = np.copy(labels)
-    for label in empty_labels:
-        is_not_empty_label[is_not_empty_label == label] = 0
-
-    is_not_empty_label[is_not_empty_label != is_not_empty_label] = 0 # remove nans
-    is_not_empty_label[is_not_empty_label != 0] = 1
-    number_of_non_empty_labels = np.sum(is_not_empty_label, axis=1).astype(int)
-    last_labels = np.take_along_axis(
-        labels,
-        (number_of_non_empty_labels - 1)[:, np.newaxis],
+def flatten_labels(pred_h_labels, graph, root_node, verbose=False):
+    pred_h_labels[:, 0] = root_node # Some predictions did not have the root label as their first value
+    # Calculates extent of intersections between predicted labels and valid labels as per the provided graph by cell
+    in_graph = np.isin(pred_h_labels, graph.nodes)
+    n_valid_labels = np.sum(in_graph, axis=1)
+    if verbose:
+        invalid_labels = np.unique(
+            pred_h_labels[~np.isin(pred_h_labels, graph.nodes)]
+        ).tolist()
+        print(f'The hierarchical annotations contained {len(invalid_labels)} invalid labels:\n{invalid_labels}.\nThis is only problematic if these are labels you intended to be counted as valid.')
+        
+    # The last valid label per cell is at n_valid_labels - 1 assuming valid labels start at index 0
+    idx_last_valid_label = np.fmax(
+        n_valid_labels - 1,
+        np.zeros(shape=n_valid_labels.shape)
+    ).astype(int)
+    pred_labels_flat = np.take_along_axis(
+        pred_h_labels,
+        idx_last_valid_label[:, np.newaxis],
         axis = 1
-    )[:, 0]
+    )
+    pred_labels_flat = np.squeeze(pred_labels_flat)
 
-    return last_labels
+    return pred_labels_flat
     
 class Hierarchical_Metric():
     def __init__(self, true_labels, predicted_labels, hierarchy_structure, root_node='Blood'):
@@ -358,7 +367,7 @@ class Hierarchical_Metric():
         if len(np.intersect1d(t_label_augmented, p_label_augmented)) == len(t_label_augmented):
             over_spec_len = len(p_label_augmented) - len(t_label_augmented)
             slice_len = len(p_label_augmented) - over_spec_len
-            p_label_augmented = p_label_augmented[:slice_len] 
+            p_label_augmented = p_label_augmented[:slice_len]
 
         cardinality_p_label_augmented = len(p_label_augmented)
         if t_label not in self.intersect_lookups.keys():
