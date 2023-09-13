@@ -150,13 +150,13 @@ class HierarchicalClassifier(
                 with open(os.path.join(node_content_path, f'{key}.pickle'), 'wb') as f:
                     pickle.dump(self.graph.nodes[node][key], f)
 
-    def load(self):
+    def load(self, load_path):
         data_path = os.path.join(
-            self.save_path, 
+            load_path, 
             'data'
         )
         hc_path = os.path.join(
-            self.save_path, 
+            load_path, 
             'hierarchical_classifiers'
         )
         if os.path.exists(hc_path):
@@ -178,12 +178,12 @@ class HierarchicalClassifier(
 
         for node in list(self.graph):
             model_path = os.path.join(
-                self.save_path, 
+                load_path, 
                 'models',
                 node
             )
             node_content_path = os.path.join(
-                self.save_path, 
+                load_path, 
                 'node_content',
                 node
             )
