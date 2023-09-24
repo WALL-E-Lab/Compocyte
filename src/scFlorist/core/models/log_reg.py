@@ -19,7 +19,7 @@ class LogisticRegression():
 
         print('Classifier not trained. Within this module imported log reg models cannot be iteratively trained or adjusted to a new hierarchy.')
 
-    def predict(self, x):
+    def predict(self, X):
         pred_activations = self.model.predict_proba(X)
         return pred_activations
 
