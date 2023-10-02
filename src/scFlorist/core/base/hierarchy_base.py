@@ -1,5 +1,6 @@
 import networkx as nx
 import numpy as np
+import matplotlib.pyplot as plt
 import tensorflow.keras as keras
 from sklearn.preprocessing import LabelEncoder
 from scFlorist.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
