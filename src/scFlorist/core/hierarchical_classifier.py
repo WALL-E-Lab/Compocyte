@@ -150,7 +150,10 @@ class HierarchicalClassifier(
                 with open(os.path.join(node_content_path, f'{key}.pickle'), 'wb') as f:
                     pickle.dump(self.graph.nodes[node][key], f)
 
-    def load(self, load_path):
+    def load(self, load_path=None):
+        if load_path is None:
+            load_path = self.save_path
+            
         data_path = os.path.join(
             load_path, 
             'data'
