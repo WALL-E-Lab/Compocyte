@@ -5,6 +5,9 @@ import os
 import torch
 
 class LogisticRegression():
+
+    possible_data_types = ['counts', 'normlog']
+    
     def __init__(self, model, data_type):
         self.model = model
         self.data_type = data_type
