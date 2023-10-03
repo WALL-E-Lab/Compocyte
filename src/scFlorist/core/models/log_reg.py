@@ -1,15 +1,24 @@
 from sklearn.linear_model import LogisticRegression
-from torch.nn.functional import softmax
 import pickle
 import os
-import torch
 
 class LogisticRegression():
 
     possible_data_types = ['counts', 'normlog']
-    
-    def __init__(self, model, data_type):
-        self.model = model
+
+    def __init__(self, data_type, model=None, C=1.0, solver=None, max_iter=None, n_jobs=None, **kwargs):
+        if model is None:
+            self.model = LogisticRegression(
+                C=C, 
+                solver=solver, 
+                max_iter=max_iter, 
+                multi_class='ovr', 
+                n_jobs=n_jobs, 
+                **kwargs)
+        
+        else:
+            self.model = model
+
         self.data_type = data_type
 
     def _train(
@@ -18,9 +27,8 @@ class LogisticRegression():
         y_onehot,
         y_int,
         **kwargs):
-        # This method exists only for compatibility. Log reg models can only be imported and used to predict.
-
-        print('Classifier not trained. Within this module imported log reg models cannot be iteratively trained or adjusted to a new hierarchy.')
+        
+        self.model.fit(x, y_int)
 
     def predict(self, X):
         pred_activations = self.model.predict_proba(X)
