@@ -65,6 +65,15 @@ class CPNBase():
                 selected_var_names = self.graph.nodes[node]['selected_var_names']
 
         elif self.use_feature_selection:
+            pct_relevant = len(relevant_cells) / len(self.adata)
+            # n_features is simply overwritten if method=='hvg'
+            projected_relevant_cells = pct_relevant * self.projected_total_cells
+            # should not exceed a ratio of 1:100 of features to training samples as per google rules of ml
+            n_features_by_samples = int(projected_relevant_cells / 100)
+            n_features = max(
+                min(self.max_features, n_features_by_samples),
+                self.min_features
+            )
             # Counts and normlog rely on variable names for unique id of selected features
             # for embeddings, only selected indices can be provided
             return_idx = data_type not in ['counts', 'normlog']
@@ -72,7 +81,7 @@ class CPNBase():
                 list(positive_cells.obs_names), 
                 list(negative_cells.obs_names), 
                 data_type, 
-                n_features=self.n_top_genes_per_class, 
+                n_features=n_features, 
                 method='f_classif',
                 return_idx=return_idx)
 

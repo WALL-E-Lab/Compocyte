@@ -194,13 +194,48 @@ class DataBase():
                     total_top_genes.append(gene)
 
         return total_top_genes
+    
+    def feature_selection_CPPN(self, relevant_cells, children_obs_key, data_type, n_features, return_idx=False):
+        y = np.array(relevant_cells.obs[children_obs_key])
+        if data_type == 'normlog':
+            x = relevant_cells.layers['normlog']
 
-    def feature_selection(self, barcodes_positive, barcodes_negative, data_type, n_features=300, method='f_classif', return_idx=False, max_n_features=10000):
+        elif data_type == 'counts':
+            x = relevant_cells.X
+
+        elif data_type in self.adata.obsm:
+            x = relevant_cells.obsm[data_type]
+
+        else:
+            raise Exception('Feature selection not implemeted for embeddings.')
+
+        if hasattr(x, 'todense'):
+            x = x.todense()
+            x = np.asarray(x)
+
+        x = z_transform_properties(x)
+        warnings.filterwarnings(action='ignore', category=RuntimeWarning)
+        warnings.filterwarnings(action='ignore', category=UserWarning)
+        # Make sure the default n_features option does not lead to trying to select more features than available
+        n_features = min(x.shape[1], n_features)        
+
+        selecter = SelectKBest(f_classif, k=n_features)
+        selecter.fit(x, y)
+
+        if return_idx:
+            bool_idx = selecter.get_support()
+            gc.collect()
+            return list(np.where(bool_idx)[0])
+
+        else:
+            gc.collect()
+            return list(self.adata.var_names[selecter.get_support()])
+
+    # TODO: Remove redundancies/clean up CPPN vs CPN solution
+    def feature_selection(self, barcodes_positive, barcodes_negative, data_type, n_features=300, method='f_classif', return_idx=False):
         self.adata.obs.loc[barcodes_positive, 'node'] = 'yes'
         self.adata.obs.loc[barcodes_negative, 'node'] = 'no'
-        barcodes = barcodes_positive + barcodes_negative        
-        n_features = min(n_features, max_n_features)
-
+        barcodes = barcodes_positive + barcodes_negative
         if method == 'hvg':
             if data_type == 'counts':
                 flavor = 'seurat_v3'
@@ -244,12 +279,10 @@ class DataBase():
 
         x = z_transform_properties(x)
         y = self.adata[barcodes, :].obs['node'].values
-        # Make sure the default n_features option does not lead to trying to select more features than available
-        n_features = min(x.shape[1], n_features)
         warnings.filterwarnings(action='ignore', category=RuntimeWarning)
         warnings.filterwarnings(action='ignore', category=UserWarning)
-
-        
+        # Make sure the default n_features option does not lead to trying to select more features than available
+        n_features = min(x.shape[1], n_features)        
 
         selecter = SelectKBest(f_classif, k=n_features)
         selecter.fit(x, y)

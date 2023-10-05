@@ -33,7 +33,8 @@ class HierarchicalClassifier(
             threshold=None,
             default_input_data='normlog',
             use_feature_selection=True,
-            n_top_genes_per_class=300,
+            min_features=30,
+            max_features=5000,
             hv_genes=-1,
             sampling_method=None,
             sampling_strategy='auto',
@@ -56,7 +57,8 @@ class HierarchicalClassifier(
             self.threshold = threshold
         self.default_input_data = default_input_data
         self.use_feature_selection = use_feature_selection
-        self.n_top_genes_per_class = n_top_genes_per_class
+        self.min_features = min_features
+        self.max_features = max_features
         self.adata = None
         self.dict_of_cell_relations = None
         self.root_node = None

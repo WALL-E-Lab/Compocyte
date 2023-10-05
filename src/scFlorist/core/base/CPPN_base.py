@@ -86,26 +86,22 @@ class CPPNBase():
             # n_features is simply overwritten if method=='hvg'
             projected_relevant_cells = pct_relevant * self.projected_total_cells
             # should not exceed a ratio of 1:100 of features to training samples as per google rules of ml
-            max_n_features = int(projected_relevant_cells / 100)
-            for label in relevant_cells.obs[children_obs_key].unique():
-                positive_cells = relevant_cells[relevant_cells.obs[children_obs_key] == label]
-                negative_cells = relevant_cells[relevant_cells.obs[children_obs_key] != label]
-            
-                selected_var_names_node = self.feature_selection(
-                    list(positive_cells.obs_names), 
-                    list(negative_cells.obs_names), 
-                    data_type, 
-                    n_features=self.n_top_genes_per_class, 
-                    method='f_classif',
-                    return_idx=return_idx,
-                    max_n_features=max_n_features)
-                selected_var_names = selected_var_names + [f for f in selected_var_names_node if f not in selected_var_names]
+            n_features_by_samples = int(projected_relevant_cells / 100)
+            n_features = max(
+                min(self.max_features, n_features_by_samples),
+                self.min_features
+            )
+            selected_var_names = self.feature_selection_CPPN(
+                relevant_cells, 
+                children_obs_key, 
+                data_type, 
+                n_features, 
+                return_idx=return_idx)
 
             print('Selected genes first defined.')
             self.graph.nodes[node]['selected_var_names'] = selected_var_names  
 
-        n_input = len(selected_var_names)
-        
+        n_input = len(selected_var_names)        
         self.ensure_existence_classifier(
             node, 
             n_input,
