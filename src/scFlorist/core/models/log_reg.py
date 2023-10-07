@@ -63,6 +63,6 @@ class LogisticRegression():
         with open(os.path.join(path, 'data_type.pickle'), 'rb') as f:
             data_type = pickle.load(f)
 
-        log_reg = cls(model, data_type)
+        log_reg = cls(model=model, data_type=data_type)
 
         return log_reg
