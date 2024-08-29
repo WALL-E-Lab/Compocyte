@@ -14,30 +14,21 @@ class DataBase():
 
     def load_adata(
         self,
-        adata,
-        batch_key='batch'):
+        adata):
 
         if self.adata is not None: # Load new adata for transfer learning/prediction
-            if batch_key != self.batch_key:
-                raise Exception('Batch key must match previously used batch key.')
-
             self.adata = self.variable_match_adata(adata)
             self.ensure_not_view()
             self.check_for_counts()
             if hasattr(self.adata.X, 'todense'):
                 self.adata.X = np.array(self.adata.X.todense())
 
-            self.ensure_batch_assignment()
-
         else:
             self.adata = adata
             self.ensure_not_view()
-            self.batch_key = batch_key
             self.check_for_counts()
             if hasattr(self.adata.X, 'todense'):
                 self.adata.X = np.array(self.adata.X.todense())
-
-            self.ensure_batch_assignment()
 
             if hasattr(self, 'hv_genes') and self.hv_genes > 0:
                 sc.pp.highly_variable_genes(
@@ -107,13 +98,6 @@ class DataBase():
 
         else:
             pass
-
-    def ensure_batch_assignment(self):
-        """Ensures that self.batch_key is actually a key in self.adata.obs.
-        """
-
-        if self.batch_key not in self.adata.obs.columns:
-            raise KeyError('The batch key supplied does not match any column in adata.obs.')
 
     def check_for_counts(self):
         """Checks self.adata.X and self.adata.raw.X for presence of raw count data.

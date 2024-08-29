@@ -38,7 +38,6 @@ class HierarchicalClassifier(
             hv_genes=-1,
             sampling_method=None,
             sampling_strategy='auto',
-            batch_key='batch', 
             classification_mode='CPPN',
             ignore_counts=False, # if True, X is kept as is
             projected_total_cells=100000,
@@ -75,7 +74,7 @@ class HierarchicalClassifier(
             self.init_resampling(sampling_method, sampling_strategy)
 
         if type(adata) != type(None):
-            self.load_adata(adata, batch_key)
+            self.load_adata(adata)
 
         if root_node is not None and dict_of_cell_relations is not None and obs_names is not None:
             self.set_cell_relations(root_node, dict_of_cell_relations, obs_names)
@@ -176,7 +175,7 @@ class HierarchicalClassifier(
             timestamps = os.listdir(data_path)
             last_adata = sorted(timestamps)[-1]
             adata = sc.read_h5ad(os.path.join(data_path, last_adata))
-            self.load_adata(adata, batch_key=self.batch_key)
+            self.load_adata(adata)
 
         if not hasattr(self, 'graph') or self.graph is None:
             self.make_classifier_graph()
