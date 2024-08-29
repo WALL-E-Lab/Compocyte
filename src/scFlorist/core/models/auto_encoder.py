@@ -1,6 +1,6 @@
 import torch
 try:
-    from scFlorist.core.models.dense_base import DenseBase
+    from Compocyte.core.models.dense_base import DenseBase
 
 except:
     pass

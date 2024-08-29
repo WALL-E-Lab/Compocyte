@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 import scanpy as sc
 import pandas as pd
-from scFlorist.core.tools import is_counts, z_transform_properties
+from Compocyte.core.tools import is_counts, z_transform_properties
 from scipy import sparse
 from sklearn.feature_selection import SelectKBest, f_classif
 import matplotlib.pyplot as plt

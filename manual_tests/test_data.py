@@ -3,7 +3,7 @@ import numpy as np
 import scanpy as sc
 import pandas as pd
 from scipy import sparse
-from scFlorist.core.tools import get_leaf_nodes, make_graph_from_edges, \
+from Compocyte.core.tools import get_leaf_nodes, make_graph_from_edges, \
     dict_depth
 
 

@@ -1,8 +1,8 @@
-from scFlorist.core.tools import z_transform_properties
-from scFlorist.core.models.dense import DenseKeras
-from scFlorist.core.models.log_reg import LogisticRegression
-from scFlorist.core.models.dense_torch import DenseTorch
-from scFlorist.core.tools import flatten_dict, make_graph_from_edges, set_node_to_depth
+from Compocyte.core.tools import z_transform_properties
+from Compocyte.core.models.dense import DenseKeras
+from Compocyte.core.models.log_reg import LogisticRegression
+from Compocyte.core.models.dense_torch import DenseTorch
+from Compocyte.core.tools import flatten_dict, make_graph_from_edges, set_node_to_depth
 from time import time
 from copy import deepcopy
 import tensorflow.keras as keras

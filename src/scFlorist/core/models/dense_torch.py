@@ -4,7 +4,7 @@ import pickle
 from sklearn.model_selection import train_test_split
 from copy import deepcopy
 try:
-    from scFlorist.core.models.dense_base import DenseBase
+    from Compocyte.core.models.dense_base import DenseBase
 
 except:
     pass
