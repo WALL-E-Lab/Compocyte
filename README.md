@@ -1,6 +1,5 @@
 # Compocyte
 
-## Overview
 
 Compocyte automates cell type annotation for scRNAseq data. It uses a composite of hierarchically arranged classifiers to deliver accurate results while maintaining flexibility and modularity.
 
@@ -17,7 +16,7 @@ A pre-trained Compocyte classifier for annotating PBMCs in health and disease ca
 For step-by-step guides and explanations to using Compocyte please refer to one of our tutorials.
 
 - [Applying a pre-trained classifier]()
-- [Training a custom classifier]()
+- [Training a custom classifier](https://colab.research.google.com/drive/1dVSAYgS4yY5ydIA1d-1rqYuIhVAfQI5-?usp=sharing)
 - [Expanding an existing classifier]()
 - [Importing an existing subset classifier]()
 
