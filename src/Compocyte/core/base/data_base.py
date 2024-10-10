@@ -49,7 +49,7 @@ class DataBase():
 
         else:
             if hasattr(new_adata, 'raw') and new_adata.raw is not None and is_counts(new_adata.raw.X):
-                new_adata.X = new_adata.raw[self.adata.obs_names,self.adata.var_names].X #new_adata.raw.X
+                new_adata.X = new_adata.raw[new_adata.obs_names, new_adata.var_names].X #new_adata.raw.X
 
             elif hasattr(new_adata, 'layers') and 'raw' in new_adata.layers and is_counts(new_adata.layers['raw']):
                 new_adata.X = new_adata.layers['raw']
