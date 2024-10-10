@@ -208,8 +208,8 @@ class CPPNBase():
 
             print(f"Using multiprocessing for training with {mp.cpu_count()} available CPU kernels.\n")
 
-            #find nodes that have to be trained be trained 
-            nodes_to_train = ["DUMMY"] #nodes that have >= 2 child nodes
+            #find nodes that have to be trained be trained, i.e. nodes that have >= 2 child nodes 
+            nodes_to_train = [node for node in list(self.graph.nodes()) if len(list(self.graph.successors(node))) >= 2] 
             #Question: where do the train_barcodes come from? are they initialized in higher instance? Successively or central?
 
             with mp.Pool(processes=mp.cpu_count()) as pool: 
