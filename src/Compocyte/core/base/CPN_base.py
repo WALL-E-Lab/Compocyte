@@ -135,8 +135,12 @@ class CPNBase():
         self,
         node,
         train_barcodes=None,
-        initial_call=True):
+        initial_call=True,
+        parallelize = False):
         """"""
+
+        if parallelize: 
+            print(f"Please note that CPN classification does not yet support parallel training.")
 
         if train_barcodes is None:
             train_barcodes = list(self.adata.obs_names)
