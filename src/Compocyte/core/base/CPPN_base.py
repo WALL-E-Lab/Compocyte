@@ -158,9 +158,13 @@ class CPPNBase():
         }
         gc.collect()
 
+        trained_node_params = {"local_classifier": self.graph.nodes[node]['local_classifier'].model,
+                               "label_encoding": self.graph.nodes[node]["label_encoding"],
+                               "selected_var_names": self.graph.nodes[node]["selected_var_names"]}
+
         #needed for used type of multiprocessing, return trained model to main process (is model universal for all used 
         # classifier types?)
-        return self.graph.nodes[node]['local_classifier'].model
+        return trained_node_params
 
     def train_all_child_nodes_CPPN(
         self,
@@ -212,10 +216,16 @@ class CPPNBase():
             nodes_to_train = [node for node in list(self.graph.nodes()) if len(list(self.graph.successors(node))) >= 2] 
            
             with mp.Pool(processes=mp.cpu_count()) as pool: 
-                trained_models = pool.map(self.train_single_node_CPPN, nodes_to_train)
+                trained_node_params = pool.map(self.train_single_node_CPPN, nodes_to_train)
 
-            for node, trained_model in zip(nodes_to_train, trained_models):
-                self.graph.nodes[node]['local_classifier'] = trained_model
+            # for node, trained_model, label_encoding in zip(nodes_to_train, trained_models, label_encodings):
+            #     self.graph.nodes[node]['local_classifier'] = trained_model
+            #     self.graph.nodes[node]["label_encoding"] = label_encoding
+            
+            for node, params in zip(nodes_to_train, trained_node_params):
+                for key in params.keys():
+                    self.graph.nodes[node][key] = params.get(key)
+
         
 
     def predict_single_node_CPPN(
