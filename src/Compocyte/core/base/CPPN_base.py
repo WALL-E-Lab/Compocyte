@@ -158,9 +158,11 @@ class CPPNBase():
         }
         gc.collect()
 
-        trained_node_params = {"local_classifier": self.graph.nodes[node]['local_classifier'].model,
-                               "label_encoding": self.graph.nodes[node]["label_encoding"],
-                               "selected_var_names": self.graph.nodes[node]["selected_var_names"]}
+        print(f"attributes at node {node}: {self.graph.nodes[node]}\n")
+
+        trained_node_params = {"local_classifier": self.graph.nodes[node]['local_classifier'],#.model,
+                               "label_encoding": self.graph.nodes[node]['label_encoding'],
+                               "selected_var_names": self.graph.nodes[node].get('selected_var_names', None)}
 
         #needed for used type of multiprocessing, return trained model to main process (is model universal for all used 
         # classifier types?)
