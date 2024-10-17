@@ -213,18 +213,21 @@ class CPPNBase():
         else: 
             #initial_call not yet transferred
 
-            print(f"Using multiprocessing for training with {mp.cpu_count()} available CPU kernels.\n")
+            print(f"Using multiprocessing for training with {mp.cpu_count()} available CPU cores.\n")
 
             #find nodes that have to be trained be trained, i.e. nodes that have >= 2 child nodes 
             nodes_to_train = [node for node in list(self.graph.nodes()) if len(list(self.graph.successors(node))) >= 2] 
            
             with mp.Pool(processes=mp.cpu_count()) as pool: 
-                trained_node_params = pool.map(self.train_single_node_CPPN, nodes_to_train)
+                all_trained_node_params = pool.map(self.train_single_node_CPPN, nodes_to_train)
             
-            for node, params in zip(nodes_to_train, trained_node_params):
-                for key in params.keys():
-                    if key is not None:
-                        self.graph.nodes[node][key] = params.get(key)
+            for node, params in zip(nodes_to_train, all_trained_node_params):
+                if params is not None:
+                    for key in params.keys():
+                        try:
+                            self.graph.nodes[node][key] = params.get(key)
+                        except: 
+                            print(f"Could not set result of {key} and node {node}.")
 
         
 
