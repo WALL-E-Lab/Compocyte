@@ -211,6 +211,7 @@ class CPPNBase():
                 }
 
         else: 
+            #initial_call not yet transferred
 
             print(f"Using multiprocessing for training with {mp.cpu_count()} available CPU kernels.\n")
 
@@ -219,14 +220,11 @@ class CPPNBase():
            
             with mp.Pool(processes=mp.cpu_count()) as pool: 
                 trained_node_params = pool.map(self.train_single_node_CPPN, nodes_to_train)
-
-            # for node, trained_model, label_encoding in zip(nodes_to_train, trained_models, label_encodings):
-            #     self.graph.nodes[node]['local_classifier'] = trained_model
-            #     self.graph.nodes[node]["label_encoding"] = label_encoding
             
             for node, params in zip(nodes_to_train, trained_node_params):
                 for key in params.keys():
-                    self.graph.nodes[node][key] = params.get(key)
+                    if key is not None:
+                        self.graph.nodes[node][key] = params.get(key)
 
         
 
