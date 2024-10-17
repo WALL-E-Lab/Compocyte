@@ -236,7 +236,7 @@ class HierarchicalClassifier(
         initial_call=True,
         parallelize = False):
         if self.classification_mode == 'CPPN':
-            self.train_all_child_nodes_CPPN_parallel(
+            self.train_all_child_nodes_CPPN(
                 node, 
                 train_barcodes=train_barcodes,
                 initial_call=initial_call,

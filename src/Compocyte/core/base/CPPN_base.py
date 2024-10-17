@@ -210,16 +210,13 @@ class CPPNBase():
 
             #find nodes that have to be trained be trained, i.e. nodes that have >= 2 child nodes 
             nodes_to_train = [node for node in list(self.graph.nodes()) if len(list(self.graph.successors(node))) >= 2] 
-            #Question: where do the train_barcodes come from? are they initialized in higher instance? Successively or central?
-
+           
             with mp.Pool(processes=mp.cpu_count()) as pool: 
                 trained_models = pool.map(self.train_single_node_CPPN, nodes_to_train)
 
             for node, trained_model in zip(nodes_to_train, trained_models):
                 self.graph.nodes[node]['local_classifier'] = trained_model
         
-
-
 
     def predict_single_node_CPPN(
         self,
