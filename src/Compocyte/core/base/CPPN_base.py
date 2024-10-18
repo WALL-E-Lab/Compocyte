@@ -158,8 +158,6 @@ class CPPNBase():
         }
         gc.collect()
 
-        print(f"attributes at node {node}: {self.graph.nodes[node]}\n")
-
         trained_node_params = {"local_classifier": self.graph.nodes[node]['local_classifier'],#.model,
                                "label_encoding": self.graph.nodes[node]['label_encoding'],
                                "selected_var_names": self.graph.nodes[node].get('selected_var_names', None)}
@@ -222,12 +220,10 @@ class CPPNBase():
                 all_trained_node_params = pool.map(self.train_single_node_CPPN, nodes_to_train)
             
             for node, params in zip(nodes_to_train, all_trained_node_params):
-                if params is not None:
-                    for key in params.keys():
-                        try:
-                            self.graph.nodes[node][key] = params.get(key)
-                        except: 
-                            print(f"Could not set result of {key} and node {node}.")
+                for key in params.keys():         
+                    if params.get(key) is not None:    
+                        self.graph.nodes[node][key] = params.get(key)
+
 
         
 
