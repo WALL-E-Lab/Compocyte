@@ -220,9 +220,10 @@ class CPPNBase():
                 all_trained_node_params = pool.map(self.train_single_node_CPPN, nodes_to_train)
             
             for node, params in zip(nodes_to_train, all_trained_node_params):
-                for key in params.keys():         
-                    if params.get(key) is not None:    
-                        self.graph.nodes[node][key] = params.get(key)
+                if params is not None: #this should only happen at nodes that have not been trained
+                    for key in params.keys():         
+                        if params.get(key) is not None:    
+                            self.graph.nodes[node][key] = params.get(key)
 
 
         
