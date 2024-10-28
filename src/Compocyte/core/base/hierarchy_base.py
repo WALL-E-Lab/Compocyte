@@ -209,9 +209,9 @@ class HierarchyBase():
             else:
                 threshold = self.threshold
 
-            len_set = np.sum(y_pred_proba >= threshold, axis=1)
+            is_above_threshold = np.any(y_pred_proba >= threshold, axis=1)
             largest_idx = largest_idx.astype(np.float32)
-            largest_idx[len_set != 1] = np.nan
+            largest_idx[is_above_threshold] = np.nan
 
         else:
             raise ValueError('Not yet supported probability classification classifier type')
