@@ -151,7 +151,7 @@ class HierarchicalClassifier(
                 with open(os.path.join(node_content_path, f'{key}.pickle'), 'wb') as f:
                     pickle.dump(self.graph.nodes[node][key], f)
 
-    def load(self, load_path=None):
+    def load(self, load_path=None, load_adata=False):
         if load_path is None:
             load_path = self.save_path
             
@@ -171,7 +171,7 @@ class HierarchicalClassifier(
                 for key in settings_dict.keys():
                     self.__dict__[key] = settings_dict[key]
 
-        if os.path.exists(data_path):
+        if os.path.exists(data_path) and load_adata:
             timestamps = os.listdir(data_path)
             last_adata = sorted(timestamps)[-1]
             adata = sc.read_h5ad(os.path.join(data_path, last_adata))
