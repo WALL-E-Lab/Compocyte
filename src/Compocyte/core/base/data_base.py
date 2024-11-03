@@ -16,7 +16,7 @@ class DataBase():
         self,
         adata):
 
-        if self.adata is not None: # Load new adata for transfer learning/prediction
+        if self.var_names is not None: # Load new adata for transfer learning/prediction
             self.adata = self.variable_match_adata(adata)
             self.ensure_not_view()
             self.check_for_counts()
@@ -39,11 +39,13 @@ class DataBase():
                 self.adata = self.adata[:, self.adata.var['highly_variable']]
                 self.ensure_not_view()
 
+            self.var_names = self.adata.var_names.tolist()
+
     def variable_match_adata(
         self, 
         new_adata):
 
-        new_var_names = [v for v in self.adata.var_names if v not in new_adata.var_names]
+        new_var_names = [v for v in self.var_names if v not in new_adata.var_names]
         if is_counts(new_adata.X):
             pass
 
@@ -68,7 +70,7 @@ class DataBase():
                 var=new_var, 
                 obs=new_adata.obs)
 
-        return new_adata[:, self.adata.var_names]
+        return new_adata[:, self.var_names]
 
     def add_variables(
         self,
@@ -111,7 +113,7 @@ class DataBase():
 
         else:
             if hasattr(self.adata, 'raw') and self.adata.raw is not None and is_counts(self.adata.raw.X):
-                self.adata.X = self.adata.raw[self.adata.obs_names,self.adata.var_names].X #self.adata.raw.X
+                self.adata.X = self.adata.raw[self.adata.obs_names, self.adata.var_names].X #self.adata.raw.X
 
             elif hasattr(self.adata, 'layers') and 'raw' in self.adata.layers and is_counts(self.adata.layers['raw']):
                 self.adata.X = self.adata.layers['raw']

@@ -22,7 +22,7 @@ class ExportImportBase():
 
         else:
             if classifier_dict['data_type'] in ['counts', 'normlog']:
-                classifier_dict['selected_var_names'] = list(self.adata.var_names)
+                classifier_dict['selected_var_names'] = list(self.var_names)
 
             else:
                 classifier_dict['selected_var_names'] = list(range(self.adata.obsm[classifier_dict['data_type']].shape[1]))
@@ -81,7 +81,7 @@ class ExportImportBase():
 
             sel_var = classifier_dict['selected_var_names']
             if classifier_dict['data_type'] in ['counts', 'normlog']:
-                var_not_present = [v for v in sel_var if v not in self.adata.var_names]
+                var_not_present = [v for v in sel_var if v not in self.var_names]
                 if len(var_not_present) > 0:
                     self.add_variables(var_not_present)
 
