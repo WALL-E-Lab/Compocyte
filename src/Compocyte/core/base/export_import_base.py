@@ -83,7 +83,9 @@ class ExportImportBase():
             if classifier_dict['data_type'] in ['counts', 'normlog']:
                 var_not_present = [v for v in sel_var if v not in self.var_names]
                 if len(var_not_present) > 0:
-                    self.add_variables(var_not_present)
+                    self.var_names = self.var_names + var_not_present
+                    if self.adata is not None:
+                        self.add_variables(var_not_present)
 
             for k in ['label_encoding', 'data_type', 'selected_var_names']:
                 if k in classifier_dict:
