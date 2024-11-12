@@ -234,18 +234,23 @@ class HierarchicalClassifier(
         self, 
         node,
         train_barcodes=None,
-        initial_call=True):
+        initial_call=True,
+        parallelize = False):
         if self.classification_mode == 'CPPN':
             self.train_all_child_nodes_CPPN(
-                node,
+                node, 
                 train_barcodes=train_barcodes,
-                initial_call=initial_call)
+                initial_call=initial_call,
+                parallelize = parallelize
+            )
 
         elif self.classification_mode == 'CPN':
             self.train_all_child_nodes_CPN(
                 node,
                 train_barcodes=train_barcodes,
-                initial_call=initial_call)
+                initial_call=initial_call,
+                parallelize = parallelize
+            )
 
         else:
             raise ValueError('Classification mode not supported.')

@@ -12,6 +12,7 @@ import tensorflow.keras as keras
 import numpy as np
 import networkx as nx
 import gc
+import multiprocessing as mp
 
 class CPPNBase():
     def train_single_node_CPPN(
@@ -157,11 +158,20 @@ class CPPNBase():
         }
         gc.collect()
 
+        trained_node_params = {"local_classifier": self.graph.nodes[node]['local_classifier'],#.model,
+                               "label_encoding": self.graph.nodes[node]['label_encoding'],
+                               "selected_var_names": self.graph.nodes[node].get('selected_var_names', None)}
+
+        #needed for used type of multiprocessing, return trained model to main process (is model universal for all used 
+        # classifier types?)
+        return trained_node_params
+
     def train_all_child_nodes_CPPN(
         self,
         current_node,
         train_barcodes=None,
-        initial_call=True):
+        initial_call=True,
+        parallelize = False):
         """Starts at current_node, training its local classifier and following up by recursively
         training all local classifiers lower in the hierarchy. Uses cells that were labeled as 
         current_node at the relevant level (i. e. cells that are truly of type current_node, rather
@@ -179,22 +189,44 @@ class CPPNBase():
             classifier. Necessary to enable separation of training and test data for cross-validation.
         """
 
-        self.train_single_node_CPPN(current_node, train_barcodes)
-        for child_node in self.get_child_nodes(current_node):
-            if len(self.get_child_nodes(child_node)) == 0:
-                continue
+        if not parallelize:
 
-            self.train_all_child_nodes_CPPN(child_node, train_barcodes=train_barcodes, initial_call=False)
+            self.train_single_node_CPPN(current_node, train_barcodes)
+            for child_node in self.get_child_nodes(current_node):
+                if len(self.get_child_nodes(child_node)) == 0:
+                    continue
 
-        if initial_call:
-            if "overall" not in self.trainings.keys():
-                self.trainings['overall'] = {}
+                self.train_all_child_nodes_CPPN(child_node, train_barcodes=train_barcodes, initial_call=False)
 
-            timestamp = str(time()).replace('.', '_')
-            self.trainings['overall'][timestamp] = {
-                'train_barcodes': train_barcodes,
-                'current_node': current_node
-            }
+            if initial_call:
+                if "overall" not in self.trainings.keys():
+                    self.trainings['overall'] = {}
+
+                timestamp = str(time()).replace('.', '_')
+                self.trainings['overall'][timestamp] = {
+                    'train_barcodes': train_barcodes,
+                    'current_node': current_node
+                }
+
+        else: 
+            #initial_call not yet transferred
+
+            print(f"Using multiprocessing for training with {mp.cpu_count()} available CPU cores.\n")
+
+            #find nodes that have to be trained be trained, i.e. nodes that have >= 2 child nodes 
+            nodes_to_train = [node for node in list(self.graph.nodes()) if len(list(self.graph.successors(node))) >= 2] 
+           
+            with mp.Pool(processes=mp.cpu_count()) as pool: 
+                all_trained_node_params = pool.map(self.train_single_node_CPPN, nodes_to_train)
+            
+            for node, params in zip(nodes_to_train, all_trained_node_params):
+                if params is not None: #this should only happen at nodes that have not been trained
+                    for key in params.keys():         
+                        if params.get(key) is not None:    
+                            self.graph.nodes[node][key] = params.get(key)
+
+
+        
 
     def predict_single_node_CPPN(
         self,
