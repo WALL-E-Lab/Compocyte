@@ -15,10 +15,50 @@ import gc
 import multiprocessing as mp
 
 class CPPNBase():
+
+    def train_single_node_CPPN_ensemble(
+        self,
+        node, 
+        n_ensemble_networks:int,
+        train_barcodes = None):
+        """
+        Initialize training of a classifier ensemble at `node`.
+        Follows preprint https://arxiv.org/abs/1612.01474.
+
+        Parameters
+        ----------
+        node 
+            Node in hierarchical graph which is supposed to be trained. 
+        n_ensemble_networks `int`
+            Number of ensembles to be trained.
+        train_barcodes 
+            Barcodes of cells used for training.
+        """
+
+        trained_networks = []
+
+        for _ in range(n_ensemble_networks): 
+            #TODO: parallelize as well
+            #needs randomization of initial parameters!
+            #not necessarily: adversarial training, different train data (might be disadvantageous for NN's)
+            trained_network_params = self.train_single_node_CPPN(node, train_barcodes) 
+            trained_networks.append(trained_network_params)
+
+        if n_ensemble_networks == len(trained_networks):
+            #store ensemble classifier in list as new node attribute
+            self.graph.nodes[node]["trained_ensemble"] = {
+                "ensemble_classifier": [trained_networks[i].get("local_classifier") for i in range(len(trained_networks))],
+                "ensemble_label_encoding": [trained_networks[i].get("label_encoding") for i in range(len(trained_networks))],
+                "ensemble_selected_var_names": [trained_networks[i].get("selected_var_names") for i in range(len(trained_networks))]
+                }
+
+
     def train_single_node_CPPN(
         self, 
         node, 
-        train_barcodes=None):
+        train_barcodes=None,
+        ensemble_learning = False,
+        n_ensemble_networks = 5):
         """Trains the local classifier stored at node.
 
         Parameters
@@ -28,7 +68,14 @@ class CPPNBase():
             of the classifier further differentiating between T cells.
         barcodes
             Specifies which cells should be used for training.
+        ensemble_learning 
+            If `True`, an ensemble is trained at each node. TODO: at each specified node or exclude nodes
         """
+
+        if ensemble_learning: 
+            return self.train_single_node_CPPN_ensemble(node, 
+                                                        train_barcodes=train_barcodes, 
+                                                        n_ensemble_networks = n_ensemble_networks)
 
         if train_barcodes is None:
             train_barcodes = self.adata.obs_names
@@ -171,7 +218,8 @@ class CPPNBase():
         current_node,
         train_barcodes=None,
         initial_call=True,
-        parallelize = False):
+        parallelize = False, 
+        ensemble_learning = False):
         """Starts at current_node, training its local classifier and following up by recursively
         training all local classifiers lower in the hierarchy. Uses cells that were labeled as 
         current_node at the relevant level (i. e. cells that are truly of type current_node, rather
@@ -191,7 +239,7 @@ class CPPNBase():
 
         if not parallelize:
 
-            self.train_single_node_CPPN(current_node, train_barcodes)
+            self.train_single_node_CPPN(current_node, train_barcodes, ensemble_learning=ensemble_learning)
             for child_node in self.get_child_nodes(current_node):
                 if len(self.get_child_nodes(child_node)) == 0:
                     continue
@@ -224,6 +272,195 @@ class CPPNBase():
                     for key in params.keys():         
                         if params.get(key) is not None:    
                             self.graph.nodes[node][key] = params.get(key)
+
+
+    def predict_single_node_CPPN_ensemble(
+        self,
+        node,
+        barcodes=None,
+        get_activations=False):
+        """
+        Predict cell labels using trained ensembles at the respective nodes. 
+
+        TODO: merge with self.predict_single_node_CPPN possible/useful? Due to notation/new ensemble node attribute 
+        not done for now  
+        """
+
+        print(f'Ensemble prediction at parent {node}.')
+
+        #general sanity checks if node posseses trained models
+
+        parent_obs_key = self.get_parent_obs_key(node)
+        if f"{parent_obs_key}_pred" not in self.adata.obs.columns and barcodes is None and not node == self.root_node:
+            raise Exception('If previous nodes were not predicted, barcodes for prediction need to \
+                be given explicitly.')
+
+        elif node == self.root_node and barcodes is None:
+            barcodes = list(self.adata.obs_names)
+
+        if not self.is_trained_at(node, ensemble = False):
+            print(f'Must train local classifier or ensemble at {node} before trying to predict cell'\
+                ' types')
+            return
+
+        if "label_encoding" not in self.graph.nodes[node]['trained_ensemble'] or \
+            len(self.graph.nodes[node]['trained_ensemble']['label_encoding'].keys()) == 0:
+            raise Exception('No label encoding saved in selected node. \
+                The local classifier has either not been trained or the hierarchy updated and thus the output layer reset.')
+
+        potential_cells = self.adata[barcodes, :]
+        if f'{parent_obs_key}_pred' in self.adata.obs.columns:
+            relevant_cells = potential_cells[potential_cells.obs[f'{parent_obs_key}_pred'] == node]
+
+        else:
+            relevant_cells = potential_cells
+
+        if len(relevant_cells) == 0:
+            return
+
+        #prediction of single classifiers
+
+        #check number of classifiers in ensemble 
+        n_classifiers = len(self.graph.nodes[node]['trained_ensemble'].get('ensemble_classifier'))
+        if n_classifiers == 0:
+            print(f"No classifers trained in ensemble at node {node}.")
+            return
+
+        ensemble_predictions = []
+        for network_i in range(n_classifiers):
+
+            #TODO: check behaviour
+            data_type = self.graph.nodes[node]['trained_ensemble']['ensemble_classifier'][network_i].data_type
+            if type(self.graph.nodes[node]['trained_ensemble']['ensemble_classifier'][network_i]) not in [DenseKeras, DenseTorch, LogisticRegression]:
+                raise Exception('CPPN classification mode currently only compatible with neural networks.')
+
+            if data_type in ['counts', 'normlog']:
+                selected_var_names = list(self.adata.var_names) 
+
+            elif data_type in self.adata.obsm:
+                selected_var_names = list(range(self.adata.obsm[data_type].shape[1]))
+
+            else:
+                raise Exception('Data type not supported.')
+
+            # Feature selection is only relevant for (transformed) gene data, not embeddings
+            if self.use_feature_selection and 'selected_var_names' in self.graph.nodes[node]['trained_ensemble']:
+                selected_var_names = self.graph.nodes[node]['trained_ensemble']['selected_var_names'][network_i]
+
+            if data_type == 'counts':
+                x = relevant_cells[:, selected_var_names].X
+
+            elif data_type == 'normlog':
+                self.ensure_normlog()
+                x = relevant_cells[:, selected_var_names].layers['normlog']
+
+            elif data_type in relevant_cells.obsm:
+                x = relevant_cells.obsm[data_type][:, selected_var_names]
+
+            else:
+                raise Exception('Data type not currently supported.')
+
+            if hasattr(x, 'todense'):
+                x = x.todense()
+
+            x = z_transform_properties(x)
+
+            #TODO: check updating activation return for ensemble
+            # if get_activations:
+            #     return list(relevant_cells.obs_names), self.graph.nodes[node]['local_classifier'].predict(x)
+
+            y_pred_activations = self.graph.nodes[node]['trained_ensemble']['ensemble_classifier'][network_i].predict(x)
+            ensemble_predictions.append(y_pred_activations)
+
+            # if not self.prob_based_stopping:
+            #     y_pred_activations = self.graph.nodes[node]['trained_ensemble']['ensemble_classifier'][network_i].predict(x)
+            #     # y_pred_int = np.argmax(self.graph.nodes[node]['trained_ensemble']['ensemble_classifier'][network_i].predict(x), axis=-1)
+                
+            #     #save activations if network_i'th classifier
+            #     ensemble_predictions.append(y_pred_activations)
+
+        #%--------------------------------------------------------------------------------------------------------------------------------------------%#       
+        #belongs somewhere in the prediction methds, not sure where yet because of test/training problem
+        #%--------------------------------------------------------------------------------------------------------------------------------------------%#
+
+        #calculate mean activation
+        activations_ensemble_mean = np.mean(np.array([np.array(preds) for preds in ensemble_predictions]), axis = 0)
+        #std not yet used - interesting to plot
+        activations_ensemble_std = np.std(np.array([np.array(preds) for preds in ensemble_predictions]), axis = 0)
+
+        # mean_activations = activations_sum / n_classifiers
+        
+        #=============================================================================#
+        #NOTE CAVE: since all predictions are averaged, the label encoding of all trained classifiers has to be the same! 
+        #TODO: still to be made sure in train function!! 
+        #NOTE NOTE NOTE
+        #=============================================================================#
+        idx_encoder_network = 0
+
+        if not self.prob_based_stopping:
+
+            y_pred_int = np.argmax(activations_ensemble_mean, axis=-1)
+
+            #decode to class label
+            label_decoding = {}
+            for key in self.graph.nodes[node]['trained_ensemble']['label_encoding'][idx_encoder_network].keys():
+                i = self.graph.nodes[node]['trained_ensemble']['label_encoding'][idx_encoder_network][key]
+                label_decoding[i] = key
+
+            y_pred = np.array(
+                [label_decoding[i] for i in y_pred_int])
+            #TODO: unproblematic method call?
+            obs_key = self.get_children_obs_key(node)
+            self.set_predictions(obs_key, list(relevant_cells.obs_names), y_pred)
+
+        elif self.prob_based_stopping:
+            # y_pred = np.array(self.predict_single_node_proba(node, x))
+
+            #NOTE: code below copied from self.predict_single_node_proba in hierarchy_base class
+
+            #test if probability for one class is larger than threshold 
+            largest_idx = np.argmax(activations_ensemble_mean, axis = -1) #TODO: np.asarray needed here? (see original method)
+            if 'threshold' in self.graph.nodes[node]:
+                threshold = self.graph.nodes[node]['threshold']
+
+            else:
+                threshold = self.threshold
+
+            is_above_threshold = np.any(activations_ensemble_mean >= threshold, axis=1)
+            largest_idx = largest_idx.astype(np.float32)
+            largest_idx[~is_above_threshold] = np.nan
+
+            #TODO after for loop?
+            y_pred_nan_idx = np.where(np.isnan(y_pred))
+            y_pred_not_nan_idx = np.where(~np.isnan(y_pred))
+            y_pred = y_pred.astype(int)
+            label_decoding = {}
+            for key in self.graph.nodes[node]['trained_ensemble']['label_encoding'][idx_encoder_network].keys():
+                i = self.graph.nodes[node]['trained_ensemble']['label_encoding'][idx_encoder_network][key]
+                label_decoding[i] = key
+
+            y_pred_not_nan_str = np.array(
+                [label_decoding[i] for i in y_pred[y_pred_not_nan_idx]])
+            y_pred = y_pred.astype(dtype="object") # important to avoid long cell types being truncated
+            y_pred[y_pred_not_nan_idx] = y_pred_not_nan_str
+            y_pred[y_pred_nan_idx] = 'stopped'
+            #child_obs_key says at which hierarchy level the predictions have to be saved
+            obs_key = self.get_children_obs_key(node)
+            self.set_predictions(obs_key, list(relevant_cells.obs_names), y_pred)
+
+
+        if node not in self.predictions.keys():
+            self.predictions[node] = {}
+
+        timestamp = str(time()).replace('.', '_')
+        self.predictions[node][timestamp] = {
+            'barcodes': barcodes,
+            'node': node,
+            'data_type': self.graph.nodes[node]['local_classifier'].data_type,
+            'type_classifier': type(self.graph.nodes[node]['local_classifier']),
+            'var_names': selected_var_names,
+        }
+        gc.collect()
 
 
         
@@ -366,7 +603,8 @@ class CPPNBase():
         self,
         current_node,
         current_barcodes=None,
-        initial_call=True):
+        initial_call=True,
+        use_ensemble_prediction=False):
 
         if type(current_barcodes) == type(None):
             current_barcodes = self.adata.obs_names
@@ -376,8 +614,12 @@ class CPPNBase():
 
         if not self.is_trained_at(current_node):
             return
-
-        self.predict_single_node_CPPN(current_node, barcodes=current_barcodes)
+        
+        if use_ensemble_prediction:
+            self.predict_single_node_CPPN_ensemble(current_node, barcodes=current_barcodes)
+        
+        else:
+            self.predict_single_node_CPPN(current_node, barcodes=current_barcodes)
         obs_key = self.get_children_obs_key(current_node)
         for child_node in self.get_child_nodes(current_node):
             if len(self.get_child_nodes(child_node)) == 0:

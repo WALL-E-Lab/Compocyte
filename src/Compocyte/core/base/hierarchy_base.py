@@ -184,8 +184,12 @@ class HierarchyBase():
     def get_child_nodes(self, node):
         return self.graph.adj[node].keys()
 
-    def is_trained_at(self, node):
-        return 'local_classifier' in self.graph.nodes[node].keys()
+    def is_trained_at(self, node, ensemble = False):
+        """Returns `bool` if node has a trained classifier or trained ensemble at node `node`."""
+        if not ensemble:
+            return 'local_classifier' in self.graph.nodes[node].keys()
+        else:
+            return 'trained_ensemble' in self.graph.nodes[node].keys()
 
     def predict_single_node_proba(self, node, x):
         """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
