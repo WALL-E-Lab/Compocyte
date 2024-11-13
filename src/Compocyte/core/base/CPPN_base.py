@@ -99,9 +99,8 @@ class CPPNBase():
                 n_features, 
                 return_idx=return_idx)
 
-            print('Selected genes first defined.')
-            self.graph.nodes[node]['selected_var_names'] = selected_var_names  
-
+        print('Selected genes first defined.')
+        self.graph.nodes[node]['selected_var_names'] = selected_var_names
         n_input = len(selected_var_names)        
         self.ensure_existence_classifier(
             node, 

@@ -109,6 +109,9 @@ class HierarchicalClassifier(
         settings_dict = {}
         for key in self.__dict__.keys():
             if key == 'adata':
+                if self.adata is None:
+                    continue
+                
                 if not os.path.exists(data_path):
                     os.makedirs(data_path)
 
