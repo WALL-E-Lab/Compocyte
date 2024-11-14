@@ -46,10 +46,10 @@ class CPPNBase():
 
         if n_ensemble_networks == len(trained_networks):
             #store ensemble classifier in list as new node attribute
+            #label encoder and selected_var_names are taken from default node attributes (overwritten each time 
+            # #self.train_single_node_CPPN is called - identical behaviour?)
             self.graph.nodes[node]["trained_ensemble"] = {
-                "ensemble_classifier": [trained_networks[i].get("local_classifier") for i in range(len(trained_networks))],
-                "ensemble_label_encoding": [trained_networks[i].get("label_encoding") for i in range(len(trained_networks))],
-                "ensemble_selected_var_names": [trained_networks[i].get("selected_var_names") for i in range(len(trained_networks))]
+                "ensemble_classifier": [trained_networks[i].get("local_classifier") for i in range(len(trained_networks))]
                 }
 
 
@@ -57,8 +57,8 @@ class CPPNBase():
         self, 
         node, 
         train_barcodes=None,
-        ensemble_learning = False,
-        n_ensemble_networks = 5):
+        ensemble_learning=False,
+        n_ensemble_networks=5):
         """Trains the local classifier stored at node.
 
         Parameters
@@ -75,7 +75,7 @@ class CPPNBase():
         if ensemble_learning: 
             return self.train_single_node_CPPN_ensemble(node, 
                                                         train_barcodes=train_barcodes, 
-                                                        n_ensemble_networks = n_ensemble_networks)
+                                                        n_ensemble_networks=n_ensemble_networks)
 
         if train_barcodes is None:
             train_barcodes = self.adata.obs_names
@@ -219,7 +219,8 @@ class CPPNBase():
         train_barcodes=None,
         initial_call=True,
         parallelize = False, 
-        ensemble_learning = False):
+        ensemble_learning = False,
+        **kwargs):
         """Starts at current_node, training its local classifier and following up by recursively
         training all local classifiers lower in the hierarchy. Uses cells that were labeled as 
         current_node at the relevant level (i. e. cells that are truly of type current_node, rather
@@ -235,11 +236,20 @@ class CPPNBase():
         train_barcodes
             Barcodes (adata.obs_names) of those cells that are available for training of the
             classifier. Necessary to enable separation of training and test data for cross-validation.
+        parallelize `bool`
+            If `True` classifiers at all available nodes are trained in parallel. TODO: implement for ensemble learning
+        ensemble_learning `bool`
+            If `True`, an ensemble of classifiers is trained at each available node. 
+        **kwargs 
+            Keyword arguments to pass on to `train_single_node_CPPN` method. If ensemble_learning is `True`, the number 
+            of classifiers per ensemble `n_ensemble_networks` (`int`) is mandatory.
+
+
         """
 
         if not parallelize:
 
-            self.train_single_node_CPPN(current_node, train_barcodes, ensemble_learning=ensemble_learning)
+            self.train_single_node_CPPN(current_node, train_barcodes, ensemble_learning=ensemble_learning, **kwargs)
             for child_node in self.get_child_nodes(current_node):
                 if len(self.get_child_nodes(child_node)) == 0:
                     continue
@@ -298,13 +308,12 @@ class CPPNBase():
         elif node == self.root_node and barcodes is None:
             barcodes = list(self.adata.obs_names)
 
-        if not self.is_trained_at(node, ensemble = False):
+        if not self.is_trained_at(node, ensemble = True):
             print(f'Must train local classifier or ensemble at {node} before trying to predict cell'\
                 ' types')
             return
 
-        if "label_encoding" not in self.graph.nodes[node]['trained_ensemble'] or \
-            len(self.graph.nodes[node]['trained_ensemble']['label_encoding'].keys()) == 0:
+        if "label_encoding" not in self.graph.nodes[node] or len(self.graph.nodes[node]['label_encoding'].keys()) == 0:
             raise Exception('No label encoding saved in selected node. \
                 The local classifier has either not been trained or the hierarchy updated and thus the output layer reset.')
 
@@ -317,6 +326,7 @@ class CPPNBase():
 
         if len(relevant_cells) == 0:
             return
+        
 
         #prediction of single classifiers
 
@@ -329,7 +339,6 @@ class CPPNBase():
         ensemble_predictions = []
         for network_i in range(n_classifiers):
 
-            #TODO: check behaviour
             data_type = self.graph.nodes[node]['trained_ensemble']['ensemble_classifier'][network_i].data_type
             if type(self.graph.nodes[node]['trained_ensemble']['ensemble_classifier'][network_i]) not in [DenseKeras, DenseTorch, LogisticRegression]:
                 raise Exception('CPPN classification mode currently only compatible with neural networks.')
@@ -343,9 +352,9 @@ class CPPNBase():
             else:
                 raise Exception('Data type not supported.')
 
-            # Feature selection is only relevant for (transformed) gene data, not embeddings
-            if self.use_feature_selection and 'selected_var_names' in self.graph.nodes[node]['trained_ensemble']:
-                selected_var_names = self.graph.nodes[node]['trained_ensemble']['selected_var_names'][network_i]
+            # Feature selection is only relevant for (transformed) gene data, not embeddings, use saved features at node
+            if self.use_feature_selection and 'selected_var_names' in self.graph.nodes[node]:
+                selected_var_names = self.graph.nodes[node]['selected_var_names']
 
             if data_type == 'counts':
                 x = relevant_cells[:, selected_var_names].X
@@ -392,10 +401,7 @@ class CPPNBase():
         
         #=============================================================================#
         #NOTE CAVE: since all predictions are averaged, the label encoding of all trained classifiers has to be the same! 
-        #TODO: still to be made sure in train function!! 
-        #NOTE NOTE NOTE
         #=============================================================================#
-        idx_encoder_network = 0
 
         if not self.prob_based_stopping:
 
@@ -403,8 +409,8 @@ class CPPNBase():
 
             #decode to class label
             label_decoding = {}
-            for key in self.graph.nodes[node]['trained_ensemble']['label_encoding'][idx_encoder_network].keys():
-                i = self.graph.nodes[node]['trained_ensemble']['label_encoding'][idx_encoder_network][key]
+            for key in self.graph.nodes[node]['label_encoding'].keys():
+                i = self.graph.nodes[node]['label_encoding'][key]
                 label_decoding[i] = key
 
             y_pred = np.array(
@@ -435,8 +441,8 @@ class CPPNBase():
             y_pred_not_nan_idx = np.where(~np.isnan(y_pred))
             y_pred = y_pred.astype(int)
             label_decoding = {}
-            for key in self.graph.nodes[node]['trained_ensemble']['label_encoding'][idx_encoder_network].keys():
-                i = self.graph.nodes[node]['trained_ensemble']['label_encoding'][idx_encoder_network][key]
+            for key in self.graph.nodes[node]['label_encoding'].keys():
+                i = self.graph.nodes[node]['label_encoding'][key]
                 label_decoding[i] = key
 
             y_pred_not_nan_str = np.array(
