@@ -101,13 +101,22 @@ class CPPNBase():
 
         print('Selected genes first defined.')
         self.graph.nodes[node]['selected_var_names'] = selected_var_names
-        n_input = len(selected_var_names)        
+        n_input = len(selected_var_names)
+        # TODO: Find permanent solution for training when only one child label is available
+        # 1) It makes no sense to train a classifier to discriminate between multiple labels
+        # when only one is available
+        # 2) At the same time, compatibility with the usual training process must be maintained
+        # 3) Stopping all cells at this level would unnecessarily reduce performance
+        # 4) implement a way to classify yes/no? (compare against what exactly?)
+        sequential_kwargs = self.sequential_kwargs
+        if n_cell_types == 1:
+            hidden_layers = [64, 10]
         self.ensure_existence_classifier(
             node, 
             n_input,
             n_output=output_len,
             classifier=type_classifier,
-            sequential_kwargs=self.sequential_kwargs)
+            sequential_kwargs=sequential_kwargs)
         if data_type == 'counts':
             x = relevant_cells[:, selected_var_names].X
 
