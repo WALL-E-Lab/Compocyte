@@ -1,6 +1,5 @@
 from Compocyte.core.base.data_base import DataBase
 from Compocyte.core.base.hierarchy_base import HierarchyBase
-from Compocyte.core.base.CPN_base import CPNBase
 from Compocyte.core.base.CPPN_base import CPPNBase
 from Compocyte.core.base.export_import_base import ExportImportBase
 from Compocyte.core.models.dense import DenseKeras
@@ -16,7 +15,6 @@ import scanpy as sc
 class HierarchicalClassifier(
         DataBase,
         HierarchyBase,
-        CPNBase,
         CPPNBase,
         ExportImportBase):
     """Add explanation
@@ -38,7 +36,6 @@ class HierarchicalClassifier(
             hv_genes=-1,
             sampling_method=None,
             sampling_strategy='auto',
-            classification_mode='CPPN',
             ignore_counts=False, # if True, X is kept as is
             projected_total_cells=100000,
             sequential_kwargs={},
@@ -50,7 +47,7 @@ class HierarchicalClassifier(
         self.save_path = save_path
         self.prob_based_stopping = prob_based_stopping
         if threshold is None:
-            self.threshold = {'CPPN': 0.9, 'CPN': 0.6}[classification_mode]
+            self.threshold = 0.9
             
         else:
             self.threshold = threshold
@@ -66,7 +63,6 @@ class HierarchicalClassifier(
         self.hv_genes = hv_genes
         self.trainings = {}
         self.predictions = {}
-        self.classification_mode = classification_mode
         self.ignore_counts = ignore_counts
         self.projected_total_cells = projected_total_cells
         self.sequential_kwargs = sequential_kwargs
@@ -224,14 +220,7 @@ class HierarchicalClassifier(
                         self.graph.nodes[node][key] = p
 
     def train_single_node(self, node, train_barcodes=None, barcodes=None):
-        if self.classification_mode == 'CPPN':
-            self.train_single_node_CPPN(node, train_barcodes=barcodes)
-
-        elif self.classification_mode == 'CPN':
-            self.train_single_node_CPN(node, train_barcodes=train_barcodes)
-
-        else:
-            raise ValueError('Classification mode not supported.')
+        self.train_single_node_CPPN(node, train_barcodes=barcodes)
 
     def train_all_child_nodes(
         self, 
@@ -239,58 +228,31 @@ class HierarchicalClassifier(
         train_barcodes=None,
         initial_call=True,
         parallelize = False):
-        if self.classification_mode == 'CPPN':
-            self.train_all_child_nodes_CPPN(
-                node, 
-                train_barcodes=train_barcodes,
-                initial_call=initial_call,
-                parallelize = parallelize
-            )
 
-        elif self.classification_mode == 'CPN':
-            self.train_all_child_nodes_CPN(
-                node,
-                train_barcodes=train_barcodes,
-                initial_call=initial_call,
-                parallelize = parallelize
-            )
-
-        else:
-            raise ValueError('Classification mode not supported.')
+        self.train_all_child_nodes_CPPN(
+            node, 
+            train_barcodes=train_barcodes,
+            initial_call=initial_call,
+            parallelize = parallelize
+        )
 
     def predict_single_node(
         self, 
         node, 
         barcodes=None):
-        if self.classification_mode == 'CPPN':
-            self.predict_single_node_CPPN(node, barcodes=barcodes)
 
-        elif self.classification_mode == 'CPN':
-            self.predict_single_parent_node_CPN(
-                node, 
-                barcodes=barcodes)
-
-        else:
-            raise ValueError('Classification mode not supported.')
+        self.predict_single_node_CPPN(node, barcodes=barcodes)
 
     def predict_all_child_nodes(
         self, 
         node, 
         initial_call=True, 
         current_barcodes=None):
-        if self.classification_mode == 'CPPN':
-            self.predict_all_child_nodes_CPPN(
-                node,
-                current_barcodes=current_barcodes,
-                initial_call=initial_call)
-
-        elif self.classification_mode == 'CPN':
-            self.predict_all_child_nodes_CPN(
-                node, 
-                initial_call=initial_call)
-
-        else:
-            raise ValueError('Classification mode not supported.')
+            
+        self.predict_all_child_nodes_CPPN(
+            node,
+            current_barcodes=current_barcodes,
+            initial_call=initial_call)
 
     def calibrate_single_node(self, node, alpha=0.25, barcodes=None):
         if not self.prob_based_stopping:
@@ -310,14 +272,7 @@ class HierarchicalClassifier(
         if len(barcodes) == 0:
             return
 
-        if self.classification_mode == 'CPPN':
-            used_barcodes, activations = self.predict_single_node_CPPN(node, barcodes=barcodes, get_activations=True)
-
-        elif self.classification_mode == 'CPN':
-            used_barcodes, activations = self.predict_single_parent_node_CPN(
-                node, 
-                barcodes=barcodes,
-                get_activations=True)
+        used_barcodes, activations = self.predict_single_node_CPPN(node, barcodes=barcodes, get_activations=True)
         
         y = np.array(self.adata[used_barcodes, :].obs[self.get_children_obs_key(node)])
         enc = {l: i for i, l in enumerate(labels)}

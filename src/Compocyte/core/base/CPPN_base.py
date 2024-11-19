@@ -64,7 +64,7 @@ class CPPNBase():
 
         print(f'Training at {node}.')
         if data_type in ['counts', 'normlog']:
-            selected_var_names = list(self.adata.var_names) 
+            selected_var_names = list(self.adata.var_names)
 
         elif data_type in self.adata.obsm:
             selected_var_names = list(range(self.adata.obsm[data_type].shape[1]))

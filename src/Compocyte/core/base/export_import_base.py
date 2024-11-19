@@ -47,7 +47,7 @@ class ExportImportBase():
 
     def import_classifier(self, node, classifier_dict, overwrite=False):
         for a in ['classifier', 'label_encoding', 'data_type', 'selected_var_names']:
-            if a not in classifier_dict and not (a == 'label_encoding' and self.classification_mode == 'CPN'):
+            if a not in classifier_dict:
                 raise KeyError(f'Missing key {a} for successful classifier import.')
 
         classifier_exists = 'local_classifier' in self.graph.nodes[node]

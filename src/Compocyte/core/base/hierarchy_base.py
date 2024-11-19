@@ -108,16 +108,7 @@ class HierarchyBase():
         else: 
             print('f_classif Feature selecter already trained, using trained selecter!')
 
-    def ensure_existence_OVR_classifier(self, node, n_input, type_classifier, data_type, **kwargs):
-        print(f'Trying creating OVR at {node}')
-        if 'local_classifier' in self.graph.nodes[node].keys():
-            return
-
-        self.graph.nodes[node]['local_classifier'] = type_classifier(n_input=n_input, n_output=2, **kwargs)
-        self.graph.nodes[node]['local_classifier'].set_data_type(data_type)
-        print(f'OVR classifier set up as {type_classifier} with {data_type} data at {node}.')
-
-    def ensure_existence_classifier(self, node, input_len, classifier=DenseTorch, is_CPN=False, n_output=None, **kwargs):
+    def ensure_existence_classifier(self, node, input_len, classifier=DenseTorch, n_output=None, **kwargs):
         """Ensure that for the specified node in the graph, a local classifier exists under the
         key 'local_classifier'.
         """
@@ -249,14 +240,7 @@ class HierarchyBase():
     def update_hierarchy(self, dict_of_cell_relations, root_node=None, overwrite=False):
         dict_of_cell_relations_with_classifiers = deepcopy(dict_of_cell_relations)
         dict_of_cell_relations, contains_classifier = delete_dict_entries(dict_of_cell_relations, 'classifier')
-        if self.classification_mode == 'CPN':
-            self.update_hierarchy_CPN(dict_of_cell_relations, root_node=root_node)
-
-        elif self.classification_mode == 'CPPN':
-            self.update_hierarchy_CPPN(dict_of_cell_relations, root_node=root_node)
-
-        else:
-            raise Exception('Classification mode unknown.')
+        self.update_hierarchy_CPPN(dict_of_cell_relations, root_node=root_node)
 
         if contains_classifier:
             self.import_classifiers(dict_of_cell_relations_with_classifiers, overwrite=overwrite)
