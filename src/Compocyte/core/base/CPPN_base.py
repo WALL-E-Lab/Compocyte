@@ -259,9 +259,6 @@ class CPPNBase():
             selected_var_names = self.graph.nodes[node]['selected_var_names']
 
         x = relevant_cells[:, selected_var_names].X
-        if hasattr(x, 'todense'):
-            x = x.todense()
-
         x = z_transform_properties(x)
         if get_activations:
             return list(relevant_cells.obs_names), self.graph.nodes[node]['local_classifier'].predict(x)

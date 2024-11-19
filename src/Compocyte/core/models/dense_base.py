@@ -156,7 +156,7 @@ class DenseBase():
 
                 best_index = np.argmin(history[to_minimize])
                 patience = 5
-                is_plateau = (history[to_minimize][-1] - history[to_minimize][best_index]) < 0 
+                is_plateau = (history[to_minimize][-1] - history[to_minimize][best_index]) <= 0 
                 if self.early_stopping and is_plateau:
                     counter_stopping += 1
                     if counter_stopping == patience:

@@ -195,7 +195,7 @@ class DenseTorch(torch.nn.Module, DenseBase):
             self.plot_training(history, 'loss')    
 
     def _save(self, path):
-        non_param_attr = ['history', 'callbacks', 'imported', 'fit_function', 
+        non_param_attr = ['histories', 'callbacks', 'imported', 'fit_function', 
             'predict_function', 'dropout', 'discretization', 'learning_rate', 'momentum', 'l2_reg_input', 'loss_function',
             'early_stopping', 'reduce_LR_plateau', 'sequential_kwargs']
         non_param_dict = {}
