@@ -8,9 +8,6 @@ class DenseBase():
     """
     """
 
-    def set_data_type(self, data_type):        
-        self.data_type = data_type
-
     def standardize(self, x):
         # standardize to mean 0 and std 1 within gene/feature
         std = x.std(dim=0)

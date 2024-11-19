@@ -13,8 +13,6 @@ class DenseTorch(torch.nn.Module, DenseBase):
     """
     """
 
-    possible_data_types = ['counts', 'normlog']
-
     def __init__(
         self, 
         n_input=None, 
@@ -41,8 +39,6 @@ class DenseTorch(torch.nn.Module, DenseBase):
             weight = torch.Tensor(weight).to(self.device)
 
         self.loss_function = torch.nn.CrossEntropyLoss(weight=weight)
-        self.possible_data_types = ['counts', 'normlog']
-        self.data_type = 'normlog'
         self.early_stopping = early_stopping
         self.reduce_LR_plateau = reduce_LR_plateau
         self.imported = False
@@ -199,7 +195,7 @@ class DenseTorch(torch.nn.Module, DenseBase):
             self.plot_training(history, 'loss')    
 
     def _save(self, path):
-        non_param_attr = ['history', 'callbacks', 'possible_data_types', 'data_type', 'imported', 'fit_function', 
+        non_param_attr = ['history', 'callbacks', 'imported', 'fit_function', 
             'predict_function', 'dropout', 'discretization', 'learning_rate', 'momentum', 'l2_reg_input', 'loss_function',
             'early_stopping', 'reduce_LR_plateau', 'sequential_kwargs']
         non_param_dict = {}
@@ -228,7 +224,6 @@ class DenseTorch(torch.nn.Module, DenseBase):
         cls,
         model, 
         #feature_names, 
-        data_type, 
         #label_encoding, 
         #label_decoding, 
         fit_function, 
@@ -243,7 +238,6 @@ class DenseTorch(torch.nn.Module, DenseBase):
             raise Exception('fit_function and predict_function must be of type str and point to the relevant functions in the import module.')
 
         denseTorch = cls(module=model, fit_function=fit_function, predict_function=predict_function)
-        denseTorch.set_data_type(data_type)
 
         return denseTorch
 
@@ -253,7 +247,6 @@ class DenseTorch(torch.nn.Module, DenseBase):
         encoder,
         n_output,
         #feature_names, 
-        data_type, 
         #label_encoding, 
         #label_decoding
         ):
@@ -262,6 +255,5 @@ class DenseTorch(torch.nn.Module, DenseBase):
             raise TypeError('To import an external model as DenseTorch, it must be a subclass of torch.nn.Module.')
 
         denseTorch = cls(n_output=n_output, encoder=encoder)
-        denseTorch.set_data_type(data_type)
 
         return denseTorch

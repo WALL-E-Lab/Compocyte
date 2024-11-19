@@ -5,12 +5,9 @@ import numpy as np
 
 class LogisticRegression():
 
-    possible_data_types = ['counts', 'normlog']
-
-    def __init__(self, n_output, data_type=None, fixed=None, model=None, C=1.0, solver='sag', max_iter=1000, n_jobs=None, logreg_kwargs={}, **kwargs):
+    def __init__(self, n_output, fixed=None, model=None, C=1.0, solver='sag', max_iter=1000, n_jobs=None, logreg_kwargs={}, **kwargs):
         self.fixed = fixed
         self.n_output = n_output
-        self.data_type = data_type
         if model is None:
             self.model = LogReg (
                 C=C, 
@@ -19,12 +16,9 @@ class LogisticRegression():
                 multi_class='ovr', 
                 n_jobs=n_jobs, 
                 **logreg_kwargs)
-            self.data_type = 'normlog'
         
         else:
             self.model = model
-            if data_type is None:
-                raise Exception('Must provide data type for import.') 
 
     def _train(
         self,
@@ -65,7 +59,7 @@ class LogisticRegression():
         return pred_activations
 
     def _save(self, path):
-        for attribute in ['model', 'data_type', 'n_output', 'fixed']:
+        for attribute in ['model', 'n_output', 'fixed']:
             with open(os.path.join(path, f'{attribute}.pickle'), 'wb') as f:
                 pickle.dump(
                     getattr(self, attribute, None), f)
@@ -73,7 +67,7 @@ class LogisticRegression():
     @classmethod
     def _load(cls, path):
         args = {}
-        for attribute in ['model', 'data_type', 'n_output', 'fixed']:
+        for attribute in ['model', 'n_output', 'fixed']:
             with open(os.path.join(path, f'{attribute}.pickle'), 'rb') as f:
                 args[attribute] = pickle.load(f)
 

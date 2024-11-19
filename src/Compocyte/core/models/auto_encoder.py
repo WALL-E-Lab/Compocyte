@@ -9,8 +9,6 @@ class AutoEncoder(torch.nn.Module, DenseBase):
     """
     """
 
-    possible_data_types = ['counts']
-
     def __init__(
         self, 
         n_genes,
@@ -29,8 +27,6 @@ class AutoEncoder(torch.nn.Module, DenseBase):
         self.encoder = torch.nn.ModuleList()
         self.decoder = torch.nn.ModuleList()
         self.loss_function = torch.nn.functional.mse_loss
-        self.possible_data_types = ['counts']
-        self.data_type = 'counts'
         self.early_stopping = early_stopping
         self.reduce_LR_plateau = reduce_LR_plateau
         self.init_sequential(n_genes, **sequential_kwargs)

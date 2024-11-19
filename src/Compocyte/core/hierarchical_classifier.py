@@ -33,7 +33,6 @@ class HierarchicalClassifier(
             use_feature_selection=True,
             min_features=30,
             max_features=5000,
-            hv_genes=-1,
             sampling_method=None,
             sampling_strategy='auto',
             ignore_counts=False, # if True, X is kept as is
@@ -60,7 +59,6 @@ class HierarchicalClassifier(
         self.dict_of_cell_relations = None
         self.root_node = None
         self.obs_names = None
-        self.hv_genes = hv_genes
         self.trainings = {}
         self.predictions = {}
         self.ignore_counts = ignore_counts

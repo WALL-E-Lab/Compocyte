@@ -16,30 +16,20 @@ class DataBase():
         self,
         adata):
 
+        self.adata = adata
         if self.var_names is not None: # Load new adata for transfer learning/prediction
             self.adata = self.variable_match_adata(adata)
-            self.ensure_not_view()
-            self.check_for_counts()
-            if hasattr(self.adata.X, 'todense'):
-                self.adata.X = np.array(self.adata.X.todense())
 
         else:
-            self.adata = adata
-            self.ensure_not_view()
-            self.check_for_counts()
-            if hasattr(self.adata.X, 'todense'):
-                self.adata.X = np.array(self.adata.X.todense())
-
-            if hasattr(self, 'hv_genes') and self.hv_genes > 0:
-                sc.pp.highly_variable_genes(
-                    self.adata, 
-                    inplace=True, 
-                    flavor='seurat_v3', 
-                    n_top_genes=self.hv_genes)
-                self.adata = self.adata[:, self.adata.var['highly_variable']]
-                self.ensure_not_view()
-
             self.var_names = self.adata.var_names.tolist()
+
+        self.ensure_not_view()
+        self.check_for_counts()
+        if self.default_input_data == 'normlog':
+            self.ensure_normlog()
+
+        if hasattr(self.adata.X, 'todense'):
+            self.adata.X = np.array(self.adata.X.todense())        
 
     def variable_match_adata(
         self, 
@@ -122,13 +112,13 @@ class DataBase():
                 raise ValueError('No raw counts found in adata.X or adata.raw.X or adata.layers["raw"].')
 
     def ensure_normlog(self):
-        if 'normlog' not in self.adata.layers:            
-            copy_adata = self.adata.copy()
-            sc.pp.normalize_total(copy_adata, target_sum=10000)
-            sc.pp.log1p(copy_adata)
-            self.adata.layers['normlog'] = copy_adata.X
-            if hasattr(self.adata.layers['normlog'], 'todense'):
-                self.adata.layers['normlog'] = np.array(self.adata.layers['normlog'].todense())
+        is_normlog = np.all(
+            np.round(
+                np.sum(np.expm1(self.adata.X), axis=1)
+            ) == 10000)
+        if not is_normlog:            
+            sc.pp.normalize_total(self.adata, target_sum=10000)
+            sc.pp.log1p(self.adata)
 
     def set_predictions(self, obs_key, barcodes, y_pred):
         """Add explanation.
@@ -181,30 +171,14 @@ class DataBase():
 
         return total_top_genes
     
-    def feature_selection_CPPN(self, relevant_cells, children_obs_key, data_type, n_features, return_idx=False):
+    def feature_selection_CPPN(self, relevant_cells, children_obs_key, n_features, return_idx=False):
         y = np.array(relevant_cells.obs[children_obs_key])
-        if data_type == 'normlog':
-            x = relevant_cells.layers['normlog']
-
-        elif data_type == 'counts':
-            x = relevant_cells.X
-
-        elif data_type in self.adata.obsm:
-            x = relevant_cells.obsm[data_type]
-
-        else:
-            raise Exception('Feature selection not implemeted for embeddings.')
-
-        if hasattr(x, 'todense'):
-            x = x.todense()
-            x = np.asarray(x)
-
+        x = relevant_cells.X
         x = z_transform_properties(x)
         warnings.filterwarnings(action='ignore', category=RuntimeWarning)
         warnings.filterwarnings(action='ignore', category=UserWarning)
         # Make sure the default n_features option does not lead to trying to select more features than available
-        n_features = min(x.shape[1], n_features)        
-
+        n_features = min(x.shape[1], n_features)
         selecter = SelectKBest(f_classif, k=n_features)
         selecter.fit(x, y)
 

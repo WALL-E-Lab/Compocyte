@@ -142,14 +142,6 @@ class HierarchyBase():
             else:
                 self.graph.nodes[node]['local_classifier'] = classifier(n_input=input_len, n_output=output_len, **kwargs)
 
-        try:
-            if hasattr(self, 'default_input_data') and self.default_input_data in self.graph.nodes[node]['local_classifier'].possible_data_types or self.default_input_data in self.adata.obsm:
-                self.graph.nodes[node]['local_classifier'].set_data_type(self.default_input_data)
-
-        except AttributeError:
-            pass # occurs whent trying to set data type for imported log reg model
-
-        print(f'Data type for {node} set to {self.graph.nodes[node]["local_classifier"].data_type}')
         return type(self.graph.nodes[node]['local_classifier'])
 
     def ensure_existence_label_encoder(self, node):

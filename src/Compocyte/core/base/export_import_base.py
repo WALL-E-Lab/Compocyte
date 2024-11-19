@@ -13,7 +13,7 @@ class ExportImportBase():
 
         classifier_dict = {}
         classifier_dict['classifier'] = self.graph.nodes[node]['local_classifier']
-        classifier_dict['data_type'] = self.graph.nodes[node]['local_classifier'].data_type
+        classifier_dict['data_type'] = self.default_input_data
         if 'label_encoding' in self.graph.nodes[node]:
             classifier_dict['label_encoding'] = self.graph.nodes[node]['label_encoding']
 
@@ -21,11 +21,7 @@ class ExportImportBase():
             classifier_dict['selected_var_names'] = self.graph.nodes[node]['selected_var_names']
 
         else:
-            if classifier_dict['data_type'] in ['counts', 'normlog']:
-                classifier_dict['selected_var_names'] = list(self.var_names)
-
-            else:
-                classifier_dict['selected_var_names'] = list(range(self.adata.obsm[classifier_dict['data_type']].shape[1]))
+            classifier_dict['selected_var_names'] = list(self.var_names)
 
         return classifier_dict
 
@@ -50,6 +46,9 @@ class ExportImportBase():
             if a not in classifier_dict:
                 raise KeyError(f'Missing key {a} for successful classifier import.')
 
+        if classifier_dict['data_type'] != self.default_input_data:
+            raise Exception('Data type of supplied classifier must match other local classifiers: {self.default_input_data}')
+        
         classifier_exists = 'local_classifier' in self.graph.nodes[node]
         if (classifier_exists and overwrite) or not classifier_exists:
             if type(classifier_dict['classifier']) in [DenseKeras, DenseTorch, LogisticRegression]:
@@ -80,14 +79,13 @@ class ExportImportBase():
                 raise Exception('Cannot currently import classifier of this type. Please post an issue on Github.')
 
             sel_var = classifier_dict['selected_var_names']
-            if classifier_dict['data_type'] in ['counts', 'normlog']:
-                var_not_present = [v for v in sel_var if v not in self.var_names]
-                if len(var_not_present) > 0:
-                    self.var_names = self.var_names + var_not_present
-                    if self.adata is not None:
-                        self.add_variables(var_not_present)
+            var_not_present = [v for v in sel_var if v not in self.var_names]
+            if len(var_not_present) > 0:
+                self.var_names = self.var_names + var_not_present
+                if self.adata is not None:
+                    self.add_variables(var_not_present)
 
-            for k in ['label_encoding', 'data_type', 'selected_var_names']:
+            for k in ['label_encoding', 'selected_var_names']:
                 if k in classifier_dict:
                     self.graph.nodes[node][k] = classifier_dict[k]
 

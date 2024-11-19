@@ -11,8 +11,6 @@ class DenseKeras(keras.Model):
     Deal with plotting and callbacks, train_val split now outside of network class
     """
 
-    possible_data_types = ['counts', 'normlog']
-
     def __init__(
         self, 
         n_input=None, 
@@ -24,8 +22,6 @@ class DenseKeras(keras.Model):
         **kwargs):
 
         super().__init__()
-        self.possible_data_types = ['counts', 'normlog']
-        self.data_type = 'normlog'
         if model is None:
             if n_input is None or n_output is None:
                 raise Exception('If the model is to be defined from scratch, input and output need to be defined.')
@@ -57,9 +53,6 @@ class DenseKeras(keras.Model):
 
         if not len(callbacks) == 0:
             self.callbacks = callbacks
-
-    def set_data_type(self, data_type):
-        self.data_type = data_type
 
     def init_sequential(
         self, 
@@ -186,7 +179,7 @@ class DenseKeras(keras.Model):
             self.plot_training(history, 'loss')
 
     def _save(self, path):
-        non_param_attr = ['history', 'callbacks', 'possible_data_types', 'data_type', 'imported', 'fit_function', 
+        non_param_attr = ['history', 'callbacks', 'imported', 'fit_function', 
             'predict_function', 'dropout', 'discretization', 'learning_rate', 'momentum', 'l2_reg_input', 'loss_function',
             'early_stopping', 'reduce_LR_plateau', 'sequential_kwargs']
         non_param_dict = {}
@@ -212,11 +205,9 @@ class DenseKeras(keras.Model):
         return model
 
     @classmethod
-    def import_external(cls, model, data_type, is_binary=False):
+    def import_external(cls, model, is_binary=False):
         if not issubclass(type(model), keras.Model):
             raise TypeError('To import an external model as DenseKeras, it must be a subclass of keras.Model.')
 
         dense_keras = cls(model=model)
-        dense_keras.set_data_type(data_type)
-
         return dense_keras

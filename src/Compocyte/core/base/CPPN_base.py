@@ -37,13 +37,6 @@ class CPPNBase():
         if type_classifier is None:
             type_classifier = DenseTorch
 
-        if self.default_input_data in type_classifier.possible_data_types or self.default_input_data in self.adata.obsm:
-            data_type = self.default_input_data
-
-        else:
-            data_type = type_classifier.possible_data_types[0]
-            print(f'{self.default_input_data} data is not currently compatible with {type_classifier}. Set to {data_type}')
-
         parent_obs_key = self.get_parent_obs_key(node)
         children_obs_key = self.get_children_obs_key(node)
         child_nodes = self.get_child_nodes(node)
@@ -55,23 +48,13 @@ class CPPNBase():
         # To avoid training with cells that should be reserved for testing, make sure to limit
         # to train_barcodes.
         relevant_cells = self.adata[[b for b in potential_cells.obs_names if b in train_barcodes], :]
-        if data_type == 'normlog':
-            self.ensure_normlog()
 
         n_cell_types = len(relevant_cells.obs[children_obs_key].unique())
         if n_cell_types == 0:
             return
 
         print(f'Training at {node}.')
-        if data_type in ['counts', 'normlog']:
-            selected_var_names = list(self.adata.var_names)
-
-        elif data_type in self.adata.obsm:
-            selected_var_names = list(range(self.adata.obsm[data_type].shape[1]))
-
-        else:
-            raise Exception('Data type not currently supported.')
-
+        selected_var_names = list(self.adata.var_names)
         if 'selected_var_names' in self.graph.nodes[node].keys():
             selected_var_names = self.graph.nodes[node]['selected_var_names']
 
@@ -81,7 +64,6 @@ class CPPNBase():
             if 'local_classifier' in self.graph.nodes[node]:
                 del self.graph.nodes[node]['local_classifier']
 
-            return_idx = data_type not in ['counts', 'normlog']
             selected_var_names = []
             pct_relevant = len(relevant_cells) / len(self.adata)
             # n_features is simply overwritten if method=='hvg'
@@ -94,10 +76,8 @@ class CPPNBase():
             )
             selected_var_names = self.feature_selection_CPPN(
                 relevant_cells, 
-                children_obs_key, 
-                data_type, 
-                n_features, 
-                return_idx=return_idx)
+                children_obs_key,
+                n_features)
 
         print('Selected genes first defined.')
         self.graph.nodes[node]['selected_var_names'] = selected_var_names
@@ -117,21 +97,8 @@ class CPPNBase():
             n_output=output_len,
             classifier=type_classifier,
             sequential_kwargs=sequential_kwargs)
-        if data_type == 'counts':
-            x = relevant_cells[:, selected_var_names].X
-
-        elif data_type == 'normlog':
-            x = relevant_cells[:, selected_var_names].layers['normlog']
-
-        elif data_type in relevant_cells.obsm:
-            x = relevant_cells.obsm[data_type][:, selected_var_names]
-
-        else:
-            raise Exception('Data type not currently supported.')
-
-        if hasattr(x, 'todense'):
-            x = x.todense()
-
+        
+        x = relevant_cells[:, selected_var_names].X
         y = np.array(relevant_cells.obs[children_obs_key])
         if hasattr(self, 'sampling_method') and type(self.sampling_method) != type(None):
             res = self.sampling_method(sampling_strategy=self.sampling_strategy)
@@ -160,7 +127,6 @@ class CPPNBase():
         self.trainings[node][timestamp] = {
             'barcodes': list(relevant_cells.obs_names),
             'node': node,
-            'data_type': data_type,
             'type_classifier': type(self.graph.nodes[node]['local_classifier']),
             'var_names': selected_var_names
         }
@@ -285,36 +251,14 @@ class CPPNBase():
         if len(relevant_cells) == 0:
             return
 
-        data_type = self.graph.nodes[node]['local_classifier'].data_type
         if type(self.graph.nodes[node]['local_classifier']) not in [DenseKeras, DenseTorch, LogisticRegression]:
             raise Exception('CPPN classification mode currently only compatible with neural networks.')
 
-        if data_type in ['counts', 'normlog']:
-            selected_var_names = list(self.adata.var_names) 
-
-        elif data_type in self.adata.obsm:
-            selected_var_names = list(range(self.adata.obsm[data_type].shape[1]))
-
-        else:
-            raise Exception('Data type not supported.')
-
-        # Feature selection is only relevant for (transformed) gene data, not embeddings
-        if self.use_feature_selection and 'selected_var_names' in self.graph.nodes[node]:
+        selected_var_names = list(self.adata.var_names) 
+        if 'selected_var_names' in self.graph.nodes[node]:
             selected_var_names = self.graph.nodes[node]['selected_var_names']
 
-        if data_type == 'counts':
-            x = relevant_cells[:, selected_var_names].X
-
-        elif data_type == 'normlog':
-            self.ensure_normlog()
-            x = relevant_cells[:, selected_var_names].layers['normlog']
-
-        elif data_type in relevant_cells.obsm:
-            x = relevant_cells.obsm[data_type][:, selected_var_names]
-
-        else:
-            raise Exception('Data type not currently supported.')
-
+        x = relevant_cells[:, selected_var_names].X
         if hasattr(x, 'todense'):
             x = x.todense()
 
@@ -364,7 +308,6 @@ class CPPNBase():
         self.predictions[node][timestamp] = {
             'barcodes': barcodes,
             'node': node,
-            'data_type': self.graph.nodes[node]['local_classifier'].data_type,
             'type_classifier': type(self.graph.nodes[node]['local_classifier']),
             'var_names': selected_var_names,
         }
