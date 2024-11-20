@@ -33,8 +33,7 @@ class HierarchicalClassifier(
             use_feature_selection=True,
             min_features=30,
             max_features=5000,
-            sampling_method=None,
-            sampling_strategy='auto',
+            resample=False,
             ignore_counts=False, # if True, X is kept as is
             projected_total_cells=100000,
             sequential_kwargs={},
@@ -54,6 +53,7 @@ class HierarchicalClassifier(
         self.use_feature_selection = use_feature_selection
         self.min_features = min_features
         self.max_features = max_features
+        self.resample = resample
         self.adata = None
         self.var_names = None
         self.dict_of_cell_relations = None
@@ -65,8 +65,6 @@ class HierarchicalClassifier(
         self.projected_total_cells = projected_total_cells
         self.sequential_kwargs = sequential_kwargs
         self.train_kwargs = train_kwargs
-        if type(sampling_method) != type(None):
-            self.init_resampling(sampling_method, sampling_strategy)
 
         if type(adata) != type(None):
             self.load_adata(adata)

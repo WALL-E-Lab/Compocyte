@@ -1,3 +1,5 @@
+import os
+import torch
 from Compocyte.core.tools import z_transform_properties
 from Compocyte.core.models.dense import DenseKeras
 from Compocyte.core.models.dense_torch import DenseTorch
@@ -8,6 +10,7 @@ from Compocyte.core.tools import flatten_dict, make_graph_from_edges, set_node_t
 from uncertainties import ufloat
 from copy import deepcopy
 from time import time
+from imblearn.under_sampling import ClusterCentroids
 import tensorflow.keras as keras
 import numpy as np
 import networkx as nx
@@ -18,7 +21,9 @@ class CPPNBase():
     def train_single_node_CPPN(
         self, 
         node, 
-        train_barcodes=None):
+        train_barcodes=None,
+        prepare_into=None,
+        prepared_path=None):
         """Trains the local classifier stored at node.
 
         Parameters
@@ -30,95 +35,127 @@ class CPPNBase():
             Specifies which cells should be used for training.
         """
 
-        if train_barcodes is None:
-            train_barcodes = self.adata.obs_names
+        if prepared_path is None:
+            if train_barcodes is None:
+                train_barcodes = self.adata.obs_names
 
-        type_classifier = self.get_preferred_classifier(node)
-        if type_classifier is None:
-            type_classifier = DenseTorch
+            type_classifier = self.get_preferred_classifier(node)
+            if type_classifier is None:
+                type_classifier = DenseTorch
 
-        parent_obs_key = self.get_parent_obs_key(node)
-        children_obs_key = self.get_children_obs_key(node)
-        child_nodes = self.get_child_nodes(node)
-        # Avoid problems with argmax for prediction by ensuring output activation is 2d
-        output_len = max(len(child_nodes), 2)
-        is_parent_node = self.adata.obs[parent_obs_key] == node
-        is_child_node = self.adata.obs[children_obs_key].isin(child_nodes)
-        potential_cells = self.adata[is_parent_node & is_child_node]
-        # To avoid training with cells that should be reserved for testing, make sure to limit
-        # to train_barcodes.
-        relevant_cells = self.adata[[b for b in potential_cells.obs_names if b in train_barcodes], :]
+            parent_obs_key = self.get_parent_obs_key(node)
+            children_obs_key = self.get_children_obs_key(node)
+            child_nodes = self.get_child_nodes(node)
+            # Avoid problems with argmax for prediction by ensuring output activation is 2d
+            output_len = max(len(child_nodes), 2)
+            is_parent_node = self.adata.obs[parent_obs_key] == node
+            is_child_node = self.adata.obs[children_obs_key].isin(child_nodes)
+            potential_cells = self.adata[is_parent_node & is_child_node]
+            # To avoid training with cells that should be reserved for testing, make sure to limit
+            # to train_barcodes.
+            relevant_cells = self.adata[[b for b in potential_cells.obs_names if b in train_barcodes], :]
 
-        n_cell_types = len(relevant_cells.obs[children_obs_key].unique())
-        if n_cell_types == 0:
-            return
+            n_cell_types = len(relevant_cells.obs[children_obs_key].unique())
+            if n_cell_types == 0:
+                return
 
-        print(f'Training at {node}.')
-        selected_var_names = list(self.adata.var_names)
-        if 'selected_var_names' in self.graph.nodes[node].keys():
-            selected_var_names = self.graph.nodes[node]['selected_var_names']
+            print(f'Training at {node}.')
+            selected_var_names = list(self.adata.var_names)
+            if 'selected_var_names' in self.graph.nodes[node].keys():
+                selected_var_names = self.graph.nodes[node]['selected_var_names']
 
-        # Cannot define relevant genes for prediction if there is no cell group to compare to
-        elif self.use_feature_selection and n_cell_types > 1:
-            # Reinitialize classifier if, for the first time, more than one cell type is present
-            if 'local_classifier' in self.graph.nodes[node]:
-                del self.graph.nodes[node]['local_classifier']
+            # Cannot define relevant genes for prediction if there is no cell group to compare to
+            elif self.use_feature_selection and n_cell_types > 1:
+                # Reinitialize classifier if, for the first time, more than one cell type is present
+                if 'local_classifier' in self.graph.nodes[node]:
+                    del self.graph.nodes[node]['local_classifier']
 
-            selected_var_names = []
-            pct_relevant = len(relevant_cells) / len(self.adata)
-            # n_features is simply overwritten if method=='hvg'
-            projected_relevant_cells = pct_relevant * self.projected_total_cells
-            # should not exceed a ratio of 1:100 of features to training samples as per google rules of ml
-            n_features_by_samples = int(projected_relevant_cells / 100)
-            n_features = max(
-                min(self.max_features, n_features_by_samples),
-                self.min_features
-            )
-            selected_var_names = self.feature_selection_CPPN(
-                relevant_cells, 
-                children_obs_key,
-                n_features)
+                selected_var_names = []
+                pct_relevant = len(relevant_cells) / len(self.adata)
+                # n_features is simply overwritten if method=='hvg'
+                projected_relevant_cells = pct_relevant * self.projected_total_cells
+                # should not exceed a ratio of 1:100 of features to training samples as per google rules of ml
+                n_features_by_samples = int(projected_relevant_cells / 100)
+                n_features = max(
+                    min(self.max_features, n_features_by_samples),
+                    self.min_features
+                )
+                selected_var_names = self.feature_selection_CPPN(
+                    relevant_cells, 
+                    children_obs_key,
+                    n_features)
 
-        print('Selected genes first defined.')
-        self.graph.nodes[node]['selected_var_names'] = selected_var_names
-        n_input = len(selected_var_names)
-        # TODO: Find permanent solution for training when only one child label is available
-        # 1) It makes no sense to train a classifier to discriminate between multiple labels
-        # when only one is available
-        # 2) At the same time, compatibility with the usual training process must be maintained
-        # 3) Stopping all cells at this level would unnecessarily reduce performance
-        # 4) implement a way to classify yes/no? (compare against what exactly?)
-        sequential_kwargs = self.sequential_kwargs
-        if n_cell_types == 1:
-            hidden_layers = [64, 10]
-        self.ensure_existence_classifier(
-            node, 
-            n_input,
-            n_output=output_len,
-            classifier=type_classifier,
-            sequential_kwargs=sequential_kwargs)
-        
-        x = relevant_cells[:, selected_var_names].X
-        y = np.array(relevant_cells.obs[children_obs_key])
-        if hasattr(self, 'sampling_method') and type(self.sampling_method) != type(None):
-            res = self.sampling_method(sampling_strategy=self.sampling_strategy)
-            x, y = res.fit_resample(x, y)
+            print('Selected genes first defined.')
+            self.graph.nodes[node]['selected_var_names'] = selected_var_names
+            n_input = len(selected_var_names)
+            # TODO: Find permanent solution for training when only one child label is available
+            # 1) It makes no sense to train a classifier to discriminate between multiple labels
+            # when only one is available
+            # 2) At the same time, compatibility with the usual training process must be maintained
+            # 3) Stopping all cells at this level would unnecessarily reduce performance
+            # 4) implement a way to classify yes/no? (compare against what exactly?)
+            sequential_kwargs = self.sequential_kwargs
+            if n_cell_types == 1:
+                hidden_layers = [64, 10]
+            self.ensure_existence_classifier(
+                node, 
+                n_input,
+                n_output=output_len,
+                classifier=type_classifier,
+                sequential_kwargs=sequential_kwargs)
+            
+            x = relevant_cells[:, selected_var_names].X
+            y = np.array(relevant_cells.obs[children_obs_key])
+            classes, counts = np.unique(y, return_counts=True)
+            mean = np.mean(counts)
+            std = np.std(counts)
+            is_imbalanced = (std > (mean / 2))
+            if is_imbalanced and self.resample:
+                # Avoid getting rid of too many samples
+                if np.min(counts) < (np.max(counts) / 5):
+                    sampling_strategy = {}
+                    for i, c in enumerate(classes):
+                        if counts[i] > mean:
+                            sampling_strategy[c] = mean
 
-        if "label_encoding" not in self.graph.nodes[node]:
-            self.graph.nodes[node]['label_encoding'] = {}
+                    res = ClusterCentroids(sampling_strategy=sampling_strategy)
 
-        for label in child_nodes:
-            if label in self.graph.nodes[node]['label_encoding']:
-                continue
+                else:
+                    res = ClusterCentroids(sampling_strategy='not minority')
 
-            idx = len(self.graph.nodes[node]['label_encoding'])
-            self.graph.nodes[node]['label_encoding'][label] = idx
+                x, y = res.fit_resample(x, y)
 
-        y_int = np.array(
-                [self.graph.nodes[node]['label_encoding'][label] for label in y]
-            ).astype(int)
-        y_onehot = keras.utils.to_categorical(y_int, num_classes=output_len)
-        x = z_transform_properties(x)
+            if "label_encoding" not in self.graph.nodes[node]:
+                self.graph.nodes[node]['label_encoding'] = {}
+
+            for label in child_nodes:
+                if label in self.graph.nodes[node]['label_encoding']:
+                    continue
+
+                idx = len(self.graph.nodes[node]['label_encoding'])
+                self.graph.nodes[node]['label_encoding'][label] = idx
+
+            y_int = np.array(
+                    [self.graph.nodes[node]['label_encoding'][label] for label in y]
+                ).astype(int)
+            y_onehot = keras.utils.to_categorical(y_int, num_classes=output_len)
+            x = z_transform_properties(x)
+            if prepare_into is not None:
+                prepare_into = os.path.join(prepare_into, node)
+                if not os.path.exists(prepare_into):
+                    os.makedirs(prepare_into)
+
+                np.save(os.path.join(prepare_into, 'x.npy'), x)
+                torch.save(y_onehot, os.path.join(prepare_into, 'y_onehot.npy'))
+                np.save(os.path.join(prepare_into, 'y.npy'), y)
+                np.save(os.path.join(prepare_into, 'y_int.npy'), y_int)
+
+        else:
+            x = np.load(os.path.join(prepare_into, 'x.npy'))
+            y_onehot = torch.load(os.path.join(prepare_into, 'y_onehot.npy'))
+            y = np.load(os.path.join(prepare_into, 'y.npy'))
+            y_int = np.load(os.path.join(prepare_into, 'y_int.npy'))
+
         self.graph.nodes[node]['local_classifier']._train(x=x, y_onehot=y_onehot, y=y, y_int=y_int, train_kwargs=self.train_kwargs)
         timestamp = str(time()).replace('.', '_')
         if node not in self.trainings.keys():
@@ -145,7 +182,9 @@ class CPPNBase():
         current_node,
         train_barcodes=None,
         initial_call=True,
-        parallelize = False):
+        parallelize = False,
+        prepare_into=None,
+        prepared_path=None):
         """Starts at current_node, training its local classifier and following up by recursively
         training all local classifiers lower in the hierarchy. Uses cells that were labeled as 
         current_node at the relevant level (i. e. cells that are truly of type current_node, rather
@@ -165,12 +204,13 @@ class CPPNBase():
 
         if not parallelize:
 
-            self.train_single_node_CPPN(current_node, train_barcodes)
+            self.train_single_node_CPPN(current_node, train_barcodes, prepare_into=prepare_into, prepared_path=prepared_path)
             for child_node in self.get_child_nodes(current_node):
                 if len(self.get_child_nodes(child_node)) == 0:
                     continue
 
-                self.train_all_child_nodes_CPPN(child_node, train_barcodes=train_barcodes, initial_call=False)
+                self.train_all_child_nodes_CPPN(child_node, train_barcodes=train_barcodes, initial_call=False, 
+                                                prepare_into=prepare_into, prepared_path=prepared_path)
 
             if initial_call:
                 if "overall" not in self.trainings.keys():

@@ -190,7 +190,3 @@ class DataBase():
         else:
             gc.collect()
             return list(self.adata.var_names[selecter.get_support()])
-
-    def init_resampling(self, sampling_method, sampling_strategy='auto'):
-        self.sampling_method = sampling_method
-        self.sampling_strategy = sampling_strategy
