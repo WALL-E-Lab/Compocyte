@@ -26,11 +26,16 @@ class DenseBase():
         y,
         batch_size=40,
         epochs=40,
+        num_threads=None,
         validation_data=None,
         plot_live=False,
         max_lr=0.1):
         """x is torch.Tensor with shape (n_cells, n_features)
         y is torch.Tensor with shape (n_cells, n_output), containing onehot encoding"""
+        if num_threads is not None:
+            torch.set_num_threads(num_threads)
+            torch.set_num_interop_threads(num_threads)
+            
         if plot_live:
             from IPython.display import clear_output
 
