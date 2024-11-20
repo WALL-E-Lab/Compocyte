@@ -10,7 +10,7 @@ from Compocyte.core.tools import flatten_dict, make_graph_from_edges, set_node_t
 from uncertainties import ufloat
 from copy import deepcopy
 from time import time
-from imblearn.under_sampling import ClusterCentroids
+from imblearn.under_sampling import RandomUnderSampler
 import tensorflow.keras as keras
 import numpy as np
 import networkx as nx
@@ -118,10 +118,10 @@ class CPPNBase():
                         if counts[i] > mean:
                             sampling_strategy[c] = mean
 
-                    res = ClusterCentroids(sampling_strategy=sampling_strategy)
+                    res = RandomUnderSampler(sampling_strategy=sampling_strategy)
 
                 else:
-                    res = ClusterCentroids(sampling_strategy='not minority')
+                    res = RandomUnderSampler(sampling_strategy='not minority')
 
                 x, y = res.fit_resample(x, y)
 
