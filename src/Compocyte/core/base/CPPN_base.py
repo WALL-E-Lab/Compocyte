@@ -116,7 +116,7 @@ class CPPNBase():
                     sampling_strategy = {}
                     for i, c in enumerate(classes):
                         if counts[i] > mean:
-                            sampling_strategy[c] = np.round(mean)
+                            sampling_strategy[c] = int(mean)
 
                     res = RandomUnderSampler(sampling_strategy=sampling_strategy)
 
