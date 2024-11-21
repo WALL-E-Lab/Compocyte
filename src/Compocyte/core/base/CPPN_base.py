@@ -156,7 +156,10 @@ class CPPNBase():
             y = np.load(os.path.join(prepare_into, 'y.npy'))
             y_int = np.load(os.path.join(prepare_into, 'y_int.npy'))
 
-        self.graph.nodes[node]['local_classifier']._train(x=x, y_onehot=y_onehot, y=y, y_int=y_int, train_kwargs=self.train_kwargs)
+        logger = self.train_kwargs.get('logger')
+        if logger is not None:
+            logger.info(f'Call to _train() at {node}')
+        self.graph.nodes[node]['local_classifier']._train(x=x, y_onehot=y_onehot, y=y, y_int=y_int, **self.train_kwargs)
         timestamp = str(time()).replace('.', '_')
         if node not in self.trainings.keys():
             self.trainings[node] = {}

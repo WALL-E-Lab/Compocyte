@@ -39,7 +39,7 @@ class HierarchicalClassifier(
             sequential_kwargs={},
             # hidden_layers learning_rate momentum loss_function
             # dropout discretization l2_reg_input
-            train_kwargs={}  # batch_size epochs verbose plot num_threads
+            train_kwargs={}  # batch_size epochs verbose plot num_threads logger
             ):
 
         self.save_path = save_path

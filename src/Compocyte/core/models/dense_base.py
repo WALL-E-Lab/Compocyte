@@ -1,8 +1,9 @@
+import time
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
 from copy import deepcopy
-from torch.utils.data import DataLoader, TensorDataset, random_split
+from torch.utils.data import DataLoader, TensorDataset
 
 class DenseBase():
     """
@@ -27,15 +28,20 @@ class DenseBase():
         batch_size=40,
         epochs=40,
         num_threads=None,
+        logger=None,
         validation_data=None,
         plot_live=False,
         max_lr=0.1):
         """x is torch.Tensor with shape (n_cells, n_features)
         y is torch.Tensor with shape (n_cells, n_output), containing onehot encoding"""
+        
         if num_threads is not None:
             torch.set_num_threads(num_threads)
             torch.set_num_interop_threads(num_threads)
-            
+
+        if not logger is None:
+            logger.info(f'num_threads set to {torch.get_num_threads()}')
+
         if plot_live:
             from IPython.display import clear_output
 
@@ -93,7 +99,8 @@ class DenseBase():
                 dataset=dataset,
                 batch_size=batch_size,
                 shuffle=True,
-                drop_last=leaves_remainder
+                drop_last=leaves_remainder,
+                num_workers=min(num_threads, 2) if num_threads is not None else 0
             )
             for epoch in range(epochs):
                 self.eval()
@@ -137,7 +144,10 @@ class DenseBase():
                 history['lr'].append(scheduler.get_last_lr()[0])
 
                 self.train()
+                times = []
+                t0_epoch_training = time.time()
                 for xb, yb in train_data_loader:
+                    t0_batch = time.time()
                     pred = self(xb)
                     pred = torch.clamp(pred, 0, 1)
                     loss = self.loss_function(pred, yb)
@@ -146,6 +156,12 @@ class DenseBase():
                     optimizer.step()
                     scheduler.step()
                     optimizer.zero_grad()
+                    times.append(time.time() - t0_batch)
+
+                if not logger is None:
+                    logger.info(f'Mean time per batch: {np.mean(times)} seconds')
+                    logger.info(f'Time per epoch of training: {time.time() - t0_epoch_training} seconds')
+                    logger.info(f'Number of batches: {len(train_data_loader)}')
 
                 if plot_live:
                     clear_output()
