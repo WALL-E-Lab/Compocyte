@@ -3,6 +3,8 @@ import os
 import pickle
 from sklearn.model_selection import train_test_split
 from copy import deepcopy
+import logging
+logger = logging.getLogger(__name__)
 try:
     from Compocyte.core.models.dense_base import DenseBase
 
@@ -169,7 +171,6 @@ class DenseTorch(torch.nn.Module, DenseBase):
         verbose=0,
         plot=False,
         num_threads=None,
-        logger=None,
         fit_arguments={},
         **kwargs):
 
@@ -188,7 +189,6 @@ class DenseTorch(torch.nn.Module, DenseBase):
             batch_size=batch_size,
             epochs=epochs,
             num_threads=num_threads,
-            logger=logger,
             #verbose=verbose,
             validation_data=(x_val, y_val),
             **fit_arguments)

@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from copy import deepcopy
 from torch.utils.data import DataLoader, TensorDataset
+import logging
+logger = logging.getLogger(__name__)
 
 class DenseBase():
     """
@@ -28,15 +30,13 @@ class DenseBase():
         y,
         batch_size=40,
         epochs=40,
-        logger=None,
         validation_data=None,
         plot_live=False,
         max_lr=0.1):
         """x is torch.Tensor with shape (n_cells, n_features)
         y is torch.Tensor with shape (n_cells, n_output), containing onehot encoding"""
 
-        if not logger is None:
-            logger.info(f'num_threads set to {torch.get_num_threads()}')
+        logger.info(f'num_threads set to {torch.get_num_threads()}')
 
         if plot_live:
             from IPython.display import clear_output
@@ -92,8 +92,7 @@ class DenseBase():
             dataset = TensorDataset(x, y)
             leaves_remainder = len(dataset) % batch_size == 1
             num_workers = min(os.cpu_count(), 2)
-            if not logger is None:
-                logger.info(f'num_workers for DataLoader set to {num_workers}')
+            logger.info(f'num_workers for DataLoader set to {num_workers}')
             train_data_loader = DataLoader(
                 dataset=dataset,
                 batch_size=batch_size,
@@ -104,8 +103,7 @@ class DenseBase():
             epoch_training_times = []
             epoch_total_times = []
             batch_training_times = []
-            if not logger is None:
-                logger.info(f'Number of batches: {len(train_data_loader)}')
+            logger.info(f'Number of batches: {len(train_data_loader)}')
 
             for epoch in range(epochs):
                 t0_epoch_total = time.time()
@@ -189,10 +187,9 @@ class DenseBase():
                 else:
                     counter_stopping = 0
                     
-            if not logger is None:
-                logger.info(f'Mean time per batch: {np.mean(batch_training_times)} seconds')
-                logger.info(f'Mean time per epoch of training: {np.mean(epoch_training_times)} seconds')
-                logger.info(f'Mean time per epoch in total: {np.mean(epoch_total_times)} seconds')
+            logger.info(f'Mean time per batch: {np.mean(batch_training_times)} seconds')
+            logger.info(f'Mean time per epoch of training: {np.mean(epoch_training_times)} seconds')
+            logger.info(f'Mean time per epoch in total: {np.mean(epoch_total_times)} seconds')
 
             self.load_state_dict(history['state_dicts'][np.argmin(history[to_minimize])])
             del history['state_dicts']
