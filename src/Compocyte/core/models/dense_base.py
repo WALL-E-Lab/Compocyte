@@ -1,3 +1,4 @@
+import os
 import time
 import torch
 import matplotlib.pyplot as plt
@@ -27,18 +28,12 @@ class DenseBase():
         y,
         batch_size=40,
         epochs=40,
-        num_threads=None,
         logger=None,
         validation_data=None,
         plot_live=False,
         max_lr=0.1):
         """x is torch.Tensor with shape (n_cells, n_features)
         y is torch.Tensor with shape (n_cells, n_output), containing onehot encoding"""
-        
-        if num_threads is not None:
-            if num_threads != torch.get_num_threads():
-                torch.set_num_threads(num_threads)
-                torch.set_num_interop_threads(num_threads)
 
         if not logger is None:
             logger.info(f'num_threads set to {torch.get_num_threads()}')
@@ -96,13 +91,22 @@ class DenseBase():
             counter_stopping = 0
             dataset = TensorDataset(x, y)
             leaves_remainder = len(dataset) % batch_size == 1
+            num_workers = min(os.cpu_count(), 2)
+            if not logger is None:
+                logger.info(f'num_workers for DataLoader set to {num_workers}')
             train_data_loader = DataLoader(
                 dataset=dataset,
                 batch_size=batch_size,
                 shuffle=True,
                 drop_last=leaves_remainder,
-                num_workers=min(num_threads, 2) if num_threads is not None else 0
+                num_workers=num_workers
             )
+            epoch_training_times = []
+            epoch_total_times = []
+            batch_training_times = []
+            if not logger is None:
+                logger.info(f'Number of batches: {len(train_data_loader)}')
+
             for epoch in range(epochs):
                 t0_epoch_total = time.time()
                 self.eval()
@@ -158,13 +162,10 @@ class DenseBase():
                     optimizer.step()
                     scheduler.step()
                     optimizer.zero_grad()
-                    times.append(time.time() - t0_batch)
+                    batch_training_times.append(time.time() - t0_batch)
 
-                if not logger is None:
-                    logger.info(f'Mean time per batch: {np.mean(times)} seconds')
-                    logger.info(f'Time for this epoch of training: {time.time() - t0_epoch_training} seconds')
-                    logger.info(f'Number of batches: {len(train_data_loader)}')
-
+                epoch_training_times.append(time.time() - t0_epoch_training)
+                epoch_total_times.append(time.time() - t0_epoch_total)
                 if plot_live:
                     clear_output()
                     fig, ax_left = plt.subplots()
@@ -177,9 +178,6 @@ class DenseBase():
                     plt.legend(['model lr', to_minimize], loc='upper left')
                     plt.show()
 
-                if not logger is None:
-                    logger.info(f'Time for this epoch in total: {time.time() - t0_epoch_total} seconds')
-
                 best_index = np.argmin(history[to_minimize])
                 patience = 5
                 is_plateau = (history[to_minimize][-1] - history[to_minimize][best_index]) <= 0 
@@ -190,6 +188,11 @@ class DenseBase():
 
                 else:
                     counter_stopping = 0
+                    
+            if not logger is None:
+                logger.info(f'Mean time per batch: {np.mean(batch_training_times)} seconds')
+                logger.info(f'Mean time per epoch of training: {np.mean(epoch_training_times)} seconds')
+                logger.info(f'Mean time per epoch in total: {np.mean(epoch_total_times)} seconds')
 
             self.load_state_dict(history['state_dicts'][np.argmin(history[to_minimize])])
             del history['state_dicts']

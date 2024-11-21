@@ -1,3 +1,4 @@
+import torch
 from Compocyte.core.base.data_base import DataBase
 from Compocyte.core.base.hierarchy_base import HierarchyBase
 from Compocyte.core.base.CPPN_base import CPPNBase
@@ -34,12 +35,13 @@ class HierarchicalClassifier(
             min_features=30,
             max_features=5000,
             resample=False,
+            num_threads=None,
             ignore_counts=False, # if True, X is kept as is
             projected_total_cells=100000,
             sequential_kwargs={},
             # hidden_layers learning_rate momentum loss_function
             # dropout discretization l2_reg_input
-            train_kwargs={}  # batch_size epochs verbose plot num_threads logger
+            train_kwargs={}  # batch_size epochs verbose plot logger
             ):
 
         self.save_path = save_path
@@ -65,6 +67,9 @@ class HierarchicalClassifier(
         self.projected_total_cells = projected_total_cells
         self.sequential_kwargs = sequential_kwargs
         self.train_kwargs = train_kwargs
+        if num_threads is not None:
+            torch.set_num_threads(num_threads)
+            torch.set_num_interop_threads(num_threads)
 
         if type(adata) != type(None):
             self.load_adata(adata)
