@@ -56,6 +56,7 @@ class HierarchicalClassifier(
         self.min_features = min_features
         self.max_features = max_features
         self.resample = resample
+        self.num_threads = num_threads
         self.adata = None
         self.var_names = None
         self.dict_of_cell_relations = None
