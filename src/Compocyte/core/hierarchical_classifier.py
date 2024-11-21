@@ -68,9 +68,6 @@ class HierarchicalClassifier(
         self.projected_total_cells = projected_total_cells
         self.sequential_kwargs = sequential_kwargs
         self.train_kwargs = train_kwargs
-        if num_threads is not None:
-            torch.set_num_threads(num_threads)
-            torch.set_num_interop_threads(num_threads)
 
         if type(adata) != type(None):
             self.load_adata(adata)

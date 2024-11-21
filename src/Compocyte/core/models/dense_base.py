@@ -33,10 +33,20 @@ class DenseBase():
         validation_data=None,
         plot_live=False,
         parallelized=False,
+        num_threads=None,
         max_lr=0.1):
         """x is torch.Tensor with shape (n_cells, n_features)
         y is torch.Tensor with shape (n_cells, n_output), containing onehot encoding"""
 
+        # Dirty but necessary
+        if num_threads is not None:
+            try:
+                torch.set_num_threads(num_threads)
+                torch.set_num_interop_threads(num_threads)
+
+            except:
+                pass
+            
         logger.info(f'num_threads set to {torch.get_num_threads()}')
 
         if plot_live:
