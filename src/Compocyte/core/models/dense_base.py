@@ -36,8 +36,9 @@ class DenseBase():
         y is torch.Tensor with shape (n_cells, n_output), containing onehot encoding"""
         
         if num_threads is not None:
-            torch.set_num_threads(num_threads)
-            torch.set_num_interop_threads(num_threads)
+            if num_threads != torch.get_num_threads():
+                torch.set_num_threads(num_threads)
+                torch.set_num_interop_threads(num_threads)
 
         if not logger is None:
             logger.info(f'num_threads set to {torch.get_num_threads()}')
@@ -103,6 +104,7 @@ class DenseBase():
                 num_workers=min(num_threads, 2) if num_threads is not None else 0
             )
             for epoch in range(epochs):
+                t0_epoch_total = time.time()
                 self.eval()
                 history['state_dicts'].append(deepcopy(self.state_dict()))
                 # Record loss and accuracy
@@ -160,7 +162,7 @@ class DenseBase():
 
                 if not logger is None:
                     logger.info(f'Mean time per batch: {np.mean(times)} seconds')
-                    logger.info(f'Time per epoch of training: {time.time() - t0_epoch_training} seconds')
+                    logger.info(f'Time for this epoch of training: {time.time() - t0_epoch_training} seconds')
                     logger.info(f'Number of batches: {len(train_data_loader)}')
 
                 if plot_live:
@@ -174,6 +176,9 @@ class DenseBase():
                     
                     plt.legend(['model lr', to_minimize], loc='upper left')
                     plt.show()
+
+                if not logger is None:
+                    logger.info(f'Time for this epoch in total: {time.time() - t0_epoch_total} seconds')
 
                 best_index = np.argmin(history[to_minimize])
                 patience = 5
