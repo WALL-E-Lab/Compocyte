@@ -32,6 +32,7 @@ class DenseBase():
         epochs=40,
         validation_data=None,
         plot_live=False,
+        parallelized=False,
         max_lr=0.1):
         """x is torch.Tensor with shape (n_cells, n_features)
         y is torch.Tensor with shape (n_cells, n_output), containing onehot encoding"""
@@ -92,6 +93,9 @@ class DenseBase():
             dataset = TensorDataset(x, y)
             leaves_remainder = len(dataset) % batch_size == 1
             num_workers = min(os.cpu_count(), 2)
+            if parallelized:
+                num_workers = 0
+
             logger.info(f'num_workers for DataLoader set to {num_workers}')
             train_data_loader = DataLoader(
                 dataset=dataset,

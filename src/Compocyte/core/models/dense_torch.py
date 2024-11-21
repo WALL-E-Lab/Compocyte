@@ -170,6 +170,7 @@ class DenseTorch(torch.nn.Module, DenseBase):
         epochs=40,
         verbose=0,
         plot=False,
+        parallelized=False,
         fit_arguments={},
         **kwargs):
 
@@ -189,6 +190,7 @@ class DenseTorch(torch.nn.Module, DenseBase):
             epochs=epochs,
             #verbose=verbose,
             validation_data=(x_val, y_val),
+            parallelized=parallelized,
             **fit_arguments)
 
         self.histories.append(history)

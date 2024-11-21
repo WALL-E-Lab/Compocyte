@@ -159,7 +159,7 @@ class CPPNBase():
             y_int = np.load(os.path.join(prepare_into, 'y_int.npy'))
 
         logger.info(f'Call to _train() at {node}')
-        self.graph.nodes[node]['local_classifier']._train(x=x, y_onehot=y_onehot, y=y, y_int=y_int, **self.train_kwargs)
+        self.graph.nodes[node]['local_classifier']._train(x=x, y_onehot=y_onehot, y=y, y_int=y_int, parallelized=self.parallelize, **self.train_kwargs)
         timestamp = str(time()).replace('.', '_')
         if node not in self.trainings.keys():
             self.trainings[node] = {}
@@ -205,6 +205,7 @@ class CPPNBase():
             classifier. Necessary to enable separation of training and test data for cross-validation.
         """
 
+        self.parallelize = parallelize
         if not parallelize:
 
             self.train_single_node_CPPN(current_node, train_barcodes, prepare_into=prepare_into, prepared_path=prepared_path)
