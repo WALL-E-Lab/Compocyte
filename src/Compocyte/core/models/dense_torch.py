@@ -170,7 +170,6 @@ class DenseTorch(torch.nn.Module, DenseBase):
         epochs=40,
         verbose=0,
         plot=False,
-        num_threads=None,
         fit_arguments={},
         **kwargs):
 
@@ -188,7 +187,6 @@ class DenseTorch(torch.nn.Module, DenseBase):
             y_train,
             batch_size=batch_size,
             epochs=epochs,
-            num_threads=num_threads,
             #verbose=verbose,
             validation_data=(x_val, y_val),
             **fit_arguments)
