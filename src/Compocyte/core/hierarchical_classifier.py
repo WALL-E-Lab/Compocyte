@@ -83,7 +83,7 @@ class HierarchicalClassifier(
         else:
             self.set_preferred_classifier(node, preferred_classifier)
 
-    def save(self):
+    def save(self, save_adata=False):
         # save all attributes
         # get types, for adata use adatas write function with hash of adata
         # save state of all local classifiers (what does dumping self.graph do?)
@@ -104,7 +104,7 @@ class HierarchicalClassifier(
         settings_dict = {}
         for key in self.__dict__.keys():
             if key == 'adata':
-                if self.adata is None:
+                if self.adata is None or not save_adata:
                     continue
                 
                 if not os.path.exists(data_path):

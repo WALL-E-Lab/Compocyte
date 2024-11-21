@@ -38,16 +38,8 @@ class DenseBase():
         """x is torch.Tensor with shape (n_cells, n_features)
         y is torch.Tensor with shape (n_cells, n_output), containing onehot encoding"""
 
-        # Dirty but necessary
-        if num_threads is not None:
-            try:
-                torch.set_num_threads(num_threads)
-                torch.set_num_interop_threads(num_threads)
-
-            except:
-                pass
-            
         logger.info(f'num_threads set to {torch.get_num_threads()}')
+        logger.info(f'OMP_NUM_THREADS set to {os.environ["OMP_NUM_THREADS"]}')
 
         if plot_live:
             from IPython.display import clear_output
