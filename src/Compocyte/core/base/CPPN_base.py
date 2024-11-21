@@ -233,7 +233,7 @@ class CPPNBase():
                 processes = mp.cpu_count()
 
             else:
-                processes = mp.cpu_count() / self.num_threads
+                processes = int(mp.cpu_count() / self.num_threads)
             print(f"Using multiprocessing for training with {mp.cpu_count()} available CPU cores.\n")
 
             #find nodes that have to be trained be trained, i.e. nodes that have >= 2 child nodes 
