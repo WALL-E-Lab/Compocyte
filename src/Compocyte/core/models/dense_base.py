@@ -111,7 +111,10 @@ class DenseBase():
         epoch_training_times = []
         epoch_total_times = []
         batch_training_times = []
-        samples_per_class = torch.unique(torch.argmax(y, dim=-1), return_counts=True)[1]
+        samples_per_class = torch.zeros()
+        for c, samples in enumerate(torch.unique(torch.argmax(y, dim=-1), return_counts=True)):
+            samples_per_class[c] = samples
+            
         focal_loss = Loss(
             loss_type="focal_loss",
             samples_per_class=samples_per_class,
@@ -137,19 +140,20 @@ class DenseBase():
                 val_accuracy = np.mean(pred_int == y_int) * 100
                 try:
                     if class_balance:
-                        val_loss = focal_loss(pred_val, y_int)
+                        val_loss = focal_loss(pred_val, torch.Tensor(y_int).to(torch.int64)).item()
 
                     else:
                         val_loss = self.loss_function(pred_val, y_val).item()
 
-                except RuntimeError:
+                except RuntimeError as re:
                     print(pred_val)
                     print(y_val)
                     print(type(pred_val))
                     print(type(y_val))
                     print(pred_val.shape)
                     print(y_val.shape)
-                    raise Exception()
+                    print(re)
+                    raise
 
                 del pred_val
                 history['val_accuracy'].append(val_accuracy)
@@ -175,12 +179,11 @@ class DenseBase():
                 t0_batch = time.time()
                 pred = self(xb)
                 pred = torch.clamp(pred, 0, 1)
-                loss = self.loss_function(pred, yb)
                 if class_balance:
-                    loss = focal_loss(pred, torch.argmax(yb, dim=-1))
+                    loss = focal_loss(pred, torch.argmax(yb, dim=-1).to(torch.int64))
 
                 else:
-                    loss = self.loss_function(pred, yb).item()
+                    loss = self.loss_function(pred, yb)
 
                 loss.backward()
                 del xb, yb, pred, loss
