@@ -111,8 +111,9 @@ class DenseBase():
         epoch_training_times = []
         epoch_total_times = []
         batch_training_times = []
-        samples_per_class = torch.zeros()
-        for c, samples in enumerate(torch.unique(torch.argmax(y, dim=-1), return_counts=True)):
+        samples_per_class = list(torch.zeros(y_val.shape[1]))
+        classes_counted = torch.unique(torch.argmax(y, dim=-1), return_counts=True)
+        for c, samples in zip(classes_counted[0], classes_counted[1]):
             samples_per_class[c] = samples
             
         focal_loss = Loss(
@@ -120,7 +121,8 @@ class DenseBase():
             samples_per_class=samples_per_class,
             beta=0.999, # class-balanced loss beta
             fl_gamma=2, # focal loss gamma
-            class_balanced=True
+            class_balanced=True,
+            safe=True
         )
         logger.info(f'Number of batches: {len(train_data_loader)}')
         logger.info(f'Samples per class: {samples_per_class}')
@@ -185,7 +187,20 @@ class DenseBase():
                 else:
                     loss = self.loss_function(pred, yb)
 
-                loss.backward()
+                try:
+                    loss.backward()
+
+                except RuntimeError as re:
+                    print(re)
+                    print(pred)
+                    print(yb)
+                    print(history['loss'])
+                    print(torch.any(torch.isnan(pred)))
+                    print(torch.any(torch.isnan(torch.argmax(yb, dim=-1).to(torch.int64))))
+                    print(loss.item())
+                    print(re)
+                    raise
+
                 del xb, yb, pred, loss
                 optimizer.step()
                 scheduler.step()
