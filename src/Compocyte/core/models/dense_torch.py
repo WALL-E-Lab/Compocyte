@@ -171,6 +171,7 @@ class DenseTorch(torch.nn.Module, DenseBase):
         verbose=0,
         plot=False,
         num_threads=None,
+        class_balance=False,
         parallelized=False,
         fit_arguments={},
         **kwargs):
@@ -193,6 +194,7 @@ class DenseTorch(torch.nn.Module, DenseBase):
             validation_data=(x_val, y_val),
             parallelized=parallelized,
             num_threads=num_threads,
+            class_balance=class_balance,
             **fit_arguments)
 
         self.histories.append(history)
