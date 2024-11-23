@@ -41,7 +41,7 @@ class HierarchicalClassifier(
             sequential_kwargs={},
             # hidden_layers learning_rate momentum loss_function
             # dropout discretization l2_reg_input
-            train_kwargs={}  # batch_size epochs verbose plot class_balance
+            train_kwargs={}  # batch_size epochs verbose plot class_balance beta gamma
             ):
 
         self.save_path = save_path

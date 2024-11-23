@@ -35,6 +35,8 @@ class DenseBase():
         plot_live=False,
         parallelized=False,
         class_balance=False,
+        beta=0.999,
+        gamma=2,
         num_threads=None,
         max_lr=0.1):
         """x is torch.Tensor with shape (n_cells, n_features)
@@ -119,9 +121,9 @@ class DenseBase():
         focal_loss = Loss(
             loss_type="focal_loss",
             samples_per_class=samples_per_class,
-            beta=0.999, # class-balanced loss beta
-            fl_gamma=2, # focal loss gamma
-            class_balanced=True,
+            beta=beta, # class-balanced loss beta
+            fl_gamma=gamma, # focal loss gamma
+            class_balanced=class_balance,
             safe=True
         )
         logger.info(f'Number of batches: {len(train_data_loader)}')
