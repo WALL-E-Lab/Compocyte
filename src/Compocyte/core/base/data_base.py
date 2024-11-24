@@ -3,6 +3,7 @@ import warnings
 import numpy as np
 import scanpy as sc
 import pandas as pd
+from sklearn.linear_model import LogisticRegression
 from Compocyte.core.tools import is_counts, z_transform_properties
 from scipy import sparse
 from sklearn.feature_selection import SelectKBest, f_classif
@@ -173,8 +174,22 @@ class DataBase():
     
     def feature_selection_CPPN(self, relevant_cells, children_obs_key, n_features, return_idx=False):
         y = np.array(relevant_cells.obs[children_obs_key])
-        x = relevant_cells.X
+        x = np.array(relevant_cells.X)
         x = z_transform_properties(x)
+        if self.feature_select_using_LR:
+            if len(x) > 50_000:
+                choice = np.random.random_integers(0, len(x) - 1, 50_000)
+                y = y[choice]
+                x = x[choice, :]
+
+            classifier = LogisticRegression(C=1.0, solver='sag', max_iter=500, multi_class='ovr')
+            classifier.fit(x, y)
+            gene_index = np.argpartition(np.abs(classifier.coef_), -300, axis = 1)[:, -300:]
+            gene_index = np.unique(gene_index)
+            genes = self.adata.var_names[gene_index]
+
+            return list(genes)
+        
         warnings.filterwarnings(action='ignore', category=RuntimeWarning)
         warnings.filterwarnings(action='ignore', category=UserWarning)
         # Make sure the default n_features option does not lead to trying to select more features than available

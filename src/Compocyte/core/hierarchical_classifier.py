@@ -32,6 +32,7 @@ class HierarchicalClassifier(
             threshold=None,
             default_input_data='normlog',
             use_feature_selection=True,
+            feature_select_using_LR=False,
             min_features=30,
             max_features=5000,
             resample=False,
@@ -53,6 +54,7 @@ class HierarchicalClassifier(
             self.threshold = threshold
         self.default_input_data = default_input_data
         self.use_feature_selection = use_feature_selection
+        self.feature_select_using_LR = feature_select_using_LR
         self.min_features = min_features
         self.max_features = max_features
         self.resample = resample
