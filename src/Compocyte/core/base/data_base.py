@@ -175,16 +175,17 @@ class DataBase():
     def feature_selection_CPPN(self, relevant_cells, children_obs_key, n_features, return_idx=False):
         y = np.array(relevant_cells.obs[children_obs_key])
         x = np.array(relevant_cells.X)
-        x = z_transform_properties(x)
+        x = z_transform_properties(x)        
         if self.feature_select_using_LR:
+            num_features = min(50, len(x) / 100)
             if len(x) > 50_000:
                 choice = np.random.random_integers(0, len(x) - 1, 50_000)
                 y = y[choice]
                 x = x[choice, :]
 
-            classifier = LogisticRegression(C=1.0, solver='sag', max_iter=500, multi_class='ovr')
+            classifier = LogisticRegression(C=1.0, solver='sag', max_iter=500, multi_class='auto')
             classifier.fit(x, y)
-            gene_index = np.argpartition(np.abs(classifier.coef_), -300, axis = 1)[:, -300:]
+            gene_index = np.argpartition(np.abs(classifier.coef_), -num_features, axis = 1)[:, -num_features:]
             gene_index = np.unique(gene_index)
             genes = self.adata.var_names[gene_index]
 
