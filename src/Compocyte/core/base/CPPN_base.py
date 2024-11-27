@@ -73,15 +73,23 @@ class CPPNBase():
                     del self.graph.nodes[node]['local_classifier']
 
                 selected_var_names = []
-                pct_relevant = len(relevant_cells) / len(self.adata)
-                # n_features is simply overwritten if method=='hvg'
-                projected_relevant_cells = pct_relevant * self.projected_total_cells
-                # should not exceed a ratio of 1:100 of features to training samples as per google rules of ml
-                n_features_by_samples = int(projected_relevant_cells / 100)
-                n_features = max(
-                    min(self.max_features, n_features_by_samples),
-                    self.min_features
-                )
+                if self.features_per_classifier is None:
+                    pct_relevant = len(relevant_cells) / len(self.adata)
+                    # n_features is simply overwritten if method=='hvg'
+                    projected_relevant_cells = pct_relevant * self.projected_total_cells
+                    # should not exceed a ratio of 1:100 of features to training samples as per google rules of ml
+                    n_features_by_samples = int(projected_relevant_cells / 100)
+                    n_features = max(
+                        min(self.max_features, n_features_by_samples),
+                        self.min_features
+                    )
+
+                elif isinstance(self.features_per_classifier, int):
+                    n_features = self.features_per_classifier
+
+                else:
+                    n_features = self.features_per_classifier(len(relevant_cells))
+
                 selected_var_names = self.feature_selection_CPPN(
                     relevant_cells, 
                     children_obs_key,

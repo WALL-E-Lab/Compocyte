@@ -35,6 +35,7 @@ class HierarchicalClassifier(
             feature_select_using_LR=False,
             min_features=30,
             max_features=5000,
+            features_per_classifier=None, # None, int or function
             resample=False,
             num_threads=None,
             ignore_counts=False, # if True, X is kept as is
@@ -57,6 +58,7 @@ class HierarchicalClassifier(
         self.feature_select_using_LR = feature_select_using_LR
         self.min_features = min_features
         self.max_features = max_features
+        self.features_per_classifier = features_per_classifier
         self.resample = resample
         self.num_threads = num_threads
         self.adata = None
