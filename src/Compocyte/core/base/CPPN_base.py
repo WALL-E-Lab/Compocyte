@@ -41,137 +41,136 @@ class CPPNBase():
         #         "ensemble_classifier": [trained_networks[i].get("local_classifier") for i in range(len(trained_networks))]
         #         }
 
-        #TODO delete for loop here, comes later
-        for network_i in range(n_ensemble_networks): 
-            #TODO: parallelize as well
-            #needs randomization of initial parameters!
-            #not necessarily: adversarial training, different train data (might be disadvantageous for NN's)
-            # trained_network_params = self.train_single_node_CPPN(node, train_barcodes) 
-            # trained_networks.append(trained_network_params)
-
-            #copy train_single_node_CPPN code for ensemble situation
-
-            if train_barcodes is None:
-                train_barcodes = self.adata.obs_names
-
-            type_classifier = self.get_preferred_classifier(node)
-            if type_classifier is None:
-                type_classifier = DenseTorch
-
-            if self.default_input_data in type_classifier.possible_data_types or self.default_input_data in self.adata.obsm:
-                data_type = self.default_input_data
-
-            else:
-                data_type = type_classifier.possible_data_types[0]
-                print(f'{self.default_input_data} data is not currently compatible with {type_classifier}. Set to {data_type}')
-
-            parent_obs_key = self.get_parent_obs_key(node)
-            children_obs_key = self.get_children_obs_key(node)
-            child_nodes = self.get_child_nodes(node)
-
-            # Avoid problems with argmax for prediction by ensuring output activation is 2d
-            output_len = max(len(child_nodes), 2)
-            is_parent_node = self.adata.obs[parent_obs_key] == node
-            is_child_node = self.adata.obs[children_obs_key].isin(child_nodes)
-            potential_cells = self.adata[is_parent_node & is_child_node]
-            # To avoid training with cells that should be reserved for testing, make sure to limit
-            # to train_barcodes.
-            relevant_cells = self.adata[[b for b in potential_cells.obs_names if b in train_barcodes], :]
-            if data_type == 'normlog':
-                self.ensure_normlog()
-
-            n_cell_types = len(relevant_cells.obs[children_obs_key].unique())
-            if n_cell_types == 0:
-                return
-
-            print(f'Training {network_i}. classifier at {node}.')
-            if data_type in ['counts', 'normlog']:
-                selected_var_names = list(self.adata.var_names) 
-            elif data_type in self.adata.obsm:
-                selected_var_names = list(range(self.adata.obsm[data_type].shape[1]))
-            else:
-                raise Exception('Data type not currently supported.')
-            
-            if 'selected_var_names' in self.graph.nodes[node].keys():
-                selected_var_names = self.graph.nodes[node]['selected_var_names']
-
-            # Cannot define relevant genes for prediction if there is no cell group to compare to
-            elif self.use_feature_selection and n_cell_types > 1:
-                # Reinitialize classifier if, for the first time, more than one cell type is present
-                if 'local_classifier' in self.graph.nodes[node]:
-                    del self.graph.nodes[node]['local_classifier']
-                if 'trained_ensemble' in self.graph.nodes[node]:
-                    del self.graph.nodes[node]['trained_ensemble']
-
-                return_idx = data_type not in ['counts', 'normlog']
-                selected_var_names = []
-                pct_relevant = len(relevant_cells) / len(self.adata)
-                # n_features is simply overwritten if method=='hvg'
-                projected_relevant_cells = pct_relevant * self.projected_total_cells
-                # should not exceed a ratio of 1:100 of features to training samples as per google rules of ml
-                n_features_by_samples = int(projected_relevant_cells / 100)
-                n_features = max(
-                    min(self.max_features, n_features_by_samples),
-                    self.min_features
-                )
-                selected_var_names = self.feature_selection_CPPN(
-                    relevant_cells, 
-                    children_obs_key, 
-                    data_type, 
-                    n_features, 
-                    return_idx=return_idx)
         
-            print('Selected genes first defined.')
-            self.graph.nodes[node]['selected_var_names'] = selected_var_names
-            n_input = len(selected_var_names)
-            # TODO: Find permanent solution for training when only one child label is available
-            # 1) It makes no sense to train a classifier to discriminate between multiple labels
-            # when only one is available
-            # 2) At the same time, compatibility with the usual training process must be maintained
-            # 3) Stopping all cells at this level would unnecessarily reduce performance
-            # 4) implement a way to classify yes/no? (compare against what exactly?)
-            sequential_kwargs = self.sequential_kwargs
-            if n_cell_types == 1:
-                hidden_layers = [64, 10]
+
+        #copy train_single_node_CPPN code for ensemble situation
+
+        if train_barcodes is None:
+            train_barcodes = self.adata.obs_names
+
+        type_classifier = self.get_preferred_classifier(node)
+        if type_classifier is None:
+            type_classifier = DenseTorch
+
+        if self.default_input_data in type_classifier.possible_data_types or self.default_input_data in self.adata.obsm:
+            data_type = self.default_input_data
+
+        else:
+            data_type = type_classifier.possible_data_types[0]
+            print(f'{self.default_input_data} data is not currently compatible with {type_classifier}. Set to {data_type}')
+
+        parent_obs_key = self.get_parent_obs_key(node)
+        children_obs_key = self.get_children_obs_key(node)
+        child_nodes = self.get_child_nodes(node)
+
+        # Avoid problems with argmax for prediction by ensuring output activation is 2d
+        output_len = max(len(child_nodes), 2)
+        is_parent_node = self.adata.obs[parent_obs_key] == node
+        is_child_node = self.adata.obs[children_obs_key].isin(child_nodes)
+        potential_cells = self.adata[is_parent_node & is_child_node]
+        # To avoid training with cells that should be reserved for testing, make sure to limit
+        # to train_barcodes.
+        relevant_cells = self.adata[[b for b in potential_cells.obs_names if b in train_barcodes], :]
+        if data_type == 'normlog':
+            self.ensure_normlog()
+
+        n_cell_types = len(relevant_cells.obs[children_obs_key].unique())
+        if n_cell_types == 0:
+            return
+
+        print(f'Training {network_i}. classifier at {node}.')
+        if data_type in ['counts', 'normlog']:
+            selected_var_names = list(self.adata.var_names) 
+        elif data_type in self.adata.obsm:
+            selected_var_names = list(range(self.adata.obsm[data_type].shape[1]))
+        else:
+            raise Exception('Data type not currently supported.')
+        
+        if 'selected_var_names' in self.graph.nodes[node].keys():
+            selected_var_names = self.graph.nodes[node]['selected_var_names']
+
+        # Cannot define relevant genes for prediction if there is no cell group to compare to
+        elif self.use_feature_selection and n_cell_types > 1:
+            # Reinitialize classifier if, for the first time, more than one cell type is present
+            if 'local_classifier' in self.graph.nodes[node]:
+                del self.graph.nodes[node]['local_classifier']
+            if 'trained_ensemble' in self.graph.nodes[node]:
+                del self.graph.nodes[node]['trained_ensemble']
+
+            return_idx = data_type not in ['counts', 'normlog']
+            selected_var_names = []
+            pct_relevant = len(relevant_cells) / len(self.adata)
+            # n_features is simply overwritten if method=='hvg'
+            projected_relevant_cells = pct_relevant * self.projected_total_cells
+            # should not exceed a ratio of 1:100 of features to training samples as per google rules of ml
+            n_features_by_samples = int(projected_relevant_cells / 100)
+            n_features = max(
+                min(self.max_features, n_features_by_samples),
+                self.min_features
+            )
+            selected_var_names = self.feature_selection_CPPN(
+                relevant_cells, 
+                children_obs_key, 
+                data_type, 
+                n_features, 
+                return_idx=return_idx)
+    
+        print('Selected genes first defined.')
+        self.graph.nodes[node]['selected_var_names'] = selected_var_names
+        n_input = len(selected_var_names)
+        # TODO: Find permanent solution for training when only one child label is available
+        # 1) It makes no sense to train a classifier to discriminate between multiple labels
+        # when only one is available
+        # 2) At the same time, compatibility with the usual training process must be maintained
+        # 3) Stopping all cells at this level would unnecessarily reduce performance
+        # 4) implement a way to classify yes/no? (compare against what exactly?)
+        sequential_kwargs = self.sequential_kwargs
+        if n_cell_types == 1:
+            hidden_layers = [64, 10]
 
 
-            #NOTE swapped with ensure_existence_classifier
-            if data_type == 'counts':
-                x = relevant_cells[:, selected_var_names].X
-            elif data_type == 'normlog':
-                x = relevant_cells[:, selected_var_names].layers['normlog']
-            elif data_type in relevant_cells.obsm:
-                x = relevant_cells.obsm[data_type][:, selected_var_names]
-            else:
-                raise Exception('Data type not currently supported.')
-            
-            if hasattr(x, 'todense'):
-                x = x.todense()
+        #NOTE swapped with ensure_existence_classifier
+        if data_type == 'counts':
+            x = relevant_cells[:, selected_var_names].X
+        elif data_type == 'normlog':
+            x = relevant_cells[:, selected_var_names].layers['normlog']
+        elif data_type in relevant_cells.obsm:
+            x = relevant_cells.obsm[data_type][:, selected_var_names]
+        else:
+            raise Exception('Data type not currently supported.')
+        
+        if hasattr(x, 'todense'):
+            x = x.todense()
 
-            y = np.array(relevant_cells.obs[children_obs_key])
-            if hasattr(self, 'sampling_method') and type(self.sampling_method) != type(None):
-                res = self.sampling_method(sampling_strategy=self.sampling_strategy)
-                x, y = res.fit_resample(x, y)
+        y = np.array(relevant_cells.obs[children_obs_key])
+        if hasattr(self, 'sampling_method') and type(self.sampling_method) != type(None):
+            res = self.sampling_method(sampling_strategy=self.sampling_strategy)
+            x, y = res.fit_resample(x, y)
 
-            if "label_encoding" not in self.graph.nodes[node]:
-                self.graph.nodes[node]['label_encoding'] = {}
+        if "label_encoding" not in self.graph.nodes[node]:
+            self.graph.nodes[node]['label_encoding'] = {}
 
-            for label in child_nodes:
-                if label in self.graph.nodes[node]['label_encoding']:
-                    continue
+        for label in child_nodes:
+            if label in self.graph.nodes[node]['label_encoding']:
+                continue
 
-                idx = len(self.graph.nodes[node]['label_encoding'])
-                self.graph.nodes[node]['label_encoding'][label] = idx
+            idx = len(self.graph.nodes[node]['label_encoding'])
+            self.graph.nodes[node]['label_encoding'][label] = idx
 
 
-            y_int = np.array(
-                [self.graph.nodes[node]['label_encoding'][label] for label in y]
-            ).astype(int)
-            y_onehot = keras.utils.to_categorical(y_int, num_classes=output_len)
-            x = z_transform_properties(x)
+        y_int = np.array(
+            [self.graph.nodes[node]['label_encoding'][label] for label in y]
+        ).astype(int)
+        y_onehot = keras.utils.to_categorical(y_int, num_classes=output_len)
+        x = z_transform_properties(x)
 
 
         for network_i in range(n_ensemble_networks):
+            #TODO: parallelize as well
+            #needs randomization of initial parameters! (xavier.uniform already random)
+            #not necessarily: adversarial training, different train data (might be disadvantageous for NN's)
+            # trained_network_params = self.train_single_node_CPPN(node, train_barcodes) 
+            # trained_networks.append(trained_network_params)
             
             #=======================
             # self.ensure_existence_classifier(
