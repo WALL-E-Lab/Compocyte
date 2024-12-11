@@ -235,13 +235,17 @@ class HierarchicalClassifier(
         node,
         train_barcodes=None,
         initial_call=True,
-        parallelize = False):
+        parallelize = False,
+        ensemble_learning = False,
+        **kwargs):
         if self.classification_mode == 'CPPN':
             self.train_all_child_nodes_CPPN(
                 node, 
                 train_barcodes=train_barcodes,
                 initial_call=initial_call,
-                parallelize = parallelize
+                parallelize = parallelize,
+                ensemble_learning = ensemble_learning,
+                **kwargs
             )
 
         elif self.classification_mode == 'CPN':

@@ -437,7 +437,11 @@ class CPPNBase():
                 if len(self.get_child_nodes(child_node)) == 0:
                     continue
 
-                self.train_all_child_nodes_CPPN(child_node, train_barcodes=train_barcodes, initial_call=False)
+                self.train_all_child_nodes_CPPN(child_node, 
+                                                train_barcodes=train_barcodes, 
+                                                ensemble_learning=ensemble_learning, 
+                                                initial_call=False, 
+                                                **kwargs)
 
             if initial_call:
                 if "overall" not in self.trainings.keys():
@@ -453,6 +457,9 @@ class CPPNBase():
             #initial_call not yet transferred
 
             print(f"Using multiprocessing for training with {mp.cpu_count()} available CPU cores.\n")
+            if ensemble_learning:
+                print(f"NOTE: ensemble learning currently not supported for parallel training." 
+                      f"Defaulting to single classifier.\n")
 
             #find nodes that have to be trained be trained, i.e. nodes that have >= 2 child nodes 
             nodes_to_train = [node for node in list(self.graph.nodes()) if len(list(self.graph.successors(node))) >= 2] 
