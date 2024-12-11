@@ -577,7 +577,7 @@ class CPPNBase():
                 
             #     #save activations if network_i'th classifier
             #     ensemble_predictions.append(y_pred_activations)
-
+        
         #%--------------------------------------------------------------------------------------------------------------------------------------------%#       
         #belongs somewhere in the prediction methds, not sure where yet because of test/training problem
         #%--------------------------------------------------------------------------------------------------------------------------------------------%#
@@ -657,6 +657,10 @@ class CPPNBase():
             'var_names': selected_var_names,
         }
         gc.collect()
+
+        if get_activations: 
+            #for evaluation
+            return ensemble_predictions, activations_ensemble_mean, activations_ensemble_std
 
 
         
@@ -800,7 +804,8 @@ class CPPNBase():
         current_node,
         current_barcodes=None,
         initial_call=True,
-        use_ensemble_prediction=False):
+        use_ensemble_prediction=False,
+        **ensemble_kwargs):
 
         if type(current_barcodes) == type(None):
             current_barcodes = self.adata.obs_names
@@ -812,7 +817,7 @@ class CPPNBase():
             return
         
         if use_ensemble_prediction:
-            self.predict_single_node_CPPN_ensemble(current_node, barcodes=current_barcodes)
+            self.predict_single_node_CPPN_ensemble(current_node, barcodes=current_barcodes, **ensemble_kwargs)
         
         else:
             self.predict_single_node_CPPN(current_node, barcodes=current_barcodes)

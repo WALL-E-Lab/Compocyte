@@ -278,12 +278,17 @@ class HierarchicalClassifier(
         self, 
         node, 
         initial_call=True, 
-        current_barcodes=None):
+        current_barcodes=None, 
+        use_ensemble_prediction=False,
+        **ensemble_kwargs):
+        
         if self.classification_mode == 'CPPN':
             self.predict_all_child_nodes_CPPN(
                 node,
                 current_barcodes=current_barcodes,
-                initial_call=initial_call)
+                initial_call=initial_call,
+                use_ensemble_prediction=use_ensemble_prediction,
+                **ensemble_kwargs)
 
         elif self.classification_mode == 'CPN':
             self.predict_all_child_nodes_CPN(
