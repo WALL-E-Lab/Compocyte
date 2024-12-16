@@ -1,3 +1,4 @@
+import torch
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
@@ -175,26 +176,46 @@ class HierarchyBase():
         # print(f'type_classifier from predict_.._proba: {type_classifier}')
         type_classifier = type(self.graph.nodes[node]['local_classifier'])
         if type_classifier in [DenseKeras, DenseTorch, LogisticRegression]:
-            y_pred_proba = self.graph.nodes[node]['local_classifier'].predict(x)
-            #y_pred_proba array_like with length of predictable classes, entries of form x element [0,1]
-            #with sum(y_pred) = 1 along axis 1 (for one cell)
+            if mc_dropout:
+                if 'mc_threshold' not in self.graph.nodes[node]:
+                    raise Exception('Need to calibrate classifier prior to running with mc_dropout.')
+                
+                ys = self.graph.nodes[node]['local_classifier'].predict(x, mc_dropout=mc_dropout)
+                y_mean = ys[0]
+                for y in ys[1:]:
+                    y_mean = y_mean + y
 
-            #print(f'y_pred_proba: {y_pred_proba[:10]}')
-            #print(f'y_pred_proba.shape: {y_pred_proba.shape}')
-
-            #test if probability for one class is larger than threshold 
-            largest_idx = np.argmax(y_pred_proba, axis = -1)
-
-            #print(f'largest_idx: {largest_idx[:10]}')
-            if 'threshold' in self.graph.nodes[node]:
-                threshold = self.graph.nodes[node]['threshold']
+                y_mean = y_mean / 5
+                std = torch.std(
+                    torch.stack([y.max(axis=1)[0] for y in ys]),
+                    axis=0
+                ).item()
+                largest_idx = torch.argmax(y_mean, axis=1).item()
+                is_above_threshold = std >= self.graph.nodes[node]['mc_threshold']
+                largest_idx = largest_idx.astype(np.float32)
+                largest_idx[~is_above_threshold] = np.nan
 
             else:
-                threshold = self.threshold
+                y_pred_proba = self.graph.nodes[node]['local_classifier'].predict(x, mc_dropout=mc_dropout)
+                #y_pred_proba array_like with length of predictable classes, entries of form x element [0,1]
+                #with sum(y_pred) = 1 along axis 1 (for one cell)
 
-            is_above_threshold = np.any(y_pred_proba >= threshold, axis=1)
-            largest_idx = largest_idx.astype(np.float32)
-            largest_idx[~is_above_threshold] = np.nan
+                #print(f'y_pred_proba: {y_pred_proba[:10]}')
+                #print(f'y_pred_proba.shape: {y_pred_proba.shape}')
+
+                #test if probability for one class is larger than threshold 
+                largest_idx = np.argmax(y_pred_proba, axis = -1)
+
+                #print(f'largest_idx: {largest_idx[:10]}')
+                if 'threshold' in self.graph.nodes[node]:
+                    threshold = self.graph.nodes[node]['threshold']
+
+                else:
+                    threshold = self.threshold
+
+                is_above_threshold = np.any(y_pred_proba >= threshold, axis=1)
+                largest_idx = largest_idx.astype(np.float32)
+                largest_idx[~is_above_threshold] = np.nan
 
         else:
             raise ValueError('Not yet supported probability classification classifier type')

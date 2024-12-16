@@ -11,6 +11,7 @@ import numpy as np
 import os
 import pickle
 import scanpy as sc
+from Compocyte.core.tools import z_transform_properties
 
 
 class HierarchicalClassifier(
@@ -260,6 +261,56 @@ class HierarchicalClassifier(
             mc_dropout=mc_dropout,
             current_barcodes=current_barcodes,
             initial_call=initial_call)
+        
+    def calibrate_all_child_nodes_mc(self):
+        leaf_nodes = self.get_leaf_nodes()
+        for node in self.graph.nodes:
+            if node in leaf_nodes:
+                continue
+            
+            if not self.is_trained_at(node):
+                continue
+
+            model = self.graph.nodes[node]['local_classifier']
+            if not isinstance(model, DenseTorch):
+                continue
+            
+            node_depth = self.node_to_depth[node]
+            has_parent_label = self.adata.obs[f'Level_{node_depth}'] == node
+            has_child_label = self.adata.obs[f'Level_{node_depth + 1}'] != ''
+            relevant_cells = self.adata[has_parent_label & has_child_label]
+            selected_var_names = self.graph.nodes[node]['selected_var_names']
+            x = relevant_cells[:, selected_var_names].X.todense()
+            x = z_transform_properties(x)
+            y_true = relevant_cells.obs[f'Level_{node_depth + 1}']
+            enc = self.graph.nodes[node]['label_encoding']
+            y_true_int = torch.Tensor(
+                [enc[l] if l in enc else -1 for l in y_true])
+            model.eval()
+            for m in model.modules():
+                if m.__class__.__name__.startswith('Dropout'):
+                    m.train()
+
+            iterations = 5
+            ys = []
+            ys_maxes = []
+            for i in range(iterations):
+                y = model(x)
+                ys_maxes.append(y.max(axis=1)[0])
+                ys.append(y)
+                
+                
+            y_mean = ys[0]
+            for y in ys[1:]:
+                y_mean = y_mean + y
+
+            y_int = torch.argmax(y_mean, axis=1)
+            wrong_pred = y_int != y_true_int
+            std_train = torch.std(
+                torch.stack(ys_maxes),
+                axis=0
+            )[~wrong_pred]
+            self.graph.nodes[node]['mc_threshold'] = torch.quantile(std_train, 0.9).item()
 
     def calibrate_single_node(self, node, alpha=0.25, barcodes=None):
         if not self.prob_based_stopping:

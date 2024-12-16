@@ -160,31 +160,21 @@ class DenseTorch(torch.nn.Module, DenseBase):
                 x = torch.Tensor(x).to(self.device)
                 y = self(x).detach().cpu().numpy()
 
+                return y
+
             else:
                 self.eval()
                 for m in self.modules():
                     if m.__class__.__name__.startswith('Dropout'):
                         m.train()
 
-                if isinstance(mc_dropout, int):
-                    iterations = mc_dropout
-
-                else:
-                    iterations = 10
-
+                iterations = 5
                 ys = []
                 for i in range(iterations):
                     y = self(x)
                     ys.append(y)
-                    
-                y_mean = ys[0]
-                for y in ys[1:]:
-                    y_mean = y_mean + y
 
-                y_mean = y_mean / iterations
-                y = y_mean.detach().cpu().numpy()
-
-        return y
+                return ys        
 
     def _train(
         self,
