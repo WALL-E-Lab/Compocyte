@@ -189,8 +189,8 @@ class HierarchyBase():
                 std = torch.std(
                     torch.stack([y.max(axis=1)[0] for y in ys]),
                     axis=0
-                ).item()
-                largest_idx = torch.argmax(y_mean, axis=1).item()
+                ).detach().numpy()
+                largest_idx = torch.argmax(y_mean, axis=1).detach().numpy()
                 is_above_threshold = std >= self.graph.nodes[node]['mc_threshold']
                 largest_idx = largest_idx.astype(np.float32)
                 largest_idx[~is_above_threshold] = np.nan
