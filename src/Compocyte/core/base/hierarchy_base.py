@@ -191,9 +191,9 @@ class HierarchyBase():
                     axis=0
                 ).detach().numpy()
                 largest_idx = torch.argmax(y_mean, axis=1).detach().numpy()
-                is_above_threshold = std >= self.graph.nodes[node]['mc_threshold']
+                is_below_threshold = std < self.graph.nodes[node]['mc_threshold']
                 largest_idx = largest_idx.astype(np.float32)
-                largest_idx[~is_above_threshold] = np.nan
+                largest_idx[~is_below_threshold] = np.nan
 
             else:
                 y_pred_proba = self.graph.nodes[node]['local_classifier'].predict(x, mc_dropout=mc_dropout)
