@@ -170,7 +170,7 @@ class HierarchyBase():
     def is_trained_at(self, node):
         return 'local_classifier' in self.graph.nodes[node].keys()
 
-    def predict_single_node_proba(self, node, x):
+    def predict_single_node_proba(self, node, x, mc_dropout=False):
         """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
         # print(f'type_classifier from predict_.._proba: {type_classifier}')
         type_classifier = type(self.graph.nodes[node]['local_classifier'])

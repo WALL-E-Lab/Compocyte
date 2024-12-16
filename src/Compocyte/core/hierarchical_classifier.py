@@ -250,12 +250,14 @@ class HierarchicalClassifier(
 
     def predict_all_child_nodes(
         self, 
-        node, 
+        node,
+        mc_dropout=False,
         initial_call=True, 
         current_barcodes=None):
             
         self.predict_all_child_nodes_LCPN(
             node,
+            mc_dropout=mc_dropout,
             current_barcodes=current_barcodes,
             initial_call=initial_call)
 

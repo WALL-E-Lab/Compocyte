@@ -262,6 +262,7 @@ class LCPNBase():
     def predict_single_node_LCPN(
         self,
         node,
+        mc_dropout=False,
         barcodes=None,
         get_activations=False):
         """Uses an existing classifier at node to assign one of the child labels to the cells
@@ -337,7 +338,7 @@ class LCPNBase():
         #%--------------------------------------------------------------------------------------------------------------------------------------------%#
 
         elif self.prob_based_stopping:
-            y_pred = np.array(self.predict_single_node_proba(node, x))
+            y_pred = np.array(self.predict_single_node_proba(node, x, mc_dropout=mc_dropout))
             y_pred_nan_idx = np.where(np.isnan(y_pred))
             y_pred_not_nan_idx = np.where(~np.isnan(y_pred))
             y_pred = y_pred.astype(int)
@@ -370,6 +371,7 @@ class LCPNBase():
     def predict_all_child_nodes_LCPN(
         self,
         current_node,
+        mc_dropout=False,
         current_barcodes=None,
         initial_call=True):
 
@@ -382,7 +384,7 @@ class LCPNBase():
         if not self.is_trained_at(current_node):
             return
 
-        self.predict_single_node_LCPN(current_node, barcodes=current_barcodes)
+        self.predict_single_node_LCPN(current_node, mc_dropout=mc_dropout, barcodes=current_barcodes)
         obs_key = self.get_children_obs_key(current_node)
         for child_node in self.get_child_nodes(current_node):
             if len(self.get_child_nodes(child_node)) == 0:

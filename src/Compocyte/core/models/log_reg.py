@@ -35,7 +35,7 @@ class LogisticRegression():
         else:
             self.model.fit(x, y_int)
 
-    def predict(self, X):
+    def predict(self, X, **kwargs):
         if self.fixed is None:
             pred_activations = self.model.predict_proba(X)
             # Augment prediction matrix if one of the child classes
