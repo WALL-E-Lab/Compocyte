@@ -172,7 +172,7 @@ class DataBase():
 
         return total_top_genes
     
-    def feature_selection_CPPN(self, relevant_cells, children_obs_key, n_features, return_idx=False):
+    def feature_selection_LCPN(self, relevant_cells, children_obs_key, n_features, return_idx=False):
         y = np.array(relevant_cells.obs[children_obs_key])
         x = np.array(relevant_cells.X)
         x = z_transform_properties(x)        

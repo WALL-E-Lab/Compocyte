@@ -1,7 +1,7 @@
 import torch
 from Compocyte.core.base.data_base import DataBase
 from Compocyte.core.base.hierarchy_base import HierarchyBase
-from Compocyte.core.base.CPPN_base import CPPNBase
+from Compocyte.core.base.LCPN_base import LCPNBase
 from Compocyte.core.base.export_import_base import ExportImportBase
 from Compocyte.core.models.dense import DenseKeras
 from Compocyte.core.models.log_reg import LogisticRegression
@@ -16,7 +16,7 @@ import scanpy as sc
 class HierarchicalClassifier(
         DataBase,
         HierarchyBase,
-        CPPNBase,
+        LCPNBase,
         ExportImportBase):
     """Add explanation
     """
@@ -40,6 +40,7 @@ class HierarchicalClassifier(
             num_threads=None,
             ignore_counts=False, # if True, X is kept as is
             projected_total_cells=100000,
+            mc_dropout=False, # uncertainty management using mc_dropout, only works with NN and prob_based_stopping
             sequential_kwargs={},
             # hidden_layers learning_rate momentum loss_function
             # dropout discretization l2_reg_input
@@ -70,6 +71,7 @@ class HierarchicalClassifier(
         self.predictions = {}
         self.ignore_counts = ignore_counts
         self.projected_total_cells = projected_total_cells
+        self.mc_dropout = mc_dropout
         self.sequential_kwargs = sequential_kwargs
         self.train_kwargs = train_kwargs
 
@@ -223,7 +225,7 @@ class HierarchicalClassifier(
                         self.graph.nodes[node][key] = p
 
     def train_single_node(self, node, train_barcodes=None, barcodes=None):
-        self.train_single_node_CPPN(node, train_barcodes=barcodes)
+        self.train_single_node_LCPN(node, train_barcodes=barcodes)
 
     def train_all_child_nodes(
         self, 
@@ -232,7 +234,7 @@ class HierarchicalClassifier(
         initial_call=True,
         parallelize = False):
 
-        self.train_all_child_nodes_CPPN(
+        self.train_all_child_nodes_LCPN(
             node, 
             train_barcodes=train_barcodes,
             initial_call=initial_call,
@@ -244,7 +246,7 @@ class HierarchicalClassifier(
         node, 
         barcodes=None):
 
-        self.predict_single_node_CPPN(node, barcodes=barcodes)
+        self.predict_single_node_LCPN(node, barcodes=barcodes)
 
     def predict_all_child_nodes(
         self, 
@@ -252,7 +254,7 @@ class HierarchicalClassifier(
         initial_call=True, 
         current_barcodes=None):
             
-        self.predict_all_child_nodes_CPPN(
+        self.predict_all_child_nodes_LCPN(
             node,
             current_barcodes=current_barcodes,
             initial_call=initial_call)
@@ -275,7 +277,7 @@ class HierarchicalClassifier(
         if len(barcodes) == 0:
             return
 
-        used_barcodes, activations = self.predict_single_node_CPPN(node, barcodes=barcodes, get_activations=True)
+        used_barcodes, activations = self.predict_single_node_LCPN(node, barcodes=barcodes, get_activations=True)
         
         y = np.array(self.adata[used_barcodes, :].obs[self.get_children_obs_key(node)])
         enc = {l: i for i, l in enumerate(labels)}

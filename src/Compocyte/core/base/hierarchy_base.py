@@ -232,7 +232,7 @@ class HierarchyBase():
     def update_hierarchy(self, dict_of_cell_relations, root_node=None, overwrite=False):
         dict_of_cell_relations_with_classifiers = deepcopy(dict_of_cell_relations)
         dict_of_cell_relations, contains_classifier = delete_dict_entries(dict_of_cell_relations, 'classifier')
-        self.update_hierarchy_CPPN(dict_of_cell_relations, root_node=root_node)
+        self.update_hierarchy_LCPN(dict_of_cell_relations, root_node=root_node)
 
         if contains_classifier:
             self.import_classifiers(dict_of_cell_relations_with_classifiers, overwrite=overwrite)

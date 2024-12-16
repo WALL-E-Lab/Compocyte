@@ -19,8 +19,8 @@ import multiprocessing as mp
 import logging
 logger = logging.getLogger(__name__)
 
-class CPPNBase():
-    def train_single_node_CPPN(
+class LCPNBase():
+    def train_single_node_LCPN(
         self, 
         node, 
         train_barcodes=None,
@@ -90,7 +90,7 @@ class CPPNBase():
                 else:
                     n_features = self.features_per_classifier(len(relevant_cells))
 
-                selected_var_names = self.feature_selection_CPPN(
+                selected_var_names = self.feature_selection_LCPN(
                     relevant_cells, 
                     children_obs_key,
                     n_features)
@@ -188,7 +188,7 @@ class CPPNBase():
         # classifier types?)
         return trained_node_params
 
-    def train_all_child_nodes_CPPN(
+    def train_all_child_nodes_LCPN(
         self,
         current_node,
         train_barcodes=None,
@@ -216,12 +216,12 @@ class CPPNBase():
         self.parallelize = parallelize
         if not parallelize:
 
-            self.train_single_node_CPPN(current_node, train_barcodes, prepare_into=prepare_into, prepared_path=prepared_path)
+            self.train_single_node_LCPN(current_node, train_barcodes, prepare_into=prepare_into, prepared_path=prepared_path)
             for child_node in self.get_child_nodes(current_node):
                 if len(self.get_child_nodes(child_node)) == 0:
                     continue
 
-                self.train_all_child_nodes_CPPN(child_node, train_barcodes=train_barcodes, initial_call=False, 
+                self.train_all_child_nodes_LCPN(child_node, train_barcodes=train_barcodes, initial_call=False, 
                                                 prepare_into=prepare_into, prepared_path=prepared_path)
 
             if initial_call:
@@ -248,7 +248,7 @@ class CPPNBase():
             nodes_to_train = [node for node in list(self.graph.nodes()) if len(list(self.graph.successors(node))) >= 2] 
            
             with mp.Pool(processes=processes) as pool: 
-                all_trained_node_params = pool.map(self.train_single_node_CPPN, nodes_to_train)
+                all_trained_node_params = pool.map(self.train_single_node_LCPN, nodes_to_train)
             
             for node, params in zip(nodes_to_train, all_trained_node_params):
                 if params is not None: #this should only happen at nodes that have not been trained
@@ -259,7 +259,7 @@ class CPPNBase():
 
         
 
-    def predict_single_node_CPPN(
+    def predict_single_node_LCPN(
         self,
         node,
         barcodes=None,
@@ -309,7 +309,7 @@ class CPPNBase():
             return
 
         if type(self.graph.nodes[node]['local_classifier']) not in [DenseKeras, DenseTorch, LogisticRegression]:
-            raise Exception('CPPN classification mode currently only compatible with neural networks.')
+            raise Exception('LCPN classification mode currently only compatible with neural networks.')
 
         selected_var_names = list(self.adata.var_names) 
         if 'selected_var_names' in self.graph.nodes[node]:
@@ -367,7 +367,7 @@ class CPPNBase():
         }
         gc.collect()
 
-    def predict_all_child_nodes_CPPN(
+    def predict_all_child_nodes_LCPN(
         self,
         current_node,
         current_barcodes=None,
@@ -382,7 +382,7 @@ class CPPNBase():
         if not self.is_trained_at(current_node):
             return
 
-        self.predict_single_node_CPPN(current_node, barcodes=current_barcodes)
+        self.predict_single_node_LCPN(current_node, barcodes=current_barcodes)
         obs_key = self.get_children_obs_key(current_node)
         for child_node in self.get_child_nodes(current_node):
             if len(self.get_child_nodes(child_node)) == 0:
@@ -392,7 +392,7 @@ class CPPNBase():
                 child_node_barcodes = self.get_predicted_barcodes(
                     obs_key, 
                     child_node)
-                self.predict_all_child_nodes_CPPN(child_node, current_barcodes=child_node_barcodes, initial_call=False)
+                self.predict_all_child_nodes_LCPN(child_node, current_barcodes=child_node_barcodes, initial_call=False)
             except KeyError:
                 print(f'Tried to predict children of {current_node}, current_barcodes is {current_barcodes}')   
                 break         
@@ -407,7 +407,7 @@ class CPPNBase():
                 'current_node': current_node
             }
 
-    def update_hierarchy_CPPN(self, dict_of_cell_relations, root_node=None):
+    def update_hierarchy_LCPN(self, dict_of_cell_relations, root_node=None):
         if root_node is not None:
             self.root_node = root_node
 
