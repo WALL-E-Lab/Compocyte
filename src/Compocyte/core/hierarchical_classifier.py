@@ -281,7 +281,7 @@ class HierarchicalClassifier(
             relevant_cells = self.adata[has_parent_label & has_child_label]
             if len(relevant_cells) < 10:
                 continue
-            
+
             selected_var_names = self.graph.nodes[node]['selected_var_names']
             x = relevant_cells[:, selected_var_names].X
             x = z_transform_properties(x)
@@ -297,7 +297,7 @@ class HierarchicalClassifier(
             iterations = 5
             ys = []
             ys_maxes = []
-            for i in range(iterations):
+            for _ in range(iterations):
                 y = model(x)
                 ys_maxes.append(y.max(axis=1)[0])
                 ys.append(y)
@@ -309,14 +309,26 @@ class HierarchicalClassifier(
 
             y_int = torch.argmax(y_mean, axis=1)
             wrong_pred = y_int != y_true_int
-            std_train = torch.std(
-                torch.stack(ys_maxes),
-                axis=0
-            )[~wrong_pred]
-            if calibration_quantile is None:
-                calibration_quantile = 0.95
-            
-            self.graph.nodes[node]['mc_threshold'] = torch.quantile(std_train, calibration_quantile).item()
+            # If there are too few correct predictions to calculate quantiles
+            # for thresholding, take the median std for wrong predictions
+            # as a threshold, to avoid excluding all correct predictions in
+            # the future
+            if (~wrong_pred).sum() < 10:
+                self.graph.nodes[node]['mc_threshold'] = torch.std(
+                    torch.stack(ys_maxes),
+                    axis=0
+                )[wrong_pred].median()
+
+            else:
+                std_train = torch.std(
+                    torch.stack(ys_maxes),
+                    axis=0
+                )[~wrong_pred]
+                
+                if calibration_quantile is None:
+                    calibration_quantile = 0.95
+                
+                self.graph.nodes[node]['mc_threshold'] = torch.quantile(std_train, calibration_quantile).item()
 
     def calibrate_single_node(self, node, alpha=0.25, barcodes=None):
         if not self.prob_based_stopping:
