@@ -197,7 +197,7 @@ class CPPNBase():
             except AttributeError:
                 pass # occurs whent trying to set data type for imported log reg model
 
-            print(f'Data type for {node} set to {self.graph.nodes[node]['trained_ensemble'][network_i].data_type}')
+            print(f"Data type for {node} set to {self.graph.nodes[node]['trained_ensemble'][network_i].data_type}")
 
             #======================
 
