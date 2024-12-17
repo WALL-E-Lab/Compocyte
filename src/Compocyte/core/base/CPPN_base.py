@@ -163,6 +163,8 @@ class CPPNBase():
         y_onehot = keras.utils.to_categorical(y_int, num_classes=output_len)
         x = z_transform_properties(x)
 
+        #establish key in node
+        self.graph.nodes[node]['trained_ensemble'] = []
 
         for network_i in range(n_ensemble_networks):
             #TODO: parallelize as well
@@ -184,7 +186,6 @@ class CPPNBase():
             print(f'Training {network_i}. classifier at {node}.')
 
             output_len = len(list(self.graph.adj[node].keys()))
-           
 
             if 'preferred_classifier' in self.graph.nodes[node].keys():
                 self.graph.nodes[node]['trained_ensemble'].append(self.graph.nodes[node]['preferred_classifier'](n_input=n_input, n_output=output_len, **sequential_kwargs))
