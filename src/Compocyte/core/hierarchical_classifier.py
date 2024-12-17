@@ -279,6 +279,9 @@ class HierarchicalClassifier(
             has_parent_label = self.adata.obs[f'Level_{node_depth}'] == node
             has_child_label = self.adata.obs[f'Level_{node_depth + 1}'] != ''
             relevant_cells = self.adata[has_parent_label & has_child_label]
+            if len(relevant_cells) < 10:
+                continue
+            
             selected_var_names = self.graph.nodes[node]['selected_var_names']
             x = relevant_cells[:, selected_var_names].X
             x = z_transform_properties(x)
