@@ -214,7 +214,7 @@ class CPPNBase():
                 'barcodes': list(relevant_cells.obs_names),
                 'node': node,
                 'data_type': data_type,
-                'type_classifier': type(self.graph.nodes[node]['local_classifier']),
+                'type_classifier': type(self.graph.nodes[node]['trained_ensemble'][0]),
                 'var_names': selected_var_names
             }
             gc.collect()
