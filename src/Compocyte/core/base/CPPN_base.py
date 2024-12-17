@@ -78,7 +78,6 @@ class CPPNBase():
         if n_cell_types == 0:
             return
 
-        print(f'Training {network_i}. classifier at {node}.')
         if data_type in ['counts', 'normlog']:
             selected_var_names = list(self.adata.var_names) 
         elif data_type in self.adata.obsm:
@@ -181,6 +180,8 @@ class CPPNBase():
             # sequential_kwargs=sequential_kwargs)
 
             # following code replaces ensure_existence_classifier call
+
+            print(f'Training {network_i}. classifier at {node}.')
 
             output_len = len(list(self.graph.adj[node].keys()))
            
