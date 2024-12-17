@@ -262,7 +262,7 @@ class HierarchicalClassifier(
             current_barcodes=current_barcodes,
             initial_call=initial_call)
         
-    def calibrate_all_child_nodes_mc(self):
+    def calibrate_all_child_nodes_mc(self, calibration_quantile=None):
         leaf_nodes = self.get_leaf_nodes()
         for node in self.graph.nodes:
             if node in leaf_nodes:
@@ -310,7 +310,10 @@ class HierarchicalClassifier(
                 torch.stack(ys_maxes),
                 axis=0
             )[~wrong_pred]
-            self.graph.nodes[node]['mc_threshold'] = torch.quantile(std_train, 0.9).item()
+            if calibration_quantile is None:
+                calibration_quantile = 0.95
+            
+            self.graph.nodes[node]['mc_threshold'] = torch.quantile(std_train, calibration_quantile).item()
 
     def calibrate_single_node(self, node, alpha=0.25, barcodes=None):
         if not self.prob_based_stopping:
