@@ -310,14 +310,15 @@ class HierarchicalClassifier(
             y_int = torch.argmax(y_mean, axis=1)
             wrong_pred = y_int != y_true_int
             # If there are too few correct predictions to calculate quantiles
-            # for thresholding, take the median std for wrong predictions
+            # for thresholding, take the 0.1 quantile for wrong predictions
             # as a threshold, to avoid excluding all correct predictions in
             # the future
             if (~wrong_pred).sum() < 10:
-                self.graph.nodes[node]['mc_threshold'] = torch.std(
+                std_train = torch.std(
                     torch.stack(ys_maxes),
                     axis=0
-                )[wrong_pred].median()
+                )[wrong_pred]
+                self.graph.nodes[node]['mc_threshold'] = torch.quantile(std_train, 0.1).item()
 
             else:
                 std_train = torch.std(
