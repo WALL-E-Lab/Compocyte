@@ -122,6 +122,9 @@ class CPPNBase():
         sequential_kwargs = self.sequential_kwargs
         if n_cell_types == 1:
             hidden_layers = [64, 10]
+            #do not train this classifier (at this stage of testing) if only one child node is present
+            print(f"Returning training method at node {node} with child nodes {child_nodes}")
+            return
 
 
         #NOTE swapped with ensure_existence_classifier

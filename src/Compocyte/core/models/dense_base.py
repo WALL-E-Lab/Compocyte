@@ -114,9 +114,7 @@ class DenseBase():
                         print(type(y_val))
                         print(pred_val.shape)
                         print(y_val.shape)
-                        #temporary fix 
-                        val_loss = np.nan
-                        # raise Exception()
+                        raise Exception()
 
                     del pred_val
                     history['val_accuracy'].append(val_accuracy)
