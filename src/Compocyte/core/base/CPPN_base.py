@@ -37,10 +37,6 @@ class CPPNBase():
 
 
         self.graph.nodes[node]["trained_ensemble"] = dict()
-        # {
-        #         "ensemble_classifier": [trained_networks[i].get("local_classifier") for i in range(len(trained_networks))]
-        #         }
-
         
 
         #copy train_single_node_CPPN code for ensemble situation
