@@ -806,7 +806,13 @@ class CPPNBase():
         current_barcodes=None,
         initial_call=True,
         use_ensemble_prediction=False,
+        activation_dic = None,
         **ensemble_kwargs):
+
+        if activation_dic is None:
+            activation_dic = dict()
+        else:
+            activation_dic = activation_dic
 
         if type(current_barcodes) == type(None):
             current_barcodes = self.adata.obs_names
@@ -818,7 +824,8 @@ class CPPNBase():
             return
         
         if use_ensemble_prediction:
-            self.predict_single_node_CPPN_ensemble(current_node, barcodes=current_barcodes, **ensemble_kwargs)
+            activations = self.predict_single_node_CPPN_ensemble(current_node, barcodes=current_barcodes, **ensemble_kwargs)
+            activation_dic[f"{current_node}"] = activations
         
         else:
             self.predict_single_node_CPPN(current_node, barcodes=current_barcodes)
@@ -834,7 +841,7 @@ class CPPNBase():
                 child_node_barcodes = self.get_predicted_barcodes(
                     obs_key, 
                     child_node)
-                self.predict_all_child_nodes_CPPN(child_node, current_barcodes=child_node_barcodes, initial_call=False, use_ensemble_prediction = use_ensemble_prediction, **ensemble_kwargs)
+                self.predict_all_child_nodes_CPPN(child_node, current_barcodes=child_node_barcodes, initial_call=False, use_ensemble_prediction = use_ensemble_prediction, activation_dic = activation_dic, **ensemble_kwargs)
             except KeyError:
                 print(f'Tried to predict children of {current_node}, current_barcodes is {current_barcodes}')   
                 break         
@@ -848,6 +855,8 @@ class CPPNBase():
                 'current_barcodes': current_barcodes,
                 'current_node': current_node
             }
+
+        return activation_dic
 
     def update_hierarchy_CPPN(self, dict_of_cell_relations, root_node=None):
         if root_node is not None:
