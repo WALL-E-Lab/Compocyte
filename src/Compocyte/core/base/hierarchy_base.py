@@ -176,10 +176,7 @@ class HierarchyBase():
         # print(f'type_classifier from predict_.._proba: {type_classifier}')
         type_classifier = type(self.graph.nodes[node]['local_classifier'])
         if type_classifier in [DenseKeras, DenseTorch, LogisticRegression]:
-            if mc_dropout:
-                if 'mc_threshold' not in self.graph.nodes[node]:
-                    raise Exception('Need to calibrate classifier prior to running with mc_dropout.')
-                
+            if mc_dropout and 'mc_threshold' in self.graph.nodes[node]:                
                 ys = self.graph.nodes[node]['local_classifier'].predict(x, mc_dropout=mc_dropout)
                 y_mean = ys[0]
                 for y in ys[1:]:
