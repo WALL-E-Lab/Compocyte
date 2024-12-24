@@ -1,14 +1,9 @@
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
-import tensorflow.keras as keras
-from sklearn.preprocessing import LabelEncoder
 from Compocyte.core.tools import flatten_dict, dict_depth, hierarchy_names_unique, \
     make_graph_from_edges, set_node_to_depth, delete_dict_entries
-from Compocyte.core.models.dense import DenseKeras
-from Compocyte.core.models.dense_torch import DenseTorch
 from Compocyte.core.models.log_reg import LogisticRegression
-from sklearn.feature_selection import SelectKBest, f_classif
 from copy import deepcopy
 
 class HierarchyBase():

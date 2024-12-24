@@ -1,11 +1,8 @@
 from typing import Union
 from sklearn.feature_selection import SelectKBest, f_classif
-import torch
 from Compocyte.core.base.data_base import DataBase
 from Compocyte.core.base.hierarchy_base import HierarchyBase
-from Compocyte.core.base.LCPN_base import LCPNBase
 from Compocyte.core.base.export_import_base import ExportImportBase
-from Compocyte.core.models.dense import DenseKeras
 from Compocyte.core.models.fit_methods import fit, predict
 from Compocyte.core.models.log_reg import LogisticRegression
 from Compocyte.core.models.dense_torch import DenseTorch
@@ -22,7 +19,6 @@ from Compocyte.core.tools import z_transform_properties
 class HierarchicalClassifier(
         DataBase,
         HierarchyBase,
-        LCPNBase,
         ExportImportBase):
     """Add explanation
     """
@@ -146,7 +142,7 @@ class HierarchicalClassifier(
                     if not os.path.exists(model_path):
                         os.makedirs(model_path)
 
-                    if type(self.graph.nodes[node]['local_classifier']) in [DenseKeras, DenseTorch, LogisticRegression]:
+                    if type(self.graph.nodes[node]['local_classifier']) in [DenseTorch, LogisticRegression]:
                         self.graph.nodes[node]['local_classifier']._save(model_path)
                         
                     continue
@@ -198,10 +194,7 @@ class HierarchicalClassifier(
                 timestamps = os.listdir(model_path)
                 last_timestamp = sorted(timestamps)[-1]
                 contents = os.listdir(os.path.join(model_path, last_timestamp))
-                if len([c for c in contents if c.endswith('SavedModel')]) > 0:
-                    classifier = DenseKeras._load(os.path.join(model_path, last_timestamp))
-
-                elif len([c for c in contents if c.startswith('non_param_dict')]) > 0:
+                if len([c for c in contents if c.startswith('non_param_dict')]) > 0:
                     classifier = DenseTorch._load(os.path.join(model_path, last_timestamp))
 
                 else:

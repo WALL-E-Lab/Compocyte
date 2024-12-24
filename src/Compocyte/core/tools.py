@@ -1,12 +1,11 @@
 import numpy as np
 from scipy.sparse.csr import csr_matrix
 import networkx as nx
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import ConfusionMatrixDisplay
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import scanpy as sc
 import pandas as pd
-import matplotlib
 
 def set_node_to_depth(dictionary, depth=0, node_to_depth={}):
     for node in dictionary.keys():
@@ -198,99 +197,6 @@ def is_pred_parent_or_child_or_equal(graph, true_label, pred_label, root_node):
 
     else:
         return False
-
-def plot_hierarchy_confusions(hierarchy, adata, graph, obs_names, fig_size=(12, 12)):
-    con_mat = con_mat_leaf_nodes(hierarchy, adata, graph, obs_names[1:], plot=False)
-    graph_weights = graph.copy()
-    get_leaf_nodes(hierarchy)
-    
-    hierarchy_list = []
-    generate_node_level_list(hierarchy, hierarchy_list)
-    np.array(hierarchy_list)[:, 0]
-    # Get pct of true cells stopped at some point along the hierarchy
-    for node, level in zip(
-        np.array(hierarchy_list)[:, 0], 
-        np.array(hierarchy_list)[:, 1].astype(int)
-    ):
-        obs_name_node = obs_names[level]
-        """
-        if (level + 1) == len(obs_names) or node in leaf_nodes:
-            graph_weights.nodes[node]['pct_stopped'] = 0.0
-            continue"""
-
-        adata_node = adata[adata.obs[obs_name_node] == node]
-        does_contain_stopped = None
-        for obs_name in obs_names[1:]:
-            if does_contain_stopped is None:
-                does_contain_stopped = adata_node.obs[f'{obs_name}_pred'] == 'stopped'
-
-            else:
-                does_contain_stopped = (does_contain_stopped) | (adata_node.obs[f'{obs_name}_pred'] == 'stopped')
-
-        # create index representing whether 'stopped' is in any pred column for any given cell
-        adata_node_stopped = adata_node[does_contain_stopped]
-        pct_stopped = len(adata_node_stopped) / max(len(adata_node), 1)
-        graph_weights.nodes[node]['pct_stopped'] = pct_stopped
-
-    # Get each confusion affecting more than 5 % of cells truly belonging to a given cell type
-    # Confusions across all levels and trees of the hierarchy
-    for confusion in np.dstack(np.where(con_mat > 0.05))[0]:
-        true_label = hierarchy_list[confusion[0]][0]
-        pred_label = hierarchy_list[confusion[1]][0]
-        # If confusions are unexpected, i. e. the predicted label is not an ancestor or descendant
-        # of the true label, add an edge with the adequate weight to the graph for plotting
-        # Replaces multiple confusion matrices as more straight forward and more condensed way
-        # to get an overview of relevant confusions
-        ancestor_marked = False
-        # Ensure that only one connection is drawn to the earliest relevant misclassification
-        # in the tree
-        for ancestor in nx.shortest_path(graph, 'Blood', pred_label):
-            if graph_weights.has_edge(true_label, ancestor):
-                ancestor_marked = True
-                break
-
-        if not is_pred_parent_or_child_or_equal(graph, true_label, pred_label, 'Blood') and not ancestor_marked:
-            graph_weights.add_edge(true_label, pred_label, weight=round(con_mat[confusion[0], confusion[1]] * 100, 1))
-
-    edges_hierarchy = list(graph.edges())
-    [e for e in graph_weights.edges() if e not in edges_hierarchy]
-    fig, ax = plt.subplots(figsize=fig_size)
-    pos = nx.drawing.nx_agraph.graphviz_layout(graph, prog='twopi')
-    node_colors = [
-                   matplotlib.cm.get_cmap('PuBu')(graph_weights.nodes[node]['pct_stopped'])[:-1] 
-                   for node in list(graph_weights)]
-    nx.draw(graph_weights, pos, with_labels=True, arrows=True, ax=ax, edgelist=[], node_color=node_colors, edgecolors='#1f78b4')
-    nx.draw_networkx_edges(graph_weights, pos, edgelist=edges_hierarchy, width=1.5, style='dashed')
-    labels = nx.get_edge_attributes(graph_weights, 'weight')
-    for l in labels.keys():
-        nx.draw_networkx_edges(graph_weights, pos, edgelist=[l], width=2, edge_color=matplotlib.cm.get_cmap('viridis')(labels[l]/100)[:-1], arrowsize=10, connectionstyle='arc3,rad=0.4', label='test')
-    for l in labels.keys():
-        labels[l] = f'{labels[l]} %'
-
-    sm = plt.cm.ScalarMappable(cmap=matplotlib.cm.get_cmap('viridis'), norm=plt.Normalize(vmin = 0, vmax=100))
-    sm._A = []
-    plt.colorbar(sm, label='% of cells misclassified', orientation='horizontal', fraction=0.046, pad=0.08) # perfect match
-    # plt.colorbar(sm, label='% of cells misclassified', orientation='horizontal', fraction=0.03, pad=0.04)
-    sm = plt.cm.ScalarMappable(cmap=matplotlib.cm.get_cmap('PuBu'), norm=plt.Normalize(vmin = 0, vmax=100))
-    sm._A = []
-    plt.colorbar(sm, label='% of cells early stopped at this node', orientation='horizontal', fraction=0.052, pad=0.04) # perfect match
-    # plt.colorbar(sm, label='% of cells early stopped at this node', orientation='horizontal', fraction=0.03, pad=0.04)
-    plt.title(
-        'Confusions of > 5 % of true cells, visualized as directed edge to the earliest misstep in the hierarchical classification process, proportion of true cells subjected to early stopping visualized as node color',
-        fontdict={'fontsize': 'x-large'}
-    )
-
-def last_level_con_mat(dict_of_cell_relations, adata, obs_name, labels, graph=None):
-    if graph is None:
-        graph = nx.DiGraph()
-        make_graph_from_edges(dict_of_cell_relations, graph)
-
-    con_mat = confusion_matrix(adata.obs[obs_name], adata.obs[f'{obs_name}_pred'], labels=labels, normalize='true')
-    con_mat_disp = ConfusionMatrixDisplay(con_mat, display_labels=labels)
-    fig, ax = plt.subplots(figsize=(12, 12))
-    con_mat_disp.plot(xticks_rotation='vertical', ax=ax, values_format='.2f')
-
-    return con_mat
 
 def delete_dict_entries(dictionary, del_key='classifier', first_run=True):
     if first_run:
