@@ -17,12 +17,12 @@ class DummyClassifier():
     def fit(self, *args, **kwargs):
         pass
 
-    def predict_logits(self, x: np.array):
+    def predict_logits(self, x: np.array) -> np.array:
         return np.ones(
             shape=(x.shape[0], 1)
         )
 
-    def predict(self, x: np.array, **kwargs):
+    def predict(self, x: np.array, **kwargs) -> np.array:
         pred = np.array([self.label] * x.shape[0])
 
         return pred

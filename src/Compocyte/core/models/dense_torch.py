@@ -52,15 +52,14 @@ class DenseTorch(torch.nn.Module):
 
         return x
 
-    def predict_logits(self, x):
+    def predict_logits(self, x) -> np.array:
         self.eval()
         x = torch.Tensor(x)
 
-        return self(x)
+        return self(x).detach().numpy()
 
-    def predict(self, x):        
+    def predict(self, x) -> np.array:        
         logits = self.predict_logits(x)
-        logits = logits.detach().numpy()
         pred = np.argmax(logits, axis=1)
         pred = np.array(
             [self.labels_dec[p] for p in pred]

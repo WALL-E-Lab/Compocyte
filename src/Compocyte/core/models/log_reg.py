@@ -1,3 +1,4 @@
+import numpy as np
 from sklearn.linear_model import LogisticRegression as LogReg
 import pickle
 import os
@@ -15,7 +16,7 @@ class LogisticRegression():
             n_jobs=n_jobs, 
             **logreg_kwargs)
 
-    def predict_logits(self, x):
+    def predict_logits(self, x) -> np.array:
         pred_activations = self.model.predict_proba(x)
             
         return pred_activations
