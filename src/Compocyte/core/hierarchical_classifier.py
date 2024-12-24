@@ -219,7 +219,7 @@ class HierarchicalClassifier(
         obs = self.obs_names[self.node_to_depth[node]]
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
         is_node = self.adata.obs[obs] == node
-        has_child_label = self.adata[child_obs] != ''
+        has_child_label = self.adata.obs[child_obs] != ''
         subset = self.adata[is_node & has_child_label]
         if features is not None:
             subset = subset[:, features]
@@ -334,7 +334,7 @@ class HierarchicalClassifier(
 
     def train_all_child_nodes(
         self,
-        parallelize = False) -> None:
+        parallelize: bool=False) -> None:
 
         nodes_to_train = []
         for node in self.graph.nodes:
