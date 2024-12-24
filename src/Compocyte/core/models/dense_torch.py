@@ -63,7 +63,7 @@ class DenseTorch(torch.nn.Module):
         logits = logits.detach().numpy()
         pred = np.argmax(logits, axis=1)
         pred = np.array(
-            [self.label_dec[p] for p in pred]
+            [self.labels_dec[p] for p in pred]
         )
 
         return pred    

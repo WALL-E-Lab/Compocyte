@@ -55,7 +55,7 @@ def predict(model, x, threshold=None):
     
     max_activation = np.max(logits, axis=1)
     pred = np.argmax(logits, axis=1).astype(int)
-    pred = np.array([model.label_dec[p] for p in pred])
+    pred = np.array([model.labels_dec[p] for p in pred])
     if threshold is not None:
         pred[max_activation <= threshold] = ''
 
@@ -174,7 +174,7 @@ def fit(
         x = x.todense()
         
     x = z_transform_properties(x)
-    y = np.array([model.label_enc[label] for label in y])
+    y = np.array([model.labels_enc[label] for label in y])
     if isinstance(model, DenseTorch):
         return fit_torch(model, x, y, **fit_kwargs)
     

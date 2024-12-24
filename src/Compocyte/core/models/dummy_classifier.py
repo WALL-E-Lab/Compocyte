@@ -23,7 +23,6 @@ class DummyClassifier():
         )
 
     def predict(self, x: np.array, **kwargs):
-        label = self.label_enc.keys()[0]
-        pred = np.array([label] * x.shape[0])
+        pred = np.array([self.label] * x.shape[0])
 
         return pred
