@@ -72,9 +72,9 @@ def samples_per_class(y):
 def fit_torch(
         model: DenseTorch, 
         x: np.array, y: np.array, 
-        epochs: int, batch_size: int, 
-        starting_lr: float, max_lr: float, momentum: float, 
-        parallelized: bool, 
+        epochs: int=40, batch_size: int=64, 
+        starting_lr: float=0.01, max_lr: float=0.1, momentum: float=0.5, 
+        parallelize: bool=True, 
         beta: float=0.8, gamma: float=2.0, class_balance: bool=True):
     
     torch.set_num_threads(int(os.environ['OMP_NUM_THREADS']))
@@ -89,8 +89,8 @@ def fit_torch(
         dataset, [0.8, 0.2])
     leaves_remainder = len(train_dataset) % batch_size == 1
     num_workers = min(os.cpu_count(), 2)
-    if parallelized:
-            num_workers = 0
+    if parallelize:
+        num_workers = 0
 
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,

@@ -304,7 +304,7 @@ class HierarchicalClassifier(
         n_output = len(labels)
         if n_output == 1:
             classifier_type = DummyClassifier
-            
+
         local_classifier = classifier_type(
             labels,
             n_input=n_input,
@@ -348,7 +348,7 @@ class HierarchicalClassifier(
 
         if not parallelize:
             for node in nodes_to_train:
-                self.train_single_node(node)
+                self.train_single_node(node, parallelize=False)
 
         else: 
             #initial_call not yet transferred
