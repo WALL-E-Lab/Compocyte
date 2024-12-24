@@ -1,10 +1,7 @@
 import numpy as np
 from scipy.sparse.csr import csr_matrix
 import networkx as nx
-from sklearn.metrics import ConfusionMatrixDisplay
 from copy import deepcopy
-import matplotlib.pyplot as plt
-import scanpy as sc
 import pandas as pd
 
 def set_node_to_depth(dictionary, depth=0, node_to_depth={}):
@@ -144,59 +141,6 @@ def get_leaf_nodes(hierarchy):
             leaf_nodes += [node]
 
     return leaf_nodes
-
-def generate_node_level_list(hierarchy, hierarchy_list, level=0):
-    for key in hierarchy.keys():
-        hierarchy_list.append((key, level))
-        generate_node_level_list(hierarchy[key], hierarchy_list, level+1)    
-
-def con_mat_leaf_nodes(hierarchy, adata, graph, obs_names, fig_size=(10, 10), plot=True):
-    leaf_nodes = get_leaf_nodes(hierarchy)
-    pred_names = [f'{x}_pred' for x in obs_names]
-    if type(adata) == sc.AnnData:
-        pred_df_true = adata.obs[obs_names].values
-        pred_df_pred = adata.obs[pred_names].values
-
-    elif type(adata) == pd.DataFrame:
-        pred_df_true = adata[obs_names].values
-        pred_df_pred = adata[pred_names].values
-
-    else:
-        raise TypeError()
-
-    side_by_side_true_pred = np.dstack([pred_df_true, pred_df_pred])
-    hierarchy_list = []
-    generate_node_level_list(hierarchy, hierarchy_list)
-    true_cells = np.zeros((len(hierarchy_list), 1))
-    con_mat = np.zeros((len(hierarchy_list), len(hierarchy_list)))
-    for i_true, (key_true, level_true) in enumerate(hierarchy_list[1:]):
-        idx_true = np.where(side_by_side_true_pred[:, level_true - 1, 0] == key_true)
-        n_true = len(idx_true[0])
-        true_cells[i_true + 1, 0] = n_true
-        for i_pred, (key_pred, level_pred) in enumerate(hierarchy_list[1:]):
-            idx_pred = np.where(side_by_side_true_pred[:, level_pred - 1, 1] == key_pred)
-            n_true_pred = len(np.intersect1d(idx_true, idx_pred))
-            con_mat[i_true + 1, i_pred + 1] = n_true_pred
-
-    true_cells[np.where(true_cells[:, 0] == 0), 0] = 1
-    # Divide by total number of cells truly belonging to each cell type to get proportion of cells
-    # of that type assigned to pred label
-    con_mat = con_mat / true_cells
-    if plot:
-        idx_leaf_nodes = np.where(np.isin(np.array(hierarchy_list)[:, 0], leaf_nodes))[0]
-        disp = ConfusionMatrixDisplay(con_mat[idx_leaf_nodes, :][:, idx_leaf_nodes], display_labels=np.array(hierarchy_list)[idx_leaf_nodes, 0])
-        fig, ax = plt.subplots(figsize=fig_size)
-        disp.plot(xticks_rotation='vertical', ax=ax, values_format='.2f')
-
-    return con_mat
-
-def is_pred_parent_or_child_or_equal(graph, true_label, pred_label, root_node):
-    if pred_label in nx.shortest_path(graph, root_node, true_label) or \
-    true_label in nx.shortest_path(graph, root_node, pred_label):
-        return True
-
-    else:
-        return False
 
 def delete_dict_entries(dictionary, del_key='classifier', first_run=True):
     if first_run:
@@ -351,18 +295,3 @@ class Hierarchical_Metric():
             label_metrics.loc[label] = [np.round(Fb, 2), np.round(hR, 2), np.round(hP, 2)]
 
         return label_metrics
-    
-    
-   
-def annotate_hierarchical(adata, graph, annotate_from_obs_key, root):
-    len(adata.obs_names)
-    for cell_number, cell_name in enumerate(adata.obs[annotate_from_obs_key]):
-        ancestors = nx.shortest_path(graph, source = root, target = cell_name)
-        for i,a in enumerate(ancestors):
-            try:
-                temp_vec = list(adata.obs[f'Level_{i}'])
-            except KeyError:
-                adata.obs[f'Level_{i}'] = np.nan
-                temp_vec = list(adata.obs[f'Level_{i}'])
-            temp_vec[cell_number] = a
-            adata.obs[f'Level_{i}'] = temp_vec
