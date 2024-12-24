@@ -87,129 +87,9 @@ class HierarchyBase():
         depth_parent = self.node_to_depth[parent_node]
 
         return self.obs_names[depth_parent]
-
-    def set_f_classif_feature_selecter(self, node, number_features=50):
-        """save f_classif feature selecter in one node, train only once""" 
-
-        # To do: is this really only trained once or is that something that needs to be implemented???
-
-        self.graph.nodes[node]['f_classif_feature_selecter'] = SelectKBest(f_classif, k = number_features)
-        self.graph.nodes[node]['f_classif_feature_selecter_trained'] = False
-
-    def fit_f_classif_feature_selecter(self, node, x_feature_fit, y_feature_fit):
-        """fit f_classif feature selecter once, i.e. only with one trainings dataset"""
-
-        # To do: see above? need to be sure that features are not selected again for every new training run
-
-        if self.graph.nodes[node]['f_classif_feature_selecter_trained'] is False:
-            self.graph.nodes[node]['f_classif_feature_selecter'].fit(x_feature_fit, y_feature_fit)
-            self.graph.nodes[node]['f_classif_feature_selecter_trained'] = True
-
-        else: 
-            print('f_classif Feature selecter already trained, using trained selecter!')
-
-    def ensure_existence_classifier(self, node, input_len, classifier=DenseTorch, n_output=None, **kwargs):
-        """Ensure that for the specified node in the graph, a local classifier exists under the
-        key 'local_classifier'.
-        """
-        
-        if n_output is None:
-            output_len = len(list(self.graph.adj[node].keys()))
-
-        else:
-            output_len = n_output
-
-        define_classifier = False
-        if 'local_classifier' not in self.graph.nodes[node].keys():
-            define_classifier = True
-
-        else:
-            try:
-                current_input_len = self.graph.nodes[node]['local_classifier'].n_input
-                current_output_len = self.graph.nodes[node]['local_classifier'].n_output
-                if current_input_len != input_len or current_output_len != output_len:
-                    # To do: At some point (once changing the hierarchy becomes a thing) this should 
-                    # change the layer structure, rather than overwriting it all together
-                    define_classifier = True
-
-            except AttributeError:
-                pass
-
-        if define_classifier:
-            if 'preferred_classifier' in self.graph.nodes[node].keys():
-                self.graph.nodes[node]['local_classifier'] = self.graph.nodes[node]['preferred_classifier'](n_input=input_len, n_output=output_len, **kwargs)
-
-            else:
-                self.graph.nodes[node]['local_classifier'] = classifier(n_input=input_len, n_output=output_len, **kwargs)
-
-        return type(self.graph.nodes[node]['local_classifier'])
-
-    def ensure_existence_label_encoder(self, node):
-        """Add explanation.
-        """
-
-        if 'label_encoder' not in self.graph.nodes[node].keys():
-            label_encoder = LabelEncoder()
-            children_labels = list(self.graph.adj[node].keys())
-            label_encoder.fit(np.array(children_labels))
-            self.graph.nodes[node]['label_encoder'] = label_encoder
-
-    def transform_y(self, node, y):
-        """Add explanation.
-        """
-
-        num_classes = len(list(self.graph.adj[node].keys()))
-        y_int = self.graph.nodes[node]['label_encoder'].transform(y)
-        y_onehot = keras.utils.to_categorical(y_int, num_classes=num_classes)
-
-        return y_int, y_onehot
-
+    
     def get_child_nodes(self, node):
         return self.graph.adj[node].keys()
-
-    def is_trained_at(self, node):
-        return 'local_classifier' in self.graph.nodes[node].keys()
-
-    def predict_single_node_proba(self, node, x):
-        """Predict output and fit downstream analysis based on a probability threshold (default = 90%)"""
-        # print(f'type_classifier from predict_.._proba: {type_classifier}')
-        type_classifier = type(self.graph.nodes[node]['local_classifier'])
-        if type_classifier in [DenseKeras, DenseTorch, LogisticRegression]:
-            y_pred_proba = self.graph.nodes[node]['local_classifier'].predict(x)
-            #y_pred_proba array_like with length of predictable classes, entries of form x element [0,1]
-            #with sum(y_pred) = 1 along axis 1 (for one cell)
-
-            #print(f'y_pred_proba: {y_pred_proba[:10]}')
-            #print(f'y_pred_proba.shape: {y_pred_proba.shape}')
-
-            #test if probability for one class is larger than threshold 
-            largest_idx = np.argmax(y_pred_proba, axis = -1)
-
-            #print(f'largest_idx: {largest_idx[:10]}')
-            if 'threshold' in self.graph.nodes[node]:
-                threshold = self.graph.nodes[node]['threshold']
-
-            else:
-                threshold = self.threshold
-
-            is_above_threshold = np.any(y_pred_proba >= threshold, axis=1)
-            largest_idx = largest_idx.astype(np.float32)
-            largest_idx[~is_above_threshold] = np.nan
-
-        else:
-            raise ValueError('Not yet supported probability classification classifier type')
-
-        return largest_idx
-
-    def set_preferred_classifier(self, node, type_classifier):
-        self.graph.nodes[node]['preferred_classifier'] = type_classifier
-
-    def get_preferred_classifier(self, node):
-        if 'preferred_classifier' in self.graph.nodes[node].keys():
-            return self.graph.nodes[node]['preferred_classifier']
-
-        else:
-            return None
 
     def get_leaf_nodes(self):
         return [
@@ -232,7 +112,65 @@ class HierarchyBase():
     def update_hierarchy(self, dict_of_cell_relations, root_node=None, overwrite=False):
         dict_of_cell_relations_with_classifiers = deepcopy(dict_of_cell_relations)
         dict_of_cell_relations, contains_classifier = delete_dict_entries(dict_of_cell_relations, 'classifier')
-        self.update_hierarchy_LCPN(dict_of_cell_relations, root_node=root_node)
+        if root_node is not None:
+            self.root_node = root_node
+
+        if dict_of_cell_relations == self.dict_of_cell_relations:
+            return
+
+        self.ensure_depth_match(dict_of_cell_relations, self.obs_names)
+        self.ensure_unique_nodes(dict_of_cell_relations)
+        all_nodes_pre = flatten_dict(self.dict_of_cell_relations)
+        self.dict_of_cell_relations = dict_of_cell_relations
+        all_nodes_post = flatten_dict(self.dict_of_cell_relations)
+        self.all_nodes = all_nodes_post
+        self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
+        new_graph = nx.DiGraph()
+        make_graph_from_edges(self.dict_of_cell_relations, new_graph)
+
+        new_nodes = [n for n in all_nodes_post if n not in all_nodes_pre]
+        [n for n in all_nodes_pre if n not in all_nodes_post]
+        moved_nodes = []
+        classifier_nodes = []
+        for node in all_nodes_post:
+            if node in new_nodes:
+                continue
+
+            # Check if node was moved within the hierarchy, i. e. assigned
+            # to a different parent node
+            # Does not change the strategy of assigning the previous node attributes
+            # but may end up a fact of interest
+            if not node == self.root_node:
+                parent_post = self.get_parent_node(node, graph=new_graph)
+                parent_pre = self.get_parent_node(node)
+                if parent_pre != parent_post:
+                    moved_nodes.append(node)
+
+            # Transfer properties, such as local classifier, from old graph
+            # to new graph
+            for item in self.graph.nodes[node]:
+                new_graph.nodes[node][item] = deepcopy(self.graph.nodes[node][item])
+
+            if "local_classifier" in self.graph.nodes[node]:
+                classifier_nodes.append(node) # Define nodes that contain a classifier
+
+            print(f'Transfered to {node}, local classifier {"transferred" if "local_classifier" in self.graph.nodes[node] else "not transferred"}')
+
+        self.graph = new_graph
+        for node in classifier_nodes:
+            print(f'Ensuring correct output architecture for {node}.')
+            child_nodes = self.get_child_nodes(node)
+            # Previously reset all classifier nodes
+            # Bad idea because you want to conserve as much of the training progress as possible,
+            # resetting as little as possible, as much as necessary
+            if True in [n in new_nodes or n in moved_nodes for n in [node] + list(child_nodes)]:
+                if type(self.graph.nodes[node]['local_classifier']) is LogisticRegression:
+                    print('Cannot adjust output structure of logistic regression classifier.')
+                    continue
+
+                # reset label encoding, unproblematic because the final layer is reinitilaized anyway
+                self.graph.nodes[node]['label_encoding'] = {}
+                self.graph.nodes[node]['local_classifier'].reset_output(len(child_nodes))
 
         if contains_classifier:
             self.import_classifiers(dict_of_cell_relations_with_classifiers, overwrite=overwrite)
