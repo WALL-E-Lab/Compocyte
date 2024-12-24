@@ -3,6 +3,7 @@ from sklearn.feature_selection import SelectKBest, f_classif
 from Compocyte.core.base.data_base import DataBase
 from Compocyte.core.base.hierarchy_base import HierarchyBase
 from Compocyte.core.base.export_import_base import ExportImportBase
+from Compocyte.core.models.dummy_classifier import DummyClassifier
 from Compocyte.core.models.fit_methods import fit, predict
 from Compocyte.core.models.log_reg import LogisticRegression
 from Compocyte.core.models.dense_torch import DenseTorch
@@ -301,6 +302,9 @@ class HierarchicalClassifier(
         labels = subset.obs[child_obs].unique().tolist()
         n_input = len(features)
         n_output = len(labels)
+        if n_output == 1:
+            classifier_type = DummyClassifier
+            
         local_classifier = classifier_type(
             labels,
             n_input=n_input,
