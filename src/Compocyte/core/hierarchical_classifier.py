@@ -256,7 +256,7 @@ class HierarchicalClassifier(
         
         subset = self.select_subset(node)
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
-        if len(subset[child_obs].unique()) <= 1:
+        if len(subset.obs[child_obs].unique()) <= 1:
             return self.adata.var_names.tolist()
         
         # Rule of thumb from Google's rules of ML:
@@ -298,7 +298,7 @@ class HierarchicalClassifier(
         
         subset = self.select_subset(node)
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
-        labels = subset[child_obs].unique().tolist()
+        labels = subset.obs[child_obs].unique().tolist()
         n_input = len(features)
         n_output = len(labels)
         local_classifier = classifier_type(
