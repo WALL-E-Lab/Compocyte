@@ -21,8 +21,6 @@ class HierarchicalClassifier(
         DataBase,
         HierarchyBase,
         ExportImportBase):
-    """Add explanation
-    """
 
     def __init__(
             self,
@@ -31,52 +29,20 @@ class HierarchicalClassifier(
             root_node=None,
             dict_of_cell_relations=None, 
             obs_names=None,
-            prob_based_stopping=False,
-            threshold=None,
             default_input_data='normlog',
-            use_feature_selection=True,
-            feature_select_using_LR=False,
-            min_features=30,
-            max_features=5000,
-            features_per_classifier=None, # None, int or function
-            resample=False,
             num_threads=None,
-            ignore_counts=False, # if True, X is kept as is
-            projected_total_cells=100000,
-            mc_dropout=False, # uncertainty management using mc_dropout, only works with NN and prob_based_stopping
-            sequential_kwargs={},
-            # hidden_layers learning_rate momentum loss_function
-            # dropout discretization l2_reg_input
-            train_kwargs={}  # batch_size epochs verbose plot class_balance beta gamma
+            ignore_counts=False,
             ):
 
         self.save_path = save_path
-        self.prob_based_stopping = prob_based_stopping
-        if threshold is None:
-            self.threshold = 0.9
-            
-        else:
-            self.threshold = threshold
         self.default_input_data = default_input_data
-        self.use_feature_selection = use_feature_selection
-        self.feature_select_using_LR = feature_select_using_LR
-        self.min_features = min_features
-        self.max_features = max_features
-        self.features_per_classifier = features_per_classifier
-        self.resample = resample
         self.num_threads = num_threads
         self.adata = None
         self.var_names = None
         self.dict_of_cell_relations = None
         self.root_node = None
         self.obs_names = None
-        self.trainings = {}
-        self.predictions = {}
         self.ignore_counts = ignore_counts
-        self.projected_total_cells = projected_total_cells
-        self.mc_dropout = mc_dropout
-        self.sequential_kwargs = sequential_kwargs
-        self.train_kwargs = train_kwargs
 
         if type(adata) != type(None):
             self.load_adata(adata)
@@ -246,7 +212,7 @@ class HierarchicalClassifier(
             self,
             node: str,
             overwrite: bool=False,
-            n_features: int=None,
+            n_features: int=-1,
             max_features: int=None,
             min_features: int=30,
             test_factor: float=1.0):
@@ -262,7 +228,7 @@ class HierarchicalClassifier(
         
         # Rule of thumb from Google's rules of ML:
         # At least 100 samples per feature
-        if n_features is None:
+        if n_features < 0:
             # test_factor should be taken account during hypopt with reduced sample numbers
             n_features = int(len(subset) / 100 * test_factor)
 
@@ -372,7 +338,7 @@ class HierarchicalClassifier(
     def predict_single_node(
         self, 
         node: str,
-        threshold: float=None) -> np.array:
+        threshold: float=-1) -> np.array:
 
         features = self.graph.nodes[node]['selected_var_names']
         subset = self.select_subset_prediction(node, features=features)
@@ -400,7 +366,7 @@ class HierarchicalClassifier(
     def predict_all_child_nodes(
         self, 
         node: str,
-        threshold: float=None):
+        threshold: float=-1):
 
         threshold = self.graph.nodes[node].get('threshold', threshold)
         self.predict_single_node(node, threshold=threshold)

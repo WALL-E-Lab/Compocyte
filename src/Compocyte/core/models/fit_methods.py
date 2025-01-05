@@ -20,7 +20,6 @@ def predict_logits(model, x):
     if hasattr(x, 'todense'):
         x = x.todense()
 
-    
     x = z_transform_properties(x)
     if isinstance(model, DenseTorch):
         logits = model.predict_logits(x)
@@ -36,7 +35,7 @@ def predict_logits(model, x):
 
     return logits
 
-def predict(model, x, threshold=None):
+def predict(model, x, threshold=-1):
     if hasattr(x, 'todense'):
         x = x.todense()
 
@@ -56,8 +55,7 @@ def predict(model, x, threshold=None):
     max_activation = np.max(logits, axis=1)
     pred = np.argmax(logits, axis=1).astype(int)
     pred = np.array([model.labels_dec[p] for p in pred])
-    if threshold is not None:
-        pred[max_activation <= threshold] = ''
+    pred[max_activation <= threshold] = ''
 
     return pred
 
@@ -81,6 +79,7 @@ def fit_torch(
     logger.info(f'num_threads set to {torch.get_num_threads()}')
     logger.info(f'OMP_NUM_THREADS set to {os.environ["OMP_NUM_THREADS"]}')
 
+    batch_size = min(batch_size, len(x))
     y = to_categorical(y, num_classes=len(model.labels_enc.keys()))
     x = torch.Tensor(x)
     y = torch.Tensor(y)

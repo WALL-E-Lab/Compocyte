@@ -2,7 +2,7 @@ import numpy as np
 
 
 class DummyClassifier():
-    def __init__(self, labels: list):
+    def __init__(self, labels: list, **kwargs):
         """Dummy classifier for test cases in which there is only one available child \
         label. Will return the available label as prediction for all input cells with \
         a simulated activation of 1.
