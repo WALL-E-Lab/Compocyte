@@ -293,7 +293,8 @@ class HierarchicalClassifier(
             if len(subset) == 0:
                 return
             
-            self.run_feature_selection(node, **kwargs)
+            features = self.run_feature_selection(node, **kwargs)
+            self.graph.nodes[node]['selected_var_names'] = features
             self.create_local_classifier(node, **kwargs)
         
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
