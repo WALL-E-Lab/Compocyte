@@ -34,19 +34,7 @@ class Tuner():
                 # No hypopt results exist for this node
                 # Use defaults    
                 if tup is None:
-                    kwargs = {
-                        'n_features': -1,
-                        'hidden_layers': [64, 64],
-                        'dropout': 0.4,
-                        'epochs': 40,
-                        'batch_size': 64,
-                        'starting_lr': .01,
-                        'max_lr': .1,
-                        'momentum': .5,
-                        'beta': .8,
-                        'gamma': 2.0,
-                        'threshold': .9,
-                    }
+                    continue
                     
                 else:
                     kwargs = {

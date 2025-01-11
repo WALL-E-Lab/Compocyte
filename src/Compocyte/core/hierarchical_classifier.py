@@ -281,7 +281,7 @@ class HierarchicalClassifier(
 
     def train_single_node(self, node, **fit_kwargs):
         has_classifier = 'local_classifier' in self.graph.nodes[node].keys()
-        if hasattr(self, 'tuned_kwargs'):
+        if hasattr(self, 'tuned_kwargs') and node in self.tuned_kwargs:
             kwargs = self.tuned_kwargs[node]
             fit_kwargs = kwargs
 
