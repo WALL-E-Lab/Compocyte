@@ -281,13 +281,20 @@ class HierarchicalClassifier(
 
     def train_single_node(self, node, **fit_kwargs):
         has_classifier = 'local_classifier' in self.graph.nodes[node].keys()
+        if hasattr(self, 'tuned_kwargs'):
+            kwargs = self.tuned_kwargs[node]
+            fit_kwargs = kwargs
+
+        else:
+            kwargs = {}
+
         if not has_classifier:
             subset = self.select_subset(node)
             if len(subset) == 0:
                 return
             
-            self.run_feature_selection(node)
-            self.create_local_classifier(node)
+            self.run_feature_selection(node, **kwargs)
+            self.create_local_classifier(node, **kwargs)
         
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
         features = self.graph.nodes[node]['selected_var_names']
