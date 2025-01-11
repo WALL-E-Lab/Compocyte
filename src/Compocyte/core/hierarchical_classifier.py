@@ -281,21 +281,39 @@ class HierarchicalClassifier(
 
     def train_single_node(self, node, **fit_kwargs):
         has_classifier = 'local_classifier' in self.graph.nodes[node].keys()
+        # This weird approach is currently necessary to allow for training with mp.pool
         if hasattr(self, 'tuned_kwargs') and node in self.tuned_kwargs:
             kwargs = self.tuned_kwargs[node]
-            fit_kwargs = kwargs
+            features_kwargs = {
+                'n_features': kwargs['n_features']
+            }
+            classifier_kwargs = {
+                'hidden_layers': kwargs['hidden_layers'],
+                'dropout': kwargs['dropout'],
+            }
+            fit_kwargs = {
+                'epochs': kwargs['epochs'],
+                'batch_size': kwargs['batch_size'],
+                'starting_lr': kwargs['starting_lr'],
+                'max_lr': kwargs['max_lr'],
+                'momentum': kwargs['momentum'],
+                'beta': kwargs['beta'],
+                'gamma': kwargs['gamma'],
+            }
+            self.graph.nodes[node]['treshold'] = kwargs['threshold']
 
         else:
-            kwargs = {}
+            features_kwargs = {}
+            classifier_kwargs = {}
 
         if not has_classifier:
             subset = self.select_subset(node)
             if len(subset) == 0:
                 return
             
-            features = self.run_feature_selection(node, **kwargs)
+            features = self.run_feature_selection(node, **features_kwargs)
             self.graph.nodes[node]['selected_var_names'] = features
-            self.create_local_classifier(node, **kwargs)
+            self.create_local_classifier(node, **classifier_kwargs)
         
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
         features = self.graph.nodes[node]['selected_var_names']
