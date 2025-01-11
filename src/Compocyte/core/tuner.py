@@ -51,7 +51,7 @@ class Tuner():
                         'threshold': tup[10],
                     }
 
-                if not hasattr(self, 'tuned_kwargs'):
+                if not hasattr(classifier, 'tuned_kwargs'):
                     classifier.tuned_kwargs = {}
 
                 classifier.tuned_kwargs[node] = kwargs
