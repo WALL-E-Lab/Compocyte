@@ -326,7 +326,11 @@ class HierarchicalClassifier(
         y = subset.obs[child_obs].values
         print(f'Training at {node}.')
 
-        return fit(model, x, y, **fit_kwargs)
+        # Necessary to avoid data loss when using mp.pool
+        return {
+            **self.graph.nodes[node],
+            'learning_curve': fit(model, x, y, **fit_kwargs)
+        }
 
     def train_all_child_nodes(
         self,
