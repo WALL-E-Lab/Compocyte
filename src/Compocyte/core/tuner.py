@@ -27,7 +27,7 @@ class Tuner():
             n_children = len(list(classifier.graph.successors(node)))
             if n_children >= 1:
                 subset = classifier.select_subset(node)
-                if len(subset) == 0:
+                if len(subset) < 5:
                     continue
 
                 tup = self.get_best_trial(node)
@@ -95,7 +95,7 @@ class Tuner():
                 n_children = len(list(classifier.graph.successors(node)))
                 if n_children >= 1:
                     subset = classifier.select_subset(node)
-                    if len(subset) == 0:
+                    if len(subset) < 5:
                         continue
                         
                     features = classifier.run_feature_selection(
@@ -135,7 +135,7 @@ class Tuner():
                 features = classifier.graph.nodes[node]['selected_var_names']
                 model = classifier.graph.nodes[node]['local_classifier']
                 subset = classifier.select_subset_prediction(node, features=features)
-                if len(subset) == 0:
+                if len(subset) < 5:
                     continue
                     
                 x = subset.X
