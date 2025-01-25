@@ -300,7 +300,7 @@ class HierarchicalClassifier(
                 'beta': kwargs['beta'],
                 'gamma': kwargs['gamma'],
             }
-            self.graph.nodes[node]['treshold'] = kwargs['threshold']
+            self.graph.nodes[node]['threshold'] = kwargs['threshold']
 
         else:
             features_kwargs = {}
