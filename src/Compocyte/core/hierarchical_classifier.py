@@ -370,6 +370,9 @@ class HierarchicalClassifier(
         node: str,
         threshold: float=-1) -> np.array:
 
+        if 'local_classifier' not in self.graph.nodes[node]:
+            return []
+        
         features = self.graph.nodes[node]['selected_var_names']
         subset = self.select_subset_prediction(node, features=features)
         if len(subset) == 0:
