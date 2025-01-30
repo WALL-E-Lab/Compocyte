@@ -399,9 +399,13 @@ class HierarchicalClassifier(
     def predict_all_child_nodes(
         self, 
         node: str,
-        threshold: float=-1):
+        threshold: float=-1,
+        mlnp: bool=False):
 
-        threshold = self.graph.nodes[node].get('threshold', threshold)
+        # For mandatory leaf node prediction use -1
+        if not mlnp:
+            threshold = self.graph.nodes[node].get('threshold', threshold)
+
         self.predict_single_node(node, threshold=threshold)
         for child_node in self.get_child_nodes(node):
             if len(self.get_child_nodes(child_node)) == 0:
