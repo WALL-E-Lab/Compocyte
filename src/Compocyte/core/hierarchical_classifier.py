@@ -411,5 +411,5 @@ class HierarchicalClassifier(
             if len(self.get_child_nodes(child_node)) == 0:
                 continue
 
-            self.predict_all_child_nodes(child_node, threshold=threshold)
+            self.predict_all_child_nodes(child_node, threshold=threshold, mlnp=mlnp)
 
