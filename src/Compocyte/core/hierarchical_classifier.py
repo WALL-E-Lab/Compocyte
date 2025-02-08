@@ -186,7 +186,54 @@ class HierarchicalClassifier(
                         p = pickle.load(f)
                         self.graph.nodes[node][key] = p
 
-    def select_subset(self, node: str, features: list=None) -> sc.AnnData:
+    def limit_cells(
+            subset: sc.AnnData, 
+            max_cells: int, 
+            stratify_by: str) -> sc.AnnData:
+        
+        if len(subset) > max_cells:
+            rng = np.random.default_rng(42)
+            datasets = subset.obs[stratify_by].unique()
+            cells_per_dataset = max_cells // len(datasets)
+            limited_indices = []
+
+            for dataset in datasets:
+                dataset_indices = subset.obs[subset.obs['dataset'] == dataset].index
+                if len(dataset_indices) > cells_per_dataset:
+                    dataset_indices = rng.choice(dataset_indices, cells_per_dataset, replace=False)
+                    
+                limited_indices.extend(dataset_indices)
+
+            # If we have fewer cells than max_cells, randomly sample additional cells to reach max_cells
+            if len(limited_indices) < max_cells:
+                additional_indices = rng.choice(
+                    subset.obs.index.difference(limited_indices), 
+                    max_cells - len(limited_indices), 
+                    replace=False)
+                limited_indices.extend(additional_indices)
+
+            subset = subset[limited_indices, :]
+
+        return subset
+
+    def introduce_limit(self, max_cells: int, stratify_by: str):
+        """
+        Introduces a limit on the number of cells per local classifier training and \
+            specifies a stratification criterion.
+
+        Parameters:
+        max_cells (int): The maximum number of cells allowed.
+        stratify_by (str): The criterion by which to stratify the cells.
+        """
+
+        self.max_cells = max_cells
+        self.stratify_by = stratify_by
+
+    def select_subset(
+            self, 
+            node: str, 
+            features: list=None) -> sc.AnnData:
+        
         obs = self.obs_names[self.node_to_depth[node]]
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
         is_node = self.adata.obs[obs] == node
@@ -194,6 +241,11 @@ class HierarchicalClassifier(
         subset = self.adata[is_node & has_child_label]
         if features is not None:
             subset = subset[:, features]
+
+        max_cells = getattr(self, 'max_cells', None)
+        stratify_by = getattr(self, 'stratify_by', None)
+        if max_cells is not None and stratify_by is not None:
+            subset = self.limit_cells(subset, max_cells, stratify_by)
 
         return subset
     
@@ -339,7 +391,7 @@ class HierarchicalClassifier(
     def train_all_child_nodes(
         self,
         parallelize: bool=False) -> None:
-
+        
         nodes_to_train = []
         for node in self.graph.nodes:
             n_children = len(list(self.graph.successors(node)))

@@ -78,8 +78,9 @@ class Tuner():
         num_threads=None):
         
         adata = sc.read_h5ad(self.adata_path)
+        rng = np.random.default_rng(42)
         adata = adata[
-            np.random.choice(adata.obs_names, int(len(adata) / test_factor), replace=False)]
+            rng.choice(adata.obs_names, int(len(adata) / test_factor), replace=False)]
         performance_per_cv = pd.DataFrame(columns=['node', 'threshold', 'max_correct', 'correct_total'])
         for dataset in adata.obs[cv_key].unique():
             train_adata = adata[adata.obs[cv_key] == dataset]
