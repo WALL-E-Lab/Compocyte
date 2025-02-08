@@ -1,3 +1,5 @@
+import os
+import pickle
 import numpy as np
 
 
@@ -27,3 +29,20 @@ class DummyClassifier():
         pred = np.array([self.label] * x.shape[0])
 
         return pred
+    
+    def _save(self, path):
+        for attribute in ['label', 'labels_enc']:
+            with open(os.path.join(path, f'{attribute}.pickle'), 'wb') as f:
+                pickle.dump(
+                    getattr(self, attribute, None), f)
+
+    @classmethod
+    def _load(cls, path):
+        args = {}
+        for attribute in ['label', 'labels_enc']:
+            with open(os.path.join(path, f'{attribute}.pickle'), 'rb') as f:
+                args[attribute] = pickle.load(f)
+
+        classifier = cls(**args)
+
+        return classifier

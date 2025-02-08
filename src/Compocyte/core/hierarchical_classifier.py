@@ -109,7 +109,8 @@ class HierarchicalClassifier(
                     if not os.path.exists(model_path):
                         os.makedirs(model_path)
 
-                    if type(self.graph.nodes[node]['local_classifier']) in [DenseTorch, LogisticRegression]:
+                    local_classifier = self.graph.nodes[node]['local_classifier']
+                    if isinstance(local_classifier, DenseTorch) or isinstance(local_classifier, LogisticRegression) or isinstance(local_classifier, DummyClassifier):
                         self.graph.nodes[node]['local_classifier']._save(model_path)
                         
                     continue
@@ -164,8 +165,11 @@ class HierarchicalClassifier(
                 if len([c for c in contents if c.startswith('non_param_dict')]) > 0:
                     classifier = DenseTorch._load(os.path.join(model_path, last_timestamp))
 
-                else:
+                elif 'labels_dec.pickle' in contents:
                     classifier = LogisticRegression._load(os.path.join(model_path, last_timestamp))
+
+                else:
+                    classifier = DummyClassifier._load(os.path.join(model_path, last_timestamp))
 
                 self.graph.nodes[node]['local_classifier'] = classifier
 
