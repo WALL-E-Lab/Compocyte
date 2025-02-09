@@ -187,6 +187,7 @@ class HierarchicalClassifier(
                         self.graph.nodes[node][key] = p
 
     def limit_cells(
+            self,
             subset: sc.AnnData, 
             max_cells: int, 
             stratify_by: str) -> sc.AnnData:
