@@ -85,8 +85,8 @@ class Tuner():
             rng.choice(adata.obs_names, int(len(adata) / test_factor), replace=False)]
         performance_per_cv = pd.DataFrame(columns=['node', 'threshold', 'max_correct', 'correct_total'])
         for dataset in adata.obs[cv_key].unique():
-            train_adata = adata[adata.obs[cv_key] == dataset]
-            val_adata = adata[adata.obs[cv_key] != dataset]
+            train_adata = adata[adata.obs[cv_key] != dataset]
+            val_adata = adata[adata.obs[cv_key] == dataset]
             classifier = HierarchicalClassifier(
                 'testing', 
                 root_node=self.root_node, 
