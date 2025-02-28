@@ -207,7 +207,7 @@ def fit(
         return fit_logreg(model, x, y, **fit_kwargs)
     
     elif isinstance(model, BoostedTrees):
-        return fit_trees(x, y, **fit_kwargs)
+        return fit_trees(model, x, y, **fit_kwargs)
 
     elif isinstance(model, DummyClassifier):
         return model.fit(x, y)
