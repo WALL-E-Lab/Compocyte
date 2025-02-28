@@ -311,7 +311,7 @@ class HierarchicalClassifier(
             self, 
             node: str,
             overwrite: bool=False,
-            classifier_type: Union[DenseTorch, LogisticRegression]=DenseTorch,
+            classifier_type: Union[DenseTorch, LogisticRegression, BoostedTrees]=DenseTorch,
             **classifier_kwargs):
         
         has_classifier = 'local_classifier' in self.graph.nodes[node].keys()
@@ -373,7 +373,11 @@ class HierarchicalClassifier(
             
             features = self.run_feature_selection(node, **features_kwargs)
             self.graph.nodes[node]['selected_var_names'] = features
-            self.create_local_classifier(node, **classifier_kwargs)
+            classifier_type = DenseTorch
+            if -1 in classifier_kwargs['hidden_layers']:
+                classifier_type = BoostedTrees
+                
+            self.create_local_classifier(node, classifier_type=classifier_type, **classifier_kwargs)
         
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
         features = self.graph.nodes[node]['selected_var_names']

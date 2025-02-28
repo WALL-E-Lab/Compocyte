@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 from Compocyte.core.hierarchical_classifier import HierarchicalClassifier
+from Compocyte.core.models.dense_torch import DenseTorch
+from Compocyte.core.models.trees import BoostedTrees
 from Compocyte.core.models.fit_methods import fit, predict_logits
 
 class Tuner():
@@ -109,11 +111,17 @@ class Tuner():
                         min_features=30,
                         test_factor=test_factor)
                     classifier.graph.nodes[node]['selected_var_names'] = features
+                    classifier_type = DenseTorch
+                    hidden_layers = hidden_layers if isinstance(hidden_layers, list) else eval(hidden_layers)
+                    if -1 in hidden_layers:
+                        classifier_type = BoostedTrees
+
                     classifier.create_local_classifier(
                         node,
-                        hidden_layers=hidden_layers if isinstance(hidden_layers, list) else eval(hidden_layers),
+                        hidden_layers=hidden_layers,
                         dropout=dropout,
-                        batchnorm=True
+                        batchnorm=True,
+                        classifier_type=classifier_type
                     )
                     features = classifier.graph.nodes[node]['selected_var_names']
                     model = classifier.graph.nodes[node]['local_classifier']
