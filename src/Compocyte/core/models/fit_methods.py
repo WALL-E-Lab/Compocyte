@@ -172,7 +172,7 @@ def fit_logreg(model: LogisticRegression, x, y):
 
 def fit_trees(model: BoostedTrees, x, y, **fit_kwargs):
     x, x_val, y, y_val = train_test_split(x, y, train_size=0.75, random_state=42)
-    fit = model.fit(
+    fit = model.model.fit(
         x, y,
         eval_set=[(x_val, y_val)],
         **fit_kwargs
