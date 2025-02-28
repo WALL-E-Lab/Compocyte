@@ -3,6 +3,7 @@ import os
 from typing import Union
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 import torch
 import logging
 import torch.utils
@@ -10,6 +11,7 @@ import torch.utils.data
 from Compocyte.core.models.dense_torch import DenseTorch
 from Compocyte.core.models.dummy_classifier import DummyClassifier
 from Compocyte.core.models.log_reg import LogisticRegression
+from Compocyte.core.models.trees import BoostedTrees
 from Compocyte.core.tools import z_transform_properties
 from keras.utils import to_categorical
 from balanced_loss import Loss as BalancedLoss
@@ -25,6 +27,9 @@ def predict_logits(model, x):
         logits = model.predict_logits(x)
     
     elif isinstance(model, LogisticRegression):
+        logits = model.predict_logits(x)
+
+    elif isinstance(model, BoostedTrees):
         logits = model.predict_logits(x)
 
     elif isinstance(model, DummyClassifier):
@@ -44,6 +49,9 @@ def predict(model, x, threshold=-1):
         logits = model.predict_logits(x)
     
     elif isinstance(model, LogisticRegression):
+        logits = model.predict_logits(x)
+
+    elif isinstance(model, BoostedTrees):
         logits = model.predict_logits(x)
 
     elif isinstance(model, DummyClassifier):
@@ -154,7 +162,25 @@ def fit_torch(
     return learning_curve
 
 def fit_logreg(model: LogisticRegression, x, y):
-    return model.model.fit(x, y)
+    fit = model.fit(
+        x, y,
+    )
+    model.labels_enc = {label: i for i, label in enumerate(model.model.classes_)}
+    model.labels_dec = {model.labels_enc[label]: label for label in model.labels_enc.keys()}
+
+    return fit
+
+def fit_trees(model: BoostedTrees, x, y, **fit_kwargs):
+    x, x_val, y, y_val = train_test_split(x, y, train_size=0.75, random_state=42)
+    fit = model.fit(
+        x, y,
+        eval_set=[(x_val, y_val)],
+        **fit_kwargs
+    )
+    model.labels_enc = {label: i for i, label in enumerate(model.model.classes_)}
+    model.labels_dec = {model.labels_enc[label]: label for label in model.labels_enc.keys()}
+
+    return fit
 
 def fit(
         model: Union[DenseTorch, LogisticRegression, DummyClassifier], 
@@ -179,6 +205,9 @@ def fit(
     
     elif isinstance(model, LogisticRegression):
         return fit_logreg(model, x, y, **fit_kwargs)
+    
+    elif isinstance(model, BoostedTrees):
+        return fit_trees(x, y, **fit_kwargs)
 
     elif isinstance(model, DummyClassifier):
         return model.fit(x, y)

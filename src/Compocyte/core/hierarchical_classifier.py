@@ -13,7 +13,7 @@ import os
 import pickle
 import scanpy as sc
 import multiprocessing as mp
-
+from Compocyte.core.models.trees import BoostedTrees
 from Compocyte.core.tools import z_transform_properties
 
 
@@ -165,8 +165,11 @@ class HierarchicalClassifier(
                 if len([c for c in contents if c.startswith('non_param_dict')]) > 0:
                     classifier = DenseTorch._load(os.path.join(model_path, last_timestamp))
 
-                elif 'labels_dec.pickle' in contents:
+                elif 'labels_dec.pickle' in contents and not 'model.cbm' in contents:
                     classifier = LogisticRegression._load(os.path.join(model_path, last_timestamp))
+
+                elif 'labels_dec.pickle' in contents and 'model.cbm' in contents:
+                    classifier = BoostedTrees._load(os.path.join(model_path, last_timestamp))
 
                 else:
                     classifier = DummyClassifier._load(os.path.join(model_path, last_timestamp))
