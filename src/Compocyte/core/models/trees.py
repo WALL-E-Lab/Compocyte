@@ -24,7 +24,9 @@ class BoostedTrees():
 
     def predict_logits(self, x) -> np.array:
         pred_activations = self.model.predict_proba(x)
-        self.model.cl
+        classes = self.model.classes_
+        self.labels_enc = {label: i for i, label in enumerate(classes)}
+        self.labels_dec = {self.labels_enc[label]: label for label in self.labels_enc.keys()}
             
         return pred_activations
 
