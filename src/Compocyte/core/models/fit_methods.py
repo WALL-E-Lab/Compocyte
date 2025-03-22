@@ -175,7 +175,7 @@ def fit_trees(model: BoostedTrees, x, y, **fit_kwargs):
     fit = model.model.fit(
         x, y,
         eval_set=[(x_val, y_val)],
-        **fit_kwargs
+        #**fit_kwargs
     )
     model.labels_enc = {label: i for i, label in enumerate(model.model.classes_)}
     model.labels_dec = {model.labels_enc[label]: label for label in model.labels_enc.keys()}
