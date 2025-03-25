@@ -160,19 +160,21 @@ class Tuner():
                 for threshold in range(100):
                     threshold /= 100
                     max_correct = len(matches)
+                    n_matches = np.sum(matches)
                     correct_positive = matches & (activations > threshold)
                     correct_negative = (~matches) & (activations <= threshold)
                     correct_total = np.sum(correct_positive) + np.sum(correct_negative)   
                     performance_per_cv.loc[
                         len(performance_per_cv),
-                        ['node', 'threshold', 'max_correct', 'correct_total']
-                    ] = [node, threshold, max_correct, correct_total]
+                        ['node', 'threshold', 'n_matches', 'max_correct', 'correct_total']
+                    ] = [node, threshold, n_matches, max_correct, correct_total]
                     
         trials = len(adata.obs[cv_key].unique())
         for node in performance_per_cv.node.unique():
             node_performance = performance_per_cv[performance_per_cv.node == node]
             for threshold in node_performance.threshold.unique():
                 threshold_performance = node_performance[node_performance.threshold == threshold]
+                n_matches = threshold_performance.n_matches.sum()
                 correct_total = threshold_performance.correct_total.sum()
                 max_total = threshold_performance.max_correct.sum()
                 fraction_correct = correct_total / max_total
@@ -180,6 +182,7 @@ class Tuner():
                     node=node,
                     trials=trials,
                     fraction_correct=fraction_correct,
+                    n_matches=n_matches,
                     n_features=n_features,
                     hidden_layers=hidden_layers,
                     dropout=dropout,
@@ -196,7 +199,8 @@ class Tuner():
         self.cur.execute("""CREATE TABLE IF NOT EXISTS trials(
             node, 
             trials, 
-            fraction_correct, 
+            fraction_correct,
+            n_matches,
             n_features, 
             hidden_layers, 
             dropout, 
@@ -216,6 +220,7 @@ class Tuner():
         node: str,
         trials: int,
         fraction_correct: float,
+        n_matches: int,
         n_features: int,
         hidden_layers: str,
         dropout: float,
@@ -232,7 +237,7 @@ class Tuner():
             try:
                 self.cur.execute(f"""
                 INSERT INTO trials VALUES
-                    ('{node}', {trials}, {fraction_correct}, {n_features}, '{hidden_layers}', {dropout}, {epochs}, {batch_size}, {starting_lr}, {max_lr}, {momentum}, {beta}, {gamma}, {threshold}, DATETIME('now'))
+                    ('{node}', {trials}, {fraction_correct}, {n_matches}, {n_features}, '{hidden_layers}', {dropout}, {epochs}, {batch_size}, {starting_lr}, {max_lr}, {momentum}, {beta}, {gamma}, {threshold}, DATETIME('now'))
                 """)
                 self.con.commit()
                 
@@ -249,7 +254,7 @@ class Tuner():
                     f"""SELECT n_features, hidden_layers, dropout, epochs, batch_size, starting_lr, max_lr, momentum, beta, gamma, threshold 
                     FROM trials 
                     WHERE node == '{node}' 
-                    ORDER BY fraction_correct DESC"""
+                    ORDER BY n_matches DESC, fraction_correct DESC"""
                 )
                 
                 break
