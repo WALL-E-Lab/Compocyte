@@ -110,7 +110,7 @@ class HierarchicalClassifier(
                         os.makedirs(model_path)
 
                     local_classifier = self.graph.nodes[node]['local_classifier']
-                    if isinstance(local_classifier, DenseTorch) or isinstance(local_classifier, LogisticRegression) or isinstance(local_classifier, DummyClassifier):
+                    if isinstance(local_classifier, DenseTorch) or isinstance(local_classifier, LogisticRegression) or isinstance(local_classifier, DummyClassifier) or isinstance(local_classifier, BoostedTrees):
                         self.graph.nodes[node]['local_classifier']._save(model_path)
                         
                     continue
