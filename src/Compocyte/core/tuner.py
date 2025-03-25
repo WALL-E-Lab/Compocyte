@@ -177,12 +177,13 @@ class Tuner():
                 n_matches = threshold_performance.n_matches.sum()
                 correct_total = threshold_performance.correct_total.sum()
                 max_total = threshold_performance.max_correct.sum()
+                fraction_matches = n_matches / max_total
                 fraction_correct = correct_total / max_total
                 self.make_entry(
                     node=node,
                     trials=trials,
                     fraction_correct=fraction_correct,
-                    n_matches=n_matches,
+                    fraction_matches=fraction_matches,
                     n_features=n_features,
                     hidden_layers=hidden_layers,
                     dropout=dropout,
@@ -200,7 +201,7 @@ class Tuner():
             node, 
             trials, 
             fraction_correct,
-            n_matches,
+            fraction_matches,
             n_features, 
             hidden_layers, 
             dropout, 
@@ -220,7 +221,7 @@ class Tuner():
         node: str,
         trials: int,
         fraction_correct: float,
-        n_matches: int,
+        fraction_matches: int,
         n_features: int,
         hidden_layers: str,
         dropout: float,
@@ -237,7 +238,7 @@ class Tuner():
             try:
                 self.cur.execute(f"""
                 INSERT INTO trials VALUES
-                    ('{node}', {trials}, {fraction_correct}, {n_matches}, {n_features}, '{hidden_layers}', {dropout}, {epochs}, {batch_size}, {starting_lr}, {max_lr}, {momentum}, {beta}, {gamma}, {threshold}, DATETIME('now'))
+                    ('{node}', {trials}, {fraction_correct}, {fraction_matches}, {n_features}, '{hidden_layers}', {dropout}, {epochs}, {batch_size}, {starting_lr}, {max_lr}, {momentum}, {beta}, {gamma}, {threshold}, DATETIME('now'))
                 """)
                 self.con.commit()
                 
@@ -254,7 +255,7 @@ class Tuner():
                     f"""SELECT n_features, hidden_layers, dropout, epochs, batch_size, starting_lr, max_lr, momentum, beta, gamma, threshold 
                     FROM trials 
                     WHERE node == '{node}' 
-                    ORDER BY n_matches DESC, fraction_correct DESC"""
+                    ORDER BY fraction_matches DESC, fraction_correct DESC"""
                 )
                 
                 break
