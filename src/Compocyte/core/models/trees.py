@@ -37,7 +37,7 @@ class BoostedTrees():
     @classmethod
     def _load(cls, path):
         args = {}
-        args['model'] = CatBoostClassifier.load_model(os.path.join(path, 'model.cbm'))
+        args['model'] = CatBoostClassifier().load_model(os.path.join(path, 'model.cbm'))
         for attribute in ['labels_enc', 'labels_dec']:
             with open(os.path.join(path, f'{attribute}.pickle'), 'rb') as f:
                 args[attribute] = pickle.load(f)
