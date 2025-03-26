@@ -253,11 +253,15 @@ class HierarchicalClassifier(
 
         return subset
     
-    def select_subset_prediction(self, node: str, features: list=None) -> sc.AnnData:
+    def select_subset_prediction(self, node: str, features: list=None, for_trial=False) -> sc.AnnData:
         obs = self.obs_names[self.node_to_depth[node]]
         obs = f'{obs}_pred'
-        if obs not in self.adata.obs.columns:
+        if obs not in self.adata.obs.columns and not for_trial:
             subset = self.adata
+
+        elif obs not in self.adata.obs.columns and for_trial:
+            is_node = self.adata.obs[self.obs_names[self.node_to_depth[node]]] == node
+            subset = self.adata[is_node]
 
         else:
             is_node = self.adata.obs[obs] == node
