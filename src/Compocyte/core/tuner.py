@@ -157,17 +157,19 @@ class Tuner():
                 logits = predict_logits(model, x)
                 activations = np.max(logits, axis=1)
                 matches = np.argmax(logits, axis=1) == y
-                child_obs = f'{child_obs}_pred'
-                if child_obs not in classifier.adata.obs.columns:
-                    classifier.adata.obs[child_obs] = ''
+                if hasattr(model, 'labels_dec'):
+                    child_obs = f'{child_obs}_pred'
+                    if child_obs not in classifier.adata.obs.columns:
+                        classifier.adata.obs[child_obs] = ''
+                        
+                    classifier.adata.obs[child_obs] = classifier.adata.obs[child_obs].astype(str)
+                    pred = np.argmax(logits, axis=1).astype(int)
+                    pred = np.array([model.labels_dec[p] for p in pred])
+                    classifier.adata.obs.loc[
+                        subset.obs_names,
+                        child_obs
+                    ] = pred
                     
-                classifier.adata.obs[child_obs] = classifier.adata.obs[child_obs].astype(str)
-                pred = np.argmax(logits, axis=1).astype(int)
-                pred = np.array([model.labels_dec[p] for p in pred])
-                classifier.adata.obs.loc[
-                    subset.obs_names,
-                    child_obs
-                ] = pred
                 for threshold in range(100):
                     threshold /= 100
                     max_correct = len(matches)
