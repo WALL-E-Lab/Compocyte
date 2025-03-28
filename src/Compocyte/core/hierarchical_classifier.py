@@ -378,7 +378,8 @@ class HierarchicalClassifier(
             features = self.run_feature_selection(node, **features_kwargs)
             self.graph.nodes[node]['selected_var_names'] = features
             classifier_type = DenseTorch
-            if -1 in classifier_kwargs['hidden_layers']:
+            hidden_layers = self.graph.nodes[node].get('hidden_layers', None)
+            if -1 in hidden_layers:
                 classifier_type = BoostedTrees
                 
             self.create_local_classifier(node, classifier_type=classifier_type, **classifier_kwargs)
