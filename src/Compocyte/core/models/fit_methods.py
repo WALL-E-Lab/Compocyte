@@ -172,6 +172,11 @@ def fit_logreg(model: LogisticRegression, x, y):
 
 def fit_trees(model: BoostedTrees, x, y, **fit_kwargs):
     x, x_val, y, y_val = train_test_split(x, y, train_size=0.75, random_state=42)
+    if not np.all(np.isin(np.unique(y_val), np.unique(y))):
+        # if the validation set contains labels not in the training set, remove them
+        x_val = x_val[np.isin(y_val, np.unique(y))]
+        y_val = np.array([label for label in y_val if label in np.unique(y)])
+
     fit = model.model.fit(
         x, y,
         eval_set=[(x_val, y_val)],
