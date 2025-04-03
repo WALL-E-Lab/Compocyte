@@ -211,14 +211,11 @@ class Hierarchical_Metric():
 
     def calculate_intersects(self, t_label, p_label, t_label_augmented, p_label_augmented):
         cardinality_intersect_t_p = len(np.intersect1d(t_label_augmented, p_label_augmented))
-
-        #test for over specialization and in case cut augmented p to len of augmented true
-        if len(np.intersect1d(t_label_augmented, p_label_augmented)) == len(t_label_augmented):
-            over_spec_len = len(p_label_augmented) - len(t_label_augmented)
-            slice_len = len(p_label_augmented) - over_spec_len
-            p_label_augmented = p_label_augmented[:slice_len]
-
         cardinality_p_label_augmented = len(p_label_augmented)
+        #test for over specialization and in case cut augmented p to len of augmented true
+        if cardinality_intersect_t_p == len(t_label_augmented):
+            cardinality_p_label_augmented = cardinality_intersect_t_p
+
         if t_label not in self.intersect_lookups.keys():
             self.intersect_lookups[t_label] = {}
             
