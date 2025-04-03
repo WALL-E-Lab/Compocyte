@@ -204,9 +204,8 @@ class Hierarchical_Metric():
             node = self.root_node
 
         if node not in self.augmented_lookups.keys(): # avoid having to call nx ancestors for every single true and predicted label
-            ancestors = nx.ancestors(self.hierarchy_structure, node)
-            ancestors.add(node)
-            self.augmented_lookups[node] = np.array(list(ancestors))
+            ancestors = nx.shortest_path(self.hierarchy_structure, self.root_node, node)
+            self.augmented_lookups[node] = np.array(ancestors)
 
         return self.augmented_lookups[node]
 
