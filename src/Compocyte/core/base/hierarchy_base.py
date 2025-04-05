@@ -164,7 +164,7 @@ class HierarchyBase():
                     continue
 
                 # reset label encoding, unproblematic because the final layer is reinitilaized anyway
-                self.graph.nodes[node]['label_encoding'] = {}
+                self.graph.nodes[node]['label_encoding'] = {} # TODO: leads to problems?
                 self.graph.nodes[node]['local_classifier'].reset_output(len(child_nodes))
 
         if contains_classifier:

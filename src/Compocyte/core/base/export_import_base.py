@@ -1,9 +1,12 @@
 from copy import deepcopy
 from Compocyte.core.models.dense_torch import DenseTorch
+from Compocyte.core.models.dummy_classifier import DummyClassifier
 from Compocyte.core.models.log_reg import LogisticRegression
 import networkx as nx
 import torch
 import sklearn
+
+from Compocyte.core.models.trees import BoostedTrees
 
 class ExportImportBase():
     def make_classifier_dict(self, node):
@@ -12,9 +15,6 @@ class ExportImportBase():
         classifier_dict = {}
         classifier_dict['classifier'] = self.graph.nodes[node]['local_classifier']
         classifier_dict['data_type'] = self.default_input_data
-        if 'label_encoding' in self.graph.nodes[node]:
-            classifier_dict['label_encoding'] = self.graph.nodes[node]['label_encoding']
-
         if 'selected_var_names' in self.graph.nodes[node]:
             classifier_dict['selected_var_names'] = self.graph.nodes[node]['selected_var_names']
 
@@ -27,7 +27,7 @@ class ExportImportBase():
         dict_of_cell_relations = deepcopy(self.dict_of_cell_relations)
         for node in list(self.graph):
             if 'local_classifier' in self.graph.nodes[node]:
-                if type(self.graph.nodes[node]['local_classifier']) not in [DenseTorch, LogisticRegression]:
+                if type(self.graph.nodes[node]['local_classifier']) not in [DenseTorch, LogisticRegression, BoostedTrees, DummyClassifier]:
                     raise Exception('Classifier exported not currently implemented for this type of classifier.')
 
                 path_to_node = nx.shortest_path(self.graph, self.root_node, node)
@@ -40,7 +40,7 @@ class ExportImportBase():
         return dict_of_cell_relations
 
     def import_classifier(self, node, classifier_dict, overwrite=False):
-        for a in ['classifier', 'label_encoding', 'data_type', 'selected_var_names']:
+        for a in ['classifier', 'data_type', 'selected_var_names']:
             if a not in classifier_dict:
                 raise KeyError(f'Missing key {a} for successful classifier import.')
 
@@ -49,7 +49,7 @@ class ExportImportBase():
         
         classifier_exists = 'local_classifier' in self.graph.nodes[node]
         if (classifier_exists and overwrite) or not classifier_exists:
-            if type(classifier_dict['classifier']) in [DenseTorch, LogisticRegression]:
+            if type(classifier_dict['classifier']) in [DenseTorch, LogisticRegression, DummyClassifier, BoostedTrees]:
                 self.graph.nodes[node]['local_classifier'] = classifier_dict['classifier']
 
             elif issubclass(type(classifier_dict['classifier']), torch.nn.Module):
