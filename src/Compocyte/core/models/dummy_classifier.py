@@ -14,7 +14,7 @@ class DummyClassifier():
             use DummyClassifier.
         """
 
-        self.label = labels[0]
+        self.labels = labels[0]
         self.labels_enc = {label: i for i, label in enumerate(labels)}
 
     def fit(self, *args, **kwargs):
@@ -31,7 +31,7 @@ class DummyClassifier():
         return pred
     
     def _save(self, path):
-        for attribute in ['label', 'labels_enc']:
+        for attribute in ['labels', 'labels_enc']:
             with open(os.path.join(path, f'{attribute}.pickle'), 'wb') as f:
                 pickle.dump(
                     getattr(self, attribute, None), f)
@@ -39,7 +39,7 @@ class DummyClassifier():
     @classmethod
     def _load(cls, path):
         args = {}
-        for attribute in ['label', 'labels_enc']:
+        for attribute in ['labels', 'labels_enc']:
             with open(os.path.join(path, f'{attribute}.pickle'), 'rb') as f:
                 args[attribute] = pickle.load(f)
 
