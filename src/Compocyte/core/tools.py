@@ -39,7 +39,7 @@ def dict_depth(dictionary, running_count=0):
     for key in dictionary.keys():
         if key == 'classifier':
             continue
-        
+
         running_counts_subdicts.append(
             dict_depth(
                 dictionary[key],
@@ -56,6 +56,9 @@ def flatten_dict(dictionary, running_list_of_values=[]):
 
     else:
         for key in dictionary.keys():
+            if key == 'classifier':
+                continue
+            
             running_list_of_values = running_list_of_values + flatten_dict(dictionary[key]) + [key]
 
         return running_list_of_values
