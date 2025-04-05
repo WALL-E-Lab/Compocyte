@@ -37,6 +37,9 @@ def dict_depth(dictionary, running_count=0):
 
     running_counts_subdicts = []
     for key in dictionary.keys():
+        if key == 'classifier':
+            continue
+        
         running_counts_subdicts.append(
             dict_depth(
                 dictionary[key],
