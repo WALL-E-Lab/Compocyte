@@ -26,7 +26,7 @@ class DummyClassifier():
         )
 
     def predict(self, x: np.array, **kwargs) -> np.array:
-        pred = np.array([self.label] * x.shape[0])
+        pred = np.array([self.labels[0]] * x.shape[0])
 
         return pred
     
