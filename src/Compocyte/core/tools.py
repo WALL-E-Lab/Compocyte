@@ -148,25 +148,24 @@ def get_leaf_nodes(hierarchy):
 
     return leaf_nodes
 
-def delete_dict_entries(dictionary, del_key='classifier', first_run=True):
+def delete_dict_entries(dictionary, del_key='classifier', first_run=True, deleted_key=False):
     if first_run:
         dictionary = deepcopy(dictionary)
 
     keys = list(dictionary.keys())
-    deleted_key = False
     for key in keys:
         if key == del_key:
             del dictionary[key]
             deleted_key = True
 
         else:
-            deleted_key = deleted_key or delete_dict_entries(dictionary[key], del_key=del_key, first_run=False)
-
-    if first_run:
-        return dictionary, deleted_key
-
-    else:
-        return deleted_key
+            dictionary[key], deleted_key = delete_dict_entries(
+                dictionary[key], 
+                del_key=del_key, 
+                first_run=False, 
+                deleted_key=deleted_key)
+                
+    return dictionary, deleted_key
 
 def flatten_labels(pred_h_labels, graph, root_node, verbose=False):
     pred_h_labels[:, 0] = root_node # Some predictions did not have the root label as their first value
