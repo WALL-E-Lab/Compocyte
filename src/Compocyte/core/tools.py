@@ -80,7 +80,7 @@ def z_transform_properties(data_arr, discretization=False):
     if discretization:
         data_transformed = np.digitize(data_transformed, bin_boundaries)
 
-    return data_transformed
+    return np.array(data_transformed)
 
 def make_graph_from_edges(d, g, parent_key=''):
     """Add explanation
