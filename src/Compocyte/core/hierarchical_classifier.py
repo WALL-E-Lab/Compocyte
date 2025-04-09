@@ -372,7 +372,7 @@ class HierarchicalClassifier(
 
         if not has_classifier:
             subset = self.select_subset(node)
-            if len(subset) == 0:
+            if len(subset) < 5:
                 return
             
             features = self.run_feature_selection(node, **features_kwargs)
