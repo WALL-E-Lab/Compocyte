@@ -132,8 +132,8 @@ class Tuner():
                     y = subset.obs[child_obs].values
                     if standardize_separately is not None:
                         idx = []
-                        for dataset in subset[standardize_separately].unique():
-                            idx.append(np.where(subset[standardize_separately] == dataset))
+                        for dataset in subset.obs[standardize_separately].unique():
+                            idx.append(np.where(subset.obs[standardize_separately] == dataset))
 
                     else:
                         idx = None
