@@ -83,7 +83,7 @@ def fit_torch(
         parallelize: bool=True, 
         beta: float=0.8, gamma: float=2.0, class_balance: bool=True):
     
-    torch.set_num_threads(int(os.environ['OMP_NUM_THREADS']))
+    #torch.set_num_threads(int(os.environ['OMP_NUM_THREADS']))
     logger.info(f'num_threads set to {torch.get_num_threads()}')
     logger.info(f'OMP_NUM_THREADS set to {os.environ["OMP_NUM_THREADS"]}')
 

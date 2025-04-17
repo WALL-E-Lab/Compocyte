@@ -17,7 +17,7 @@ class Tuner():
         self.root_node = root_node
         self.obs_names = obs_names
         
-    def train_from_tuner(self, save_path: str, adata: sc.AnnData, parallelize=True, max_cells: int=None, stratify_by: str=None) -> HierarchicalClassifier:
+    def train_from_tuner(self, save_path: str, adata: sc.AnnData, parallelize=True, max_cells: int=None, stratify_by: str=None, processes: int=None) -> HierarchicalClassifier:
         classifier = HierarchicalClassifier(
             save_path, 
             root_node=self.root_node, 
@@ -61,7 +61,7 @@ class Tuner():
         if max_cells is not None and stratify_by is not None:
             classifier.introduce_limit(max_cells, stratify_by)
             
-        classifier.train_all_child_nodes(parallelize=parallelize)
+        classifier.train_all_child_nodes(parallelize=parallelize, processes=processes)
         return classifier
     
     def trial_run(
