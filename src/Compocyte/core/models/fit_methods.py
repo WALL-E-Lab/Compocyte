@@ -187,7 +187,8 @@ def fit_trees(model: BoostedTrees, x, y, **fit_kwargs):
 
 def fit(
         model: Union[DenseTorch, LogisticRegression, DummyClassifier], 
-        x: np.array, y: np.array, 
+        x: np.array, y: np.array,
+        standardize_idx: list=None,
         **fit_kwargs):
     """Args:
         model (Union[DenseTorch, LogisticRegression, DummyClassifier]): Model to be fitted.
@@ -200,8 +201,14 @@ def fit(
 
     if hasattr(x, 'todense'):
         x = x.todense()
-        
-    x = z_transform_properties(x)
+    
+    # Standardize batches separately if list of idxs per dataset is provided
+    if standardize_idx is not None:
+        for idx in standardize_idx:
+            x[idx] = z_transform_properties(x[idx])
+    else:
+        x = z_transform_properties(x)
+
     y = np.array([model.labels_enc[label] for label in y])
     if isinstance(model, DenseTorch):
         return fit_torch(model, x, y, **fit_kwargs)

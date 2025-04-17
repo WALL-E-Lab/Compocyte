@@ -343,7 +343,7 @@ class HierarchicalClassifier(
         self.graph.nodes[node]['local_classifier'] = local_classifier
 
 
-    def train_single_node(self, node, **fit_kwargs):
+    def train_single_node(self, node, standardize_separately: str=None, **fit_kwargs):
         has_classifier = 'local_classifier' in self.graph.nodes[node].keys()
         # This weird approach is currently necessary to allow for training with mp.pool
         if hasattr(self, 'tuned_kwargs') and node in self.tuned_kwargs:
@@ -394,16 +394,25 @@ class HierarchicalClassifier(
         x = subset.X
         y = subset.obs[child_obs].values
         print(f'Training at {node}.')
+        
+        if standardize_separately is not None:
+            idx = []
+            for dataset in subset[standardize_separately].unique():
+                idx.append(np.where(subset[standardize_separately] == dataset))
 
+        else:
+            idx = None
+            
         # Necessary to avoid data loss when using mp.pool
         return {
             **self.graph.nodes[node],
-            'learning_curve': fit(model, x, y, **fit_kwargs)
+            'learning_curve': fit(model, x, y, standardize_idx=idx, **fit_kwargs)
         }
 
     def train_all_child_nodes(
         self,
-        parallelize: bool=False) -> None:
+        parallelize: bool=False,
+        processes: int=None) -> None:
         
         nodes_to_train = []
         for node in self.graph.nodes:
@@ -416,13 +425,12 @@ class HierarchicalClassifier(
                 self.train_single_node(node, parallelize=False)
 
         else: 
-            #initial_call not yet transferred
+            if processes is None:
+                raise Exception('Please specify the number of processes to use for parallelization.')
+            
             # When setting num_threads > 1 per training process, the number of processes should be limited
-            if self.num_threads is None:
-                processes = mp.cpu_count()
-
-            else:
-                processes = int(mp.cpu_count() / self.num_threads)
+            if self.num_threads is not None:
+                processes = int(processes / self.num_threads)
 
             print(f"Using multiprocessing for training with {mp.cpu_count()} available CPU cores.\n")           
             with mp.Pool(processes=processes) as pool: 

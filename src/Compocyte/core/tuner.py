@@ -79,7 +79,8 @@ class Tuner():
         gamma: float,
         test_factor: int,
         parallelize: bool=True,
-        num_threads=None):
+        num_threads=None,
+        standardize_separately: str=None) -> None:	
         
         adata = sc.read_h5ad(self.adata_path)
         rng = np.random.default_rng(42)
@@ -129,7 +130,16 @@ class Tuner():
                     x = subset.X
                     child_obs = classifier.obs_names[classifier.node_to_depth[node] + 1]
                     y = subset.obs[child_obs].values
+                    if standardize_separately is not None:
+                        idx = []
+                        for dataset in subset[standardize_separately].unique():
+                            idx.append(np.where(subset[standardize_separately] == dataset))
+
+                    else:
+                        idx = None
+
                     fit(model, x, y, 
+                        standardize_idx=idx,
                         epochs=epochs,
                         batch_size=batch_size,
                         starting_lr=starting_lr,
