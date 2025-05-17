@@ -272,7 +272,8 @@ class Tuner():
         
         
     def get_best_trial(self, node) -> dict:
-        for i in range(3):
+        res = None
+        for i in range(10):
             try:
                 res = self.cur.execute(
                     f"""SELECT n_features, hidden_layers, dropout, epochs, batch_size, starting_lr, max_lr, momentum, beta, gamma, threshold 
@@ -282,11 +283,16 @@ class Tuner():
                 )
                 
                 break
-            except sqlite3.OperationalError:
-                
+
+            except sqlite3.OperationalError:                
                 time.sleep(0.01)
         
-        tup = res.fetchone()        
+        if res is None:
+            tup = None
+
+        else:
+            tup = res.fetchone() 
+                   
         return tup       
         
     def __del__(self):
