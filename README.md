@@ -11,7 +11,7 @@ Compocyte is a composite classifier for modular hierarchical cell type annotatio
 
 Tensorflow is currently not available for python >3.12. Here we use micromamba to create a python 3.12 environment first then install the required dependencies.
 
-'''
+```
 micromamba create -n compocyte_python312 python=3.12
 micromamba activate compocyte_python312
 micromamba install catboost
@@ -19,7 +19,7 @@ pip install torch
 micromamba install keras
 micromamba install tensorflow
 pip install balanced_loss
-'''
+```
 
 #### Install Compocyte from source
 
@@ -29,7 +29,7 @@ pip install balanced_loss
 
 Hierarchically classify cells using a pretrained classifier
 
-'''
+```
 #paths to model files and adata
 model_folder_path = '~/Compocyte/PBMC_pretrained_1.1'
 adata_path = '~/adata.h5ad'
@@ -52,7 +52,8 @@ classifier.predict_all_child_nodes(root_node)
 #save adata with classifier outputs
 classifier.adata.write(adata_save_path)
 print('saved to',adata_save_path)
-'''
+```
+
 ## Pretrained model files
 
 available soon
