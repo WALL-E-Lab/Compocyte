@@ -1,5 +1,6 @@
-# Compocyte
+# Compocyte 🐙 🎯
 
+![Image of Cytopus](https://github.com/WALL-E-Lab/Compocyte/blob/main/Compocyte.png)
 
 Compocyte is a composite classifier for modular hierarchical cell type annotation of single cell data. Using Compocyte you can build different hierarchical classifier architectures (local classifier per parent node, local classifer per node and local classifier per level) using all relevant models from pytorch, TensorFlow and keras. Local classifiers can be individually modified to account for alterations in classification taxonomies or selectively improve specific annotations in human-in-the-loop approaches. While compocyte has been primarily developed for single cell RNA sequencing data it can also be used with other single cell data compatible with the AnnData and scanpy packges.
 
