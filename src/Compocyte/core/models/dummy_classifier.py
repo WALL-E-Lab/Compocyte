@@ -14,7 +14,7 @@ class DummyClassifier():
             use DummyClassifier.
         """
 
-        self.labels = labels[0]
+        self.labels = [labels[0]]
         self.labels_enc = {label: i for i, label in enumerate(labels)}
 
     def fit(self, *args, **kwargs):
