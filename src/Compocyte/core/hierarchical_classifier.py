@@ -460,6 +460,15 @@ class HierarchicalClassifier(
         print(f'Predicting at {node}.')
 
         pred = predict(model, x, threshold=threshold)
+        if 'overclustering' in subset.obs.columns:
+            for cluster_name in subset.obs['overclustering'].unique():
+                cluster_indices = subset.obs['overclustering'] == cluster_name
+                if np.sum(cluster_indices) > 0:
+                    cluster_preds = pred[cluster_indices]
+                    if len(cluster_preds) > 0:
+                        most_common = max(set(cluster_preds), key=list(cluster_preds).count)
+                        pred[cluster_indices] = most_common
+
         child_obs = self.obs_names[self.node_to_depth[node] + 1] 
         child_obs = f'{child_obs}_pred'
         if child_obs not in self.adata.obs.columns:
