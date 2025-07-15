@@ -40,30 +40,56 @@ def predict_logits(model, x):
 
     return logits
 
-def predict(model, x, threshold=-1):
+def predict(model, x, threshold=-1, monte_carlo: int=None):
     if hasattr(x, 'todense'):
         x = x.todense()
 
     x = z_transform_properties(x)
-    if isinstance(model, DenseTorch):
-        logits = model.predict_logits(x)
-    
-    elif isinstance(model, LogisticRegression):
-        logits = model.predict_logits(x)
+    if monte_carlo is not None:
+        all_logits = []
+        dropout = torch.nn.Dropout(p=0.5)
+        for _ in range(monte_carlo):            
+            x_dropout = np.array(dropout(torch.Tensor(x)))
+            if isinstance(model, DenseTorch):
+                all_logits.append(model.predict_logits(x_dropout))
+            
+            elif isinstance(model, LogisticRegression):
+                all_logits.append(model.predict_logits(x_dropout))
 
-    elif isinstance(model, BoostedTrees):
-        logits = model.predict_logits(x)
+            elif isinstance(model, BoostedTrees):
+                all_logits.append(model.predict_logits(x_dropout))
 
-    elif isinstance(model, DummyClassifier):
-        return model.predict(x)
+            elif isinstance(model, DummyClassifier):
+                return model.predict(x)
+            
+            else:
+                raise Exception('Unknown classifier type')
+            
+        logits = np.mean(all_logits, axis=0)
     
     else:
-        raise Exception('Unknown classifier type')
-    
+        if isinstance(model, DenseTorch):
+            all_logits.append(model.predict_logits(x))
+        
+        elif isinstance(model, LogisticRegression):
+            all_logits.append(model.predict_logits(x))
+
+        elif isinstance(model, BoostedTrees):
+            all_logits.append(model.predict_logits(x))
+
+        elif isinstance(model, DummyClassifier):
+            return model.predict(x)
+        
+        else:
+            raise Exception('Unknown classifier type')
+        
     max_activation = np.max(logits, axis=1)
     pred = np.argmax(logits, axis=1).astype(int)
     pred = np.array([model.labels_dec[p] for p in pred])
     pred[max_activation <= threshold] = ''
+
+    if monte_carlo is not None:
+        return pred, all_logits
 
     return pred
 

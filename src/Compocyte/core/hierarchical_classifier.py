@@ -445,7 +445,8 @@ class HierarchicalClassifier(
     def predict_single_node(
         self, 
         node: str,
-        threshold: float=-1) -> np.array:
+        threshold: float=-1,
+        monte_carlo: int=None) -> np.array:
 
         if 'local_classifier' not in self.graph.nodes[node]:
             return []
@@ -459,7 +460,11 @@ class HierarchicalClassifier(
         x = subset.X
         print(f'Predicting at {node}.')
 
-        pred = predict(model, x, threshold=threshold)
+        pred = predict(model, x, threshold=threshold, monte_carlo=monte_carlo)
+        all_logits = None
+        if monte_carlo is not None and isinstance(pred, tuple):
+            pred, all_logits = pred
+        
         if 'overclustering' in subset.obs.columns:
             for cluster_name in subset.obs['overclustering'].unique():
                 cluster_indices = subset.obs['overclustering'] == cluster_name
@@ -479,6 +484,15 @@ class HierarchicalClassifier(
             subset.obs_names,
             child_obs
         ] = pred
+        if monte_carlo is not None and all_logits is not None:
+            self.adata.obs.loc[
+                subset.obs_names,
+                'monte_carlo_mean',
+            ] = np.mean(all_logits, axis=1)
+            self.adata.obs.loc[
+                subset.obs_names,
+                'monte_carlo_std',
+            ] = np.std(all_logits, axis=1)
 
         return pred    
 
@@ -486,16 +500,17 @@ class HierarchicalClassifier(
         self, 
         node: str,
         threshold: float=-1,
-        mlnp: bool=False):
+        mlnp: bool=False,
+        monte_carlo: int=None):
 
         # For mandatory leaf node prediction use -1
         if not mlnp:
             threshold = self.graph.nodes[node].get('threshold', threshold)
 
-        self.predict_single_node(node, threshold=threshold)
+        self.predict_single_node(node, threshold=threshold, monte_carlo=monte_carlo)
         for child_node in self.get_child_nodes(node):
             if len(self.get_child_nodes(child_node)) == 0:
                 continue
 
-            self.predict_all_child_nodes(child_node, threshold=threshold, mlnp=mlnp)
+            self.predict_all_child_nodes(child_node, threshold=threshold, mlnp=mlnp, monte_carlo=monte_carlo)
 
