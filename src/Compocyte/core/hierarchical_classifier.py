@@ -464,6 +464,9 @@ class HierarchicalClassifier(
         all_logits = None
         if monte_carlo is not None and isinstance(pred, tuple):
             pred, all_logits = pred
+            if len(all_logits.shape) < 3:
+                all_logits = np.expand_dims(all_logits, axis=1)
+
         
         if 'overclustering' in subset.obs.columns:
             for cluster_name in subset.obs['overclustering'].unique():
