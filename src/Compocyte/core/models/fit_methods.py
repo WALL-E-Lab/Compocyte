@@ -65,8 +65,8 @@ def predict(model, x, threshold=-1, monte_carlo: int=None):
             else:
                 raise Exception('Unknown classifier type')
             
-        all_logits = np.array(all_logits).T
-        logits = np.mean(all_logits, axis=1)
+        all_logits = np.array(all_logits)
+        logits = np.mean(all_logits, axis=0)
     
     else:
         if isinstance(model, DenseTorch):
