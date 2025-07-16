@@ -504,9 +504,11 @@ class HierarchicalClassifier(
                 np.expand_dims(idx_tile, axis=2), axis=2)
             # activations_chosen_label_per_sample: Shape: (samples, iterations)
             activations_chosen_label_per_sample = np.squeeze(activations_chosen_label_per_iteration).T
+            # when dealing with single samples, activations are squeezed to 1D
+            axis = 0 if activations_chosen_label_per_sample.ndim == 1 else 1
             # mean_activation_chosen_label_per_sample: Shape: (samples)
-            mean_activation_chosen_label_per_sample = np.mean(activations_chosen_label_per_sample, axis=1)
-            std_activations_chosen_label_per_sample = np.std(activations_chosen_label_per_sample, axis=1)
+            mean_activation_chosen_label_per_sample = np.mean(activations_chosen_label_per_sample, axis=axis)
+            std_activations_chosen_label_per_sample = np.std(activations_chosen_label_per_sample, axis=axis)
             self.adata.obs.loc[
                 subset.obs_names,
                 'monte_carlo_mean',
