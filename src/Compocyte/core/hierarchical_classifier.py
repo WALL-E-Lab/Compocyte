@@ -484,26 +484,26 @@ class HierarchicalClassifier(
             subset.obs_names,
             child_obs
         ] = pred
-        # all_logits: Shape: (iterations, samples, labels)
-        # mean_activations_per_sample: Shape: (samples, labels)
-        mean_activations_per_sample = np.mean(all_logits, axis=0)
-        # idx_max_activations: Shape: (samples)
-        idx_max_activations = np.argmax(mean_activations_per_sample, axis=1)
-        # idx_tile: Shape: (iterations, samples)
-        idx_tile = np.tile(idx_max_activations, (all_logits.shape[0], 1))
-        # Expand idx_tile dims to match test dimensions
-        # For each iteration and sample, take the activation corresponding to
-        # the label with the highest mean activation across iterations for this sample
-        # activations_chosen_label_per_iteration: Shape: (iterations, samples, 1)
-        activations_chosen_label_per_iteration = np.take_along_axis(
-            all_logits, 
-            np.expand_dims(idx_tile, axis=2), axis=2)
-        # activations_chosen_label_per_sample: Shape: (samples, iterations)
-        activations_chosen_label_per_sample = np.squeeze(activations_chosen_label_per_iteration).T
-        # mean_activation_chosen_label_per_sample: Shape: (samples)
-        mean_activation_chosen_label_per_sample = np.mean(activations_chosen_label_per_sample, axis=1)
-        std_activations_chosen_label_per_sample = np.std(activations_chosen_label_per_sample, axis=1)
         if monte_carlo is not None and all_logits is not None:
+            # all_logits: Shape: (iterations, samples, labels)
+            # mean_activations_per_sample: Shape: (samples, labels)
+            mean_activations_per_sample = np.mean(all_logits, axis=0)
+            # idx_max_activations: Shape: (samples)
+            idx_max_activations = np.argmax(mean_activations_per_sample, axis=1)
+            # idx_tile: Shape: (iterations, samples)
+            idx_tile = np.tile(idx_max_activations, (all_logits.shape[0], 1))
+            # Expand idx_tile dims to match test dimensions
+            # For each iteration and sample, take the activation corresponding to
+            # the label with the highest mean activation across iterations for this sample
+            # activations_chosen_label_per_iteration: Shape: (iterations, samples, 1)
+            activations_chosen_label_per_iteration = np.take_along_axis(
+                all_logits, 
+                np.expand_dims(idx_tile, axis=2), axis=2)
+            # activations_chosen_label_per_sample: Shape: (samples, iterations)
+            activations_chosen_label_per_sample = np.squeeze(activations_chosen_label_per_iteration).T
+            # mean_activation_chosen_label_per_sample: Shape: (samples)
+            mean_activation_chosen_label_per_sample = np.mean(activations_chosen_label_per_sample, axis=1)
+            std_activations_chosen_label_per_sample = np.std(activations_chosen_label_per_sample, axis=1)
             self.adata.obs.loc[
                 subset.obs_names,
                 'monte_carlo_mean',
