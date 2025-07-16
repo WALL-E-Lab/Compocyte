@@ -69,13 +69,13 @@ def predict(model, x, threshold=-1, monte_carlo: int=None):
     
     else:
         if isinstance(model, DenseTorch):
-            all_logits.append(model.predict_logits(x))
+            logits = model.predict_logits(x)
         
         elif isinstance(model, LogisticRegression):
-            all_logits.append(model.predict_logits(x))
+            logits = model.predict_logits(x)
 
         elif isinstance(model, BoostedTrees):
-            all_logits.append(model.predict_logits(x))
+            logits = model.predict_logits(x)
 
         elif isinstance(model, DummyClassifier):
             return model.predict(x)
