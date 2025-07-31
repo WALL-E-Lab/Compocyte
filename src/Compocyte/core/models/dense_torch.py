@@ -54,7 +54,7 @@ class DenseTorch(torch.nn.Module):
 
     def predict_logits(self, x) -> np.array:
         self.eval()
-        x = torch.from_numpy(x)
+        x = torch.from_numpy(x).to(torch.float32)
 
         return self(x).detach().numpy()
 

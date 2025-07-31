@@ -115,8 +115,8 @@ def fit_torch(
     logger.info(f'OMP_NUM_THREADS set to {os.environ["OMP_NUM_THREADS"]}')
 
     y = to_categorical(y, num_classes=len(model.labels_enc.keys()))
-    x = torch.from_numpy(x)
-    y = torch.from_numpy(y)
+    x = torch.from_numpy(x).to(torch.float32)
+    y = torch.from_numpy(y).to(torch.float32)
     dataset = torch.utils.data.TensorDataset(x, y)
     train_dataset, val_dataset = torch.utils.data.random_split(
         dataset, [0.8, 0.2])
