@@ -114,13 +114,13 @@ def fit_torch(
     logger.info(f'num_threads set to {torch.get_num_threads()}')
     logger.info(f'OMP_NUM_THREADS set to {os.environ["OMP_NUM_THREADS"]}')
 
-    batch_size = min(batch_size, len(x))
     y = to_categorical(y, num_classes=len(model.labels_enc.keys()))
-    x = torch.Tensor(x)
-    y = torch.Tensor(y)
+    x = torch.from_numpy(x)
+    y = torch.from_numpy(y)
     dataset = torch.utils.data.TensorDataset(x, y)
     train_dataset, val_dataset = torch.utils.data.random_split(
         dataset, [0.8, 0.2])
+    batch_size = min(batch_size, len(train_dataset))
     leaves_remainder = len(train_dataset) % batch_size == 1
     num_workers = min(os.cpu_count(), 2)
     if parallelize:
@@ -132,9 +132,14 @@ def fit_torch(
         shuffle=True,
         drop_last=leaves_remainder,
         num_workers=num_workers)
+    batch_size = min(batch_size, len(val_dataset))
+    leaves_remainder = len(val_dataset) % batch_size == 1
     val_dataloader = torch.utils.data.DataLoader(
-        val_dataset,
-        batch_size=len(val_dataset))
+        val_dataset,        
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=leaves_remainder,
+        num_workers=num_workers)
 
     model.train()
     optimizer = torch.optim.SGD(
@@ -176,11 +181,14 @@ def fit_torch(
 
         cumulative_loss = cumulative_loss / len(train_dataloader)
         model.eval()
+        running_vloss = 0.0
         for xb, yb in val_dataloader:
             logits = model(xb)
             logits = torch.clamp(logits, 0, 1)
             val_loss = loss_function(logits, torch.argmax(yb, dim=-1).to(torch.int64)).item()
+            running_vloss += val_loss
 
+        val_loss = running_vloss / len(val_dataloader)
         learning_curve.loc[epoch, ['loss', 'val_loss', 'lr']] = cumulative_loss, val_loss, scheduler.get_last_lr()
         state_dicts.append(deepcopy(model.state_dict()))
         
