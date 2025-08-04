@@ -134,6 +134,9 @@ def fit_torch(
         dataset = DaskDataset(x, y)
 
     else:
+        if hasattr(x, 'todense'):
+            x = x.todense()
+            
         x = torch.from_numpy(x).to(torch.float32)
         dataset = torch.data.TensorDataset(x, y)
     
