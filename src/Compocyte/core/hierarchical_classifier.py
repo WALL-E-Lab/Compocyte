@@ -294,6 +294,9 @@ class HierarchicalClassifier(
             raise Exception(f'Features have already been selected at {node}.')
         
         subset = self.select_subset(node, max_cells=max_cells)
+        if hasattr(subset, 'todense'):
+            subset.X = subset.X.todense()
+            
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
         if len(subset.obs[child_obs].unique()) <= 1:
             return self.adata.var_names.tolist()
