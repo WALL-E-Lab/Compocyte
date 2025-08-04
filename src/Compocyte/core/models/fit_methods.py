@@ -4,10 +4,13 @@ from typing import Union
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import robust_scale
 import torch
 import logging
 import torch.utils
 import torch.utils.data
+import dask.array as da
+from torch.utils.data import Dataset
 from Compocyte.core.models.dense_torch import DenseTorch
 from Compocyte.core.models.dummy_classifier import DummyClassifier
 from Compocyte.core.models.log_reg import LogisticRegression
@@ -18,11 +21,25 @@ from balanced_loss import Loss as BalancedLoss
 
 logger = logging.getLogger(__name__)
 
+
+class DaskDataset(Dataset):
+    def __init__(self, x: da.Array, y: torch.Tensor) -> None:
+        self.x = x
+        self.y = y
+        self.length = self.x.shape[0]
+
+    def __getitem__(self, index):
+        tensor = torch.from_numpy(self.x[index].compute()).to(torch.float32)
+        return tuple(tensor, self.y[index])
+
+    def __len__(self):
+        return self.length
+
 def predict_logits(model, x):
+    x = robust_scale(x, axis=1, with_centering=True, copy=False, unit_variance=True)
     if hasattr(x, 'todense'):
         x = x.todense()
-
-    x = z_transform_properties(x)
+        
     if isinstance(model, DenseTorch):
         logits = model.predict_logits(x)
     
@@ -41,10 +58,6 @@ def predict_logits(model, x):
     return logits
 
 def predict(model, x, threshold=-1, monte_carlo: int=None):
-    if hasattr(x, 'todense'):
-        x = x.todense()
-
-    x = z_transform_properties(x)
     if monte_carlo is not None:
         all_logits = []
         dropout = torch.nn.Dropout(p=0.5)
@@ -108,16 +121,22 @@ def fit_torch(
         epochs: int=40, batch_size: int=64, 
         starting_lr: float=0.01, max_lr: float=0.1, momentum: float=0.5, 
         parallelize: bool=True, 
-        beta: float=0.8, gamma: float=2.0, class_balance: bool=True):
+        beta: float=0.8, gamma: float=2.0, class_balance: bool=True, max_cells: int=1_000_000):
     
     #torch.set_num_threads(int(os.environ['OMP_NUM_THREADS']))
     logger.info(f'num_threads set to {torch.get_num_threads()}')
     logger.info(f'OMP_NUM_THREADS set to {os.environ["OMP_NUM_THREADS"]}')
 
     y = to_categorical(y, num_classes=len(model.labels_enc.keys()))
-    x = torch.from_numpy(x).to(torch.float32)
     y = torch.from_numpy(y).to(torch.float32)
-    dataset = torch.utils.data.TensorDataset(x, y)
+    if len(x) > max_cells:
+        x = da.from_array(x)
+        dataset = DaskDataset(x, y)
+
+    else:
+        x = torch.from_numpy(x).to(torch.float32)
+        dataset = torch.data.TensorDataset(x, y)
+    
     train_dataset, val_dataset = torch.utils.data.random_split(
         dataset, [0.8, 0.2])
     batch_size = min(batch_size, len(train_dataset))
@@ -233,26 +252,32 @@ def fit(
     Returns:
         _type_: _description_
     """
-
-    if hasattr(x, 'todense'):
-        x = x.todense()
     
     # Standardize batches separately if list of idxs per dataset is provided
     if standardize_idx is not None:
         for idx in standardize_idx:
-            x[idx] = z_transform_properties(x[idx])
+            x[idx] = robust_scale(x[idx], axis=1, with_centering=True, copy=False, unit_variance=True)
     else:
-        x = z_transform_properties(x)
+        x = robust_scale(x, axis=1, with_centering=True, copy=False, unit_variance=True)
 
     y = np.array([model.labels_enc[label] for label in y])
     if isinstance(model, DenseTorch):
         return fit_torch(model, x, y, **fit_kwargs)
     
     elif isinstance(model, LogisticRegression):
+        if hasattr(x, 'todense'):
+            x = x.todense()
+            
         return fit_logreg(model, x, y, **fit_kwargs)
     
     elif isinstance(model, BoostedTrees):
+        if hasattr(x, 'todense'):
+            x = x.todense()
+            
         return fit_trees(model, x, y, **fit_kwargs)
 
     elif isinstance(model, DummyClassifier):
+        if hasattr(x, 'todense'):
+            x = x.todense()
+            
         return model.fit(x, y)

@@ -1,5 +1,6 @@
 from typing import Union
 from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.preprocessing import robust_scale
 from Compocyte.core.base.data_base import DataBase
 from Compocyte.core.base.hierarchy_base import HierarchyBase
 from Compocyte.core.base.export_import_base import ExportImportBase
@@ -236,7 +237,8 @@ class HierarchicalClassifier(
     def select_subset(
             self, 
             node: str, 
-            features: list=None) -> sc.AnnData:
+            features: list=None,
+            max_cells: int=None) -> sc.AnnData:
         
         obs = self.obs_names[self.node_to_depth[node]]
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
@@ -246,10 +248,15 @@ class HierarchicalClassifier(
         if features is not None:
             subset = subset[:, features]
 
-        max_cells = getattr(self, 'max_cells', None)
+        """
+        if max_cells is None:
+            max_cells = getattr(self, 'max_cells', None)
+
         stratify_by = getattr(self, 'stratify_by', None)
         if max_cells is not None and stratify_by is not None:
             subset = self.limit_cells(subset, max_cells, stratify_by)
+
+        """
 
         return subset
     
@@ -279,13 +286,14 @@ class HierarchicalClassifier(
             n_features: int=-1,
             max_features: int=None,
             min_features: int=30,
-            test_factor: float=1.0):
+            test_factor: float=1.0,
+            max_cells=100_000):
         
         has_features = 'selected_var_names' in self.graph.nodes[node].keys()
         if has_features and not overwrite:
             raise Exception(f'Features have already been selected at {node}.')
         
-        subset = self.select_subset(node)
+        subset = self.select_subset(node, max_cells=max_cells)
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
         if len(subset.obs[child_obs].unique()) <= 1:
             return self.adata.var_names.tolist()
@@ -303,7 +311,7 @@ class HierarchicalClassifier(
         n_features = min(n_features, max_features)
 
         x = np.array(subset.X)
-        x = z_transform_properties(x)   
+        x = robust_scale(x, axis=1, with_centering=True, copy=False, unit_variance=True)
         y = np.array(subset.obs[child_obs])
         selecter = SelectKBest(f_classif, k=n_features)
         selecter.fit(x, y)
@@ -363,6 +371,7 @@ class HierarchicalClassifier(
                 'momentum': kwargs['momentum'],
                 'beta': kwargs['beta'],
                 'gamma': kwargs['gamma'],
+                'max_cells': getattr(self, 'max_cells', 1_000_000)
             }
             self.graph.nodes[node]['threshold'] = kwargs['threshold']
 

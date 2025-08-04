@@ -22,10 +22,7 @@ class DataBase():
         self.ensure_not_view()
         self.check_for_counts()
         if self.default_input_data == 'normlog':
-            self.ensure_normlog()
-
-        if hasattr(self.adata.X, 'todense'):
-            self.adata.X = np.array(self.adata.X.todense())        
+            self.ensure_normlog()       
 
     def variable_match_adata(
         self, 
