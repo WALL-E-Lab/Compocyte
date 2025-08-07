@@ -319,7 +319,7 @@ class HierarchicalClassifier(
         n_features = min(n_features, max_features)
 
         x = np.asarray(x)
-        x = robust_scale(x, axis=1, with_centering=True, copy=False, unit_variance=True)
+        x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=True)
         y = np.array(subset.obs[child_obs])
         selecter = SelectKBest(f_classif, k=n_features)
         selecter.fit(x, y)

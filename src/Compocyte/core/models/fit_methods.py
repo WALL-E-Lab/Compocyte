@@ -36,7 +36,7 @@ class DaskDataset(Dataset):
         return self.length
 
 def predict_logits(model, x):
-    x = robust_scale(x, axis=1, with_centering=True, copy=False, unit_variance=True)
+    x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=True)
     if hasattr(x, 'todense'):
         x = x.todense()
         
@@ -259,9 +259,9 @@ def fit(
     # Standardize batches separately if list of idxs per dataset is provided
     if standardize_idx is not None:
         for idx in standardize_idx:
-            x[idx] = robust_scale(x[idx], axis=1, with_centering=True, copy=False, unit_variance=True)
+            x[idx] = robust_scale(x[idx], axis=1, with_centering=False, copy=False, unit_variance=True)
     else:
-        x = robust_scale(x, axis=1, with_centering=True, copy=False, unit_variance=True)
+        x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=True)
 
     y = np.array([model.labels_enc[label] for label in y])
     if isinstance(model, DenseTorch):
