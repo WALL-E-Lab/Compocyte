@@ -248,6 +248,10 @@ class HierarchicalClassifier(
         if features is not None:
             subset = subset[:, features]
 
+        stratify_by = getattr(self, 'stratify_by', None)
+        if max_cells is not None and stratify_by is not None:
+            subset = self.limit_cells(subset, max_cells, stratify_by)
+
         """
         if max_cells is None:
             max_cells = getattr(self, 'max_cells', None)
