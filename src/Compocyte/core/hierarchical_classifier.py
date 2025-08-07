@@ -298,8 +298,9 @@ class HierarchicalClassifier(
             raise Exception(f'Features have already been selected at {node}.')
         
         subset = self.select_subset(node, max_cells=max_cells)
-        if hasattr(subset.X, 'todense'):
-            subset.X = subset.X.todense()
+        x = subset.X
+        if hasattr(x, 'todense'):
+            x = x.todense()
             
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
         if len(subset.obs[child_obs].unique()) <= 1:
@@ -317,7 +318,7 @@ class HierarchicalClassifier(
 
         n_features = min(n_features, max_features)
 
-        x = np.array(subset.X)
+        x = np.asarray(x)
         x = robust_scale(x, axis=1, with_centering=True, copy=False, unit_variance=True)
         y = np.array(subset.obs[child_obs])
         selecter = SelectKBest(f_classif, k=n_features)
