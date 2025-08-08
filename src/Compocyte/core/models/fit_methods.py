@@ -29,10 +29,18 @@ class DaskDataset(Dataset):
         self.length = self.x.shape[0]
 
     def __getitem__(self, index):
-        x = self.x[index].compute()
+        if isinstance(index, int):
+            x = self.x[index:index+1].compute()
+
+        else:
+            x = self.x[index].compute()
+
         if hasattr(x, 'todense'):
             x = x.todense()
 
+        if isinstance(index, int):
+            x = np.ravel(x)
+            
         tensor = torch.from_numpy(x).to(torch.float32)
         return (tensor, self.y[index])
 
