@@ -129,7 +129,13 @@ def fit_torch(
 
     y = to_categorical(y, num_classes=len(model.labels_enc.keys()))
     y = torch.from_numpy(y).to(torch.float32)
-    if len(x) > max_cells:
+    if hasattr(x, 'todense'):
+        total_samples = x.shape[0]
+
+    else:
+        total_samples = len(x)
+
+    if total_samples > max_cells:
         x = da.from_array(x)
         dataset = DaskDataset(x, y)
 
