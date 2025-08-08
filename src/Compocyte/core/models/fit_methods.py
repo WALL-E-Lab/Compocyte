@@ -32,9 +32,9 @@ class DaskDataset(Dataset):
         x = self.x[index].compute()
         if hasattr(x, 'todense'):
             x = x.todense()
-            
+
         tensor = torch.from_numpy(x).to(torch.float32)
-        return tuple(tensor, self.y[index])
+        return (tensor, self.y[index])
 
     def __len__(self):
         return self.length
