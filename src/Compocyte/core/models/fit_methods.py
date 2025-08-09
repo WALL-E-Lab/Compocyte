@@ -155,7 +155,7 @@ def fit_torch(
         dataset, [0.8, 0.2])
     batch_size = min(batch_size, len(train_dataset))
     leaves_remainder = len(train_dataset) % batch_size == 1
-    num_workers = getattr(os.environ, 'OMP_NUM_THREADS', 2)
+    num_workers = int(getattr(os.environ, 'OMP_NUM_THREADS', 2))
     if parallelize:
         num_workers = 0
 
