@@ -11,7 +11,7 @@ import logging
 import torch.utils
 import torch.utils.data
 import dask.array as da
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, TensorDataset, random_split, DataLoader
 from Compocyte.core.models.dense_torch import DenseTorch
 from Compocyte.core.models.dummy_classifier import DummyClassifier
 from Compocyte.core.models.log_reg import LogisticRegression
@@ -149,9 +149,9 @@ def fit_torch(
             x = x.todense()
             
         x = torch.from_numpy(x).to(torch.float32)
-        dataset = torch.data.TensorDataset(x, y)
+        dataset = TensorDataset(x, y)
     
-    train_dataset, val_dataset = torch.utils.data.random_split(
+    train_dataset, val_dataset = random_split(
         dataset, [0.8, 0.2])
     batch_size = min(batch_size, len(train_dataset))
     leaves_remainder = len(train_dataset) % batch_size == 1
@@ -159,7 +159,7 @@ def fit_torch(
     if parallelize:
         num_workers = 0
 
-    train_dataloader = torch.utils.data.DataLoader(
+    train_dataloader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,

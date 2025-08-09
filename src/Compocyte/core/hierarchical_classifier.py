@@ -420,6 +420,9 @@ class HierarchicalClassifier(
         else:
             idx = None
             
+        if not 'max_cells' in fit_kwargs:
+            fit_kwargs['max_cells'] = getattr(self, 'max_cells', 1_000_000)
+            
         # Necessary to avoid data loss when using mp.pool
         return {
             **self.graph.nodes[node],
