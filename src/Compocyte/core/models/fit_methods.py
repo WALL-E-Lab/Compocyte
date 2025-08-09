@@ -3,6 +3,7 @@ import os
 from typing import Union
 import numpy as np
 import pandas as pd
+from scipy import sparse
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import robust_scale
 import torch
@@ -29,18 +30,7 @@ class DaskDataset(Dataset):
         self.length = self.x.shape[0]
 
     def __getitem__(self, index):
-        if isinstance(index, int):
-            x = self.x[index:index+1].compute()
-
-        else:
-            x = self.x[index].compute()
-
-        if hasattr(x, 'todense'):
-            x = x.todense()
-
-        if isinstance(index, int):
-            x = np.ravel(x)
-            
+        x = self.x[index].compute()            
         tensor = torch.from_numpy(x).to(torch.float32)
         return (tensor, self.y[index])
 
@@ -149,6 +139,10 @@ def fit_torch(
 
     if total_samples > max_cells:
         x = da.from_array(x)
+        x = x.map_blocks(
+            sparse.csr_matrix.toarray, 
+            chunks=(4096, 4096), 
+            dtype=np.float32)
         dataset = DaskDataset(x, y)
 
     else:
