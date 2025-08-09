@@ -138,7 +138,7 @@ def fit_torch(
         total_samples = len(x)
 
     if total_samples > max_cells:
-        x = da.from_array(x)
+        x = da.from_array(x, chunks=(batch_size*40, x.shape[1]))
         x = x.map_blocks(
             sparse.csr_matrix.toarray, 
             dtype=np.float32)
@@ -155,7 +155,7 @@ def fit_torch(
         dataset, [0.8, 0.2])
     batch_size = min(batch_size, len(train_dataset))
     leaves_remainder = len(train_dataset) % batch_size == 1
-    num_workers = min(os.cpu_count(), 2)
+    num_workers = getattr(os.environ, 'OMP_NUM_THREADS', 2)
     if parallelize:
         num_workers = 0
 
