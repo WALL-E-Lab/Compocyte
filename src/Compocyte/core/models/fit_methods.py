@@ -141,7 +141,6 @@ def fit_torch(
         x = da.from_array(x)
         x = x.map_blocks(
             sparse.csr_matrix.toarray, 
-            chunks=(4096, 4096), 
             dtype=np.float32)
         dataset = DaskDataset(x, y)
 
