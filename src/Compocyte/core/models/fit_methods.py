@@ -118,6 +118,78 @@ def samples_per_class(y):
 
     return spc
 
+def set_threads(num_threads, parallelize):
+    if num_threads > 10 and not parallelize:
+        # 4 for dask, 4 for dataloader, the rest for torch
+        num_workers = 4
+        num_threads = num_threads - 4 - 4
+
+    else:
+        num_workers = 0
+        num_threads = 1
+
+    logger.info(f'num_workers set to {num_workers}')    
+    torch.set_num_threads(num_threads)
+    logger.info(f'num_threads set to {torch.get_num_threads()}')
+    return num_workers
+
+def dataloaders_from_dask(x, y, batch_size, num_workers):
+    total_samples = x.shape[0]
+
+    indices = np.arange(total_samples)
+    rng = np.random.default_rng(12345)
+    rng.shuffle(indices)
+    indices_train = indices[:int(np.floor(total_samples * .8))]
+    indices_val = indices[int(np.floor(total_samples * .8)):]
+    x_train, y_train = x[indices_train], y[indices_train]
+    x_val, y_val = x[indices_val], y[indices_val]
+
+    batch_size = min(batch_size, x_train.shape[0])
+    x_train = da.from_array(x_train, chunks=(batch_size, x_train.shape[1]))
+    x_train = x_train.map_blocks(
+        sparse.csr_matrix.toarray, 
+        dtype=np.float32)
+    y_train = da.from_array(y_train, chunks=(batch_size, y_train.shape[1]))
+    train_dataset = DaskBatchDataset(x_train, y_train)
+    train_dataloader = DataLoader(train_dataset, batch_size=None, num_workers=num_workers)
+
+    batch_size = min(batch_size, x_val.shape[0])
+    x_val = da.from_array(x, chunks=(batch_size, x_val.shape[1]))
+    x_val = x_val.map_blocks(
+        sparse.csr_matrix.toarray, 
+        dtype=np.float32)
+    y_val = da.from_array(y_val, chunks=(batch_size, y_val.shape[1]))
+    val_dataset = DaskBatchDataset(x_val, y_val)
+    val_dataloader = DataLoader(val_dataset, batch_size=None, num_workers=num_workers)
+
+    return train_dataloader, val_dataloader
+
+def dataloaders_from_dense(x, y, batch_size, num_workers):
+    x = torch.from_numpy(x).to(torch.float32)
+    y = torch.from_numpy(x).to(torch.float32)
+    dataset = TensorDataset(x, y)
+    train_dataset, val_dataset = random_split(
+        dataset, [0.8, 0.2])
+    batch_size = min(batch_size, len(train_dataset))
+    leaves_remainder = len(train_dataset) % batch_size == 1
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=leaves_remainder,
+        num_workers=num_workers)
+    
+    batch_size = min(batch_size, len(val_dataset))    
+    leaves_remainder = len(val_dataset) % batch_size == 1
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=leaves_remainder,
+        num_workers=num_workers)
+    
+    return train_dataloader, val_dataloader
+
 def fit_torch(
         model: DenseTorch, 
         x: np.array, y: np.array, 
@@ -126,62 +198,14 @@ def fit_torch(
         parallelize: bool=True, num_threads: int=1, 
         beta: float=0.8, gamma: float=2.0, class_balance: bool=True, max_cells: int=1_000_000):
     
-    if num_threads > 10:
-        # 4 for dask, 4 for dataloader, the rest for torch
-        num_workers = 4
-        num_threads = num_threads - 4 - 4
-
-    else:
-        num_workers = 0
-        num_threads = 1        
-    
-    torch.set_num_threads(num_threads)
-    logger.info(f'num_threads set to {torch.get_num_threads()}')
-    y = to_categorical(y, num_classes=len(model.labels_enc.keys()))
-    if hasattr(x, 'todense'):
-        total_samples = x.shape[0]
-
-    else:
-        total_samples = len(x)
-        
-    batch_size = min(batch_size, int(total_samples * .2))
+    num_workers = set_threads(num_threads, parallelize)
+    y = to_categorical(y, num_classes=len(model.labels_enc.keys()))    
+    total_samples = x.shape[0]
     if total_samples > max_cells:
-        x = da.from_array(x, chunks=(batch_size, x.shape[1]))
-        x = x.map_blocks(
-            sparse.csr_matrix.toarray, 
-            dtype=np.float32)
-        y = da.from_array(y, chunks=(batch_size, y.shape[1]))
-        dataset = DaskBatchDataset(x, y)
+        train_dataloader, val_dataloader = dataloaders_from_dask(x, y, batch_size, num_workers)
 
     else:
-        if hasattr(x, 'todense'):
-            x = x.todense()
-            
-        x = torch.from_numpy(x).to(torch.float32)
-        y = torch.from_numpy(x).to(torch.float32)
-        dataset = TensorDataset(x, y)
-    
-    train_dataset, val_dataset = random_split(
-        dataset, [0.8, 0.2])
-    leaves_remainder = int(total_samples*.8) % batch_size == 1
-    if parallelize:
-        num_workers = 0
-
-    logger.info(f'num_workers set to {num_workers}')
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=batch_size if total_samples <= max_cells else None,
-        shuffle=True,
-        drop_last=leaves_remainder,
-        num_workers=num_workers)
-    batch_size = min(batch_size, len(val_dataset))    
-    leaves_remainder = int(total_samples*.2) % batch_size == 1
-    val_dataloader = DataLoader(
-        val_dataset,
-        batch_size=batch_size if total_samples <= max_cells else None,
-        shuffle=True,
-        drop_last=leaves_remainder,
-        num_workers=num_workers)
+        train_dataloader, val_dataloader = dataloaders_from_dense(x, y, batch_size, num_workers)
 
     model.train()
     optimizer = torch.optim.SGD(
