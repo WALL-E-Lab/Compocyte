@@ -151,6 +151,7 @@ def dataloaders_from_dask(x, y, batch_size, num_workers):
         dtype=np.float32)
     y_train = da.from_array(y_train, chunks=(batch_size, y_train.shape[1]))
     train_dataset = DaskBatchDataset(x_train, y_train)
+    num_batches = len(train_dataset.X_chunks)
     train_dataloader = DataLoader(train_dataset, batch_size=None, num_workers=num_workers)
 
     batch_size = min(batch_size, x_val.shape[0])
@@ -160,9 +161,10 @@ def dataloaders_from_dask(x, y, batch_size, num_workers):
         dtype=np.float32)
     y_val = da.from_array(y_val, chunks=(batch_size, y_val.shape[1]))
     val_dataset = DaskBatchDataset(x_val, y_val)
+    num_batches_val = len(val_dataset.X_chunks)
     val_dataloader = DataLoader(val_dataset, batch_size=None, num_workers=num_workers)
 
-    return train_dataloader, val_dataloader
+    return train_dataloader, val_dataloader, num_batches, num_batches_val
 
 def dataloaders_from_dense(x, y, batch_size, num_workers):
     x = torch.from_numpy(x).to(torch.float32)
@@ -202,10 +204,13 @@ def fit_torch(
     y = to_categorical(y, num_classes=len(model.labels_enc.keys()))    
     total_samples = x.shape[0]
     if total_samples > max_cells:
-        train_dataloader, val_dataloader = dataloaders_from_dask(x, y, batch_size, num_workers)
+        train_dataloader, val_dataloader, num_batches, num_batches_val = dataloaders_from_dask(
+            x, y, batch_size, num_workers)
 
     else:
         train_dataloader, val_dataloader = dataloaders_from_dense(x, y, batch_size, num_workers)
+        num_batches = len(train_dataloader)
+        num_batches_val = len(val_dataloader)
 
     model.train()
     optimizer = torch.optim.SGD(
@@ -218,7 +223,7 @@ def fit_torch(
         max_lr=max_lr,
         div_factor=10,
         epochs=epochs,
-        steps_per_epoch=len(train_dataloader),
+        steps_per_epoch=num_batches,
         verbose=False
     )
     loss_function = BalancedLoss(
@@ -245,7 +250,7 @@ def fit_torch(
             scheduler.step()
             optimizer.zero_grad()
 
-        cumulative_loss = cumulative_loss / len(train_dataloader)
+        cumulative_loss = cumulative_loss / num_batches
         model.eval()
         running_vloss = 0.0
         for xb, yb in val_dataloader:
@@ -254,7 +259,7 @@ def fit_torch(
             val_loss = loss_function(logits, torch.argmax(yb, dim=-1).to(torch.int64)).item()
             running_vloss += val_loss
 
-        val_loss = running_vloss / len(val_dataloader)
+        val_loss = running_vloss / num_batches_val
         learning_curve.loc[epoch, ['loss', 'val_loss', 'lr']] = cumulative_loss, val_loss, scheduler.get_last_lr()
         state_dicts.append(deepcopy(model.state_dict()))
         
