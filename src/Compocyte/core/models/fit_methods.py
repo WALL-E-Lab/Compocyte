@@ -154,7 +154,7 @@ def dataloaders_from_dask(x, y, batch_size, num_workers):
     train_dataloader = DataLoader(train_dataset, batch_size=None, num_workers=num_workers)
 
     batch_size = min(batch_size, x_val.shape[0])
-    x_val = da.from_array(x, chunks=(batch_size, x_val.shape[1]))
+    x_val = da.from_array(x_val, chunks=(batch_size, x_val.shape[1]))
     x_val = x_val.map_blocks(
         sparse.csr_matrix.toarray, 
         dtype=np.float32)
