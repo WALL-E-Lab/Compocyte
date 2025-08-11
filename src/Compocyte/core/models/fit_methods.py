@@ -9,7 +9,7 @@ from sklearn.preprocessing import robust_scale
 import torch
 import logging
 import dask.array as da
-from torch.utils.data import Dataset, TensorDataset, random_split, DataLoader, IterableDataset
+from torch.utils.data import TensorDataset, random_split, DataLoader, IterableDataset, get_worker_info
 from Compocyte.core.models.dense_torch import DenseTorch
 from Compocyte.core.models.dummy_classifier import DummyClassifier
 from Compocyte.core.models.log_reg import LogisticRegression
@@ -30,7 +30,20 @@ class DaskBatchDataset(IterableDataset):
             "Feature and label chunks must be aligned"
 
     def __iter__(self):
-        for X_chunk, y_chunk in zip(self.X_chunks, self.y_chunks):
+        worker_info = get_worker_info()
+        if worker_info is None:
+            # Single-process loading
+            chunk_iter = zip(self.X_chunks, self.y_chunks)
+        else:
+            # Split chunks among workers
+            worker_id = worker_info.id
+            num_workers = worker_info.num_workers
+            chunk_iter = zip(
+                self.X_chunks[worker_id::num_workers],
+                self.y_chunks[worker_id::num_workers]
+            )
+
+        for X_chunk, y_chunk in chunk_iter:
             X_np = X_chunk.compute()
             y_np = y_chunk.compute()
             yield (
