@@ -122,13 +122,19 @@ def fit_torch(
         x: np.array, y: np.array, 
         epochs: int=40, batch_size: int=64, 
         starting_lr: float=0.01, max_lr: float=0.1, momentum: float=0.5, 
-        parallelize: bool=True, 
+        parallelize: bool=True, num_threads: int=1, 
         beta: float=0.8, gamma: float=2.0, class_balance: bool=True, max_cells: int=1_000_000):
     
-    #torch.set_num_threads(int(os.environ['OMP_NUM_THREADS']))
-    logger.info(f'num_threads set to {torch.get_num_threads()}')
-    logger.info(f'OMP_NUM_THREADS set to {os.environ["OMP_NUM_THREADS"]}')
+    if num_threads > 1:
+        num_workers = int(num_threads/2)
+        num_threads = int(num_threads/2)
 
+    else:
+        num_workers = 0
+        num_threads = 1        
+
+    torch.set_num_threads(num_threads)
+    logger.info(f'num_threads set to {torch.get_num_threads()}')
     y = to_categorical(y, num_classes=len(model.labels_enc.keys()))
     y = torch.from_numpy(y).to(torch.float32)
     if hasattr(x, 'todense'):
@@ -155,10 +161,10 @@ def fit_torch(
         dataset, [0.8, 0.2])
     batch_size = min(batch_size, len(train_dataset))
     leaves_remainder = len(train_dataset) % batch_size == 1
-    num_workers = int(getattr(os.environ, 'OMP_NUM_THREADS', 2))
     if parallelize:
         num_workers = 0
 
+    logger.info(f'num_workers set to {num_workers}')
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=batch_size,

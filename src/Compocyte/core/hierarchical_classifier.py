@@ -360,6 +360,12 @@ class HierarchicalClassifier(
 
 
     def train_single_node(self, node, standardize_separately: str=None, **fit_kwargs):
+        if not hasattr(self, 'num_threads') and not 'num_threads' in fit_kwargs:
+            raise Exception('Please specify the number of threads to use for training.')
+        
+        elif 'num_threads' in fit_kwargs:
+            self.num_threads = fit_kwargs['num_threads']
+
         has_classifier = 'local_classifier' in self.graph.nodes[node].keys()
         # This weird approach is currently necessary to allow for training with mp.pool
         if hasattr(self, 'tuned_kwargs') and node in self.tuned_kwargs:
@@ -422,6 +428,9 @@ class HierarchicalClassifier(
             
         if not 'max_cells' in fit_kwargs:
             fit_kwargs['max_cells'] = getattr(self, 'max_cells', 1_000_000)
+
+        if not 'num_threads' in fit_kwargs:
+            fit_kwargs['num_threads'] = self.num_threads
             
         # Necessary to avoid data loss when using mp.pool
         return {
