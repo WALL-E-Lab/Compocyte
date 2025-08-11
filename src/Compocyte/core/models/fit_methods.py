@@ -112,7 +112,7 @@ def predict(model, x, threshold=-1, monte_carlo: int=None):
 
 def samples_per_class(y):
     spc = list(torch.zeros(y.shape[1]))
-    classes_counted = torch.unique(torch.argmax(y, dim=-1), return_counts=True)
+    classes_counted = np.unique(np.argmax(y, axis=1), return_counts=True)
     for c, samples in zip(classes_counted[0], classes_counted[1]):
         spc[c] = samples
 
