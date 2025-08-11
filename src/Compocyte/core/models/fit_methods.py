@@ -135,7 +135,6 @@ def fit_torch(
         num_workers = 0
         num_threads = 1        
     
-    batch_size = min(batch_size, int(len(x) * .2))
     torch.set_num_threads(num_threads)
     logger.info(f'num_threads set to {torch.get_num_threads()}')
     y = to_categorical(y, num_classes=len(model.labels_enc.keys()))
@@ -144,7 +143,8 @@ def fit_torch(
 
     else:
         total_samples = len(x)
-
+        
+    batch_size = min(batch_size, int(total_samples * .2))
     if total_samples > max_cells:
         x = da.from_array(x, chunks=(batch_size, x.shape[1]))
         x = x.map_blocks(
