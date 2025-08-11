@@ -8,34 +8,35 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import robust_scale
 import torch
 import logging
-import torch.utils
-import torch.utils.data
 import dask.array as da
-from torch.utils.data import Dataset, TensorDataset, random_split, DataLoader
+from torch.utils.data import Dataset, TensorDataset, random_split, DataLoader, IterableDataset
 from Compocyte.core.models.dense_torch import DenseTorch
 from Compocyte.core.models.dummy_classifier import DummyClassifier
 from Compocyte.core.models.log_reg import LogisticRegression
 from Compocyte.core.models.trees import BoostedTrees
-from Compocyte.core.tools import z_transform_properties
 from keras.utils import to_categorical
 from balanced_loss import Loss as BalancedLoss
 
 logger = logging.getLogger(__name__)
 
 
-class DaskDataset(Dataset):
-    def __init__(self, x: da.Array, y: torch.Tensor) -> None:
-        self.x = x
-        self.y = y
-        self.length = self.x.shape[0]
+class DaskBatchDataset(IterableDataset):
+    def __init__(self, X, y):
+        # Convert both to lists of delayed chunks
+        self.X_chunks = X.to_delayed().ravel()
+        self.y_chunks = y.to_delayed().ravel()
 
-    def __getitem__(self, index):
-        x = self.x[index].compute()            
-        tensor = torch.from_numpy(x).to(torch.float32)
-        return (tensor, self.y[index])
+        assert len(self.X_chunks) == len(self.y_chunks), \
+            "Feature and label chunks must be aligned"
 
-    def __len__(self):
-        return self.length
+    def __iter__(self):
+        for X_chunk, y_chunk in zip(self.X_chunks, self.y_chunks):
+            X_np = X_chunk.compute()
+            y_np = y_chunk.compute()
+            yield (
+                torch.from_numpy(X_np).to(torch.float32),
+                torch.from_numpy(y_np).to(torch.float32)
+            )
 
 def predict_logits(model, x):
     x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=True)
@@ -126,17 +127,18 @@ def fit_torch(
         beta: float=0.8, gamma: float=2.0, class_balance: bool=True, max_cells: int=1_000_000):
     
     if num_threads > 1:
-        num_workers = int(num_threads/2)
-        num_threads = int(num_threads/2)
+        # Save 4 workers for dask
+        num_workers = int((num_threads-4)/2)
+        num_threads = int((num_threads-4)/2)
 
     else:
         num_workers = 0
         num_threads = 1        
-
+    
+    batch_size = min(batch_size, int(len(x) * .2))
     torch.set_num_threads(num_threads)
     logger.info(f'num_threads set to {torch.get_num_threads()}')
     y = to_categorical(y, num_classes=len(model.labels_enc.keys()))
-    y = torch.from_numpy(y).to(torch.float32)
     if hasattr(x, 'todense'):
         total_samples = x.shape[0]
 
@@ -144,38 +146,39 @@ def fit_torch(
         total_samples = len(x)
 
     if total_samples > max_cells:
-        x = da.from_array(x, chunks=(batch_size*40, x.shape[1]))
+        x = da.from_array(x, chunks=(batch_size, x.shape[1]))
         x = x.map_blocks(
             sparse.csr_matrix.toarray, 
             dtype=np.float32)
-        dataset = DaskDataset(x, y)
+        y = da.from_array(y, chunks=(batch_size, y.shape[1]))
+        dataset = DaskBatchDataset(x, y)
 
     else:
         if hasattr(x, 'todense'):
             x = x.todense()
             
         x = torch.from_numpy(x).to(torch.float32)
+        y = torch.from_numpy(x).to(torch.float32)
         dataset = TensorDataset(x, y)
     
     train_dataset, val_dataset = random_split(
         dataset, [0.8, 0.2])
-    batch_size = min(batch_size, len(train_dataset))
-    leaves_remainder = len(train_dataset) % batch_size == 1
+    leaves_remainder = int(total_samples*.8) % batch_size == 1
     if parallelize:
         num_workers = 0
 
     logger.info(f'num_workers set to {num_workers}')
     train_dataloader = DataLoader(
         train_dataset,
-        batch_size=batch_size,
+        batch_size=batch_size if total_samples <= max_cells else None,
         shuffle=True,
         drop_last=leaves_remainder,
         num_workers=num_workers)
-    batch_size = min(batch_size, len(val_dataset))
-    leaves_remainder = len(val_dataset) % batch_size == 1
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset,        
-        batch_size=batch_size,
+    batch_size = min(batch_size, len(val_dataset))    
+    leaves_remainder = int(total_samples*.2) % batch_size == 1
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=batch_size if total_samples <= max_cells else None,
         shuffle=True,
         drop_last=leaves_remainder,
         num_workers=num_workers)

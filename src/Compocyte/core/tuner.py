@@ -61,6 +61,8 @@ class Tuner():
         if max_cells is not None and stratify_by is not None:
             classifier.introduce_limit(max_cells, stratify_by)
             
+        if not parallelize:
+            classifier.num_threads = processes
         classifier.train_all_child_nodes(parallelize=parallelize, processes=processes)
         return classifier
     
@@ -96,7 +98,7 @@ class Tuner():
                 adata=train_adata, 
                 dict_of_cell_relations=self.hierarchy,
                 obs_names=self.obs_names)
-            
+            classifier.num_threads = num_threads
             for node in classifier.graph.nodes:
                 n_children = len(list(classifier.graph.successors(node)))
                 if n_children >= 1:
