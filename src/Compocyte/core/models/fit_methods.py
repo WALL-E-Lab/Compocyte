@@ -126,10 +126,10 @@ def fit_torch(
         parallelize: bool=True, num_threads: int=1, 
         beta: float=0.8, gamma: float=2.0, class_balance: bool=True, max_cells: int=1_000_000):
     
-    if num_threads > 1:
-        # Save 4 workers for dask
-        num_workers = int((num_threads-4)/2)
-        num_threads = int((num_threads-4)/2)
+    if num_threads > 10:
+        # 4 for dask, 4 for dataloader, the rest for torch
+        num_workers = 4
+        num_threads = num_threads - 4 - 4
 
     else:
         num_workers = 0
