@@ -63,6 +63,7 @@ class Tuner():
             
         if not parallelize:
             classifier.num_threads = processes
+            
         classifier.train_all_child_nodes(parallelize=parallelize, processes=processes)
         return classifier
     

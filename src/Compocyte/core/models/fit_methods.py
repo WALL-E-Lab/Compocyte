@@ -180,8 +180,10 @@ def dataloaders_from_dask(x, y, batch_size, num_workers):
     return train_dataloader, val_dataloader, num_batches, num_batches_val
 
 def dataloaders_from_dense(x, y, batch_size, num_workers):
-    x = torch.from_numpy(x).to(torch.float32)
-    y = torch.from_numpy(x).to(torch.float32)
+    x = torch.from_numpy(
+        sparse.csr_matrix.toarray(x)
+    ).to(torch.float32)
+    y = torch.from_numpy(y).to(torch.float32)
     dataset = TensorDataset(x, y)
     train_dataset, val_dataset = random_split(
         dataset, [0.8, 0.2])
