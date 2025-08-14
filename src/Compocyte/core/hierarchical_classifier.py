@@ -9,6 +9,7 @@ from Compocyte.core.models.fit_methods import fit, predict
 from Compocyte.core.models.log_reg import LogisticRegression
 from Compocyte.core.models.dense_torch import DenseTorch
 from time import time
+from scipy import sparse
 import numpy as np
 import os
 import pickle
@@ -298,9 +299,7 @@ class HierarchicalClassifier(
             raise Exception(f'Features have already been selected at {node}.')
         
         subset = self.select_subset(node, max_cells=max_cells)
-        x = subset.X
-        if hasattr(x, 'todense'):
-            x = x.todense()
+        x = sparse.csr_matrix.toarray(subset.X)
             
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
         if len(subset.obs[child_obs].unique()) <= 1:

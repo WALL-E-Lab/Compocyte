@@ -21,6 +21,9 @@ class DataBase():
 
         self.ensure_not_view()
         self.check_for_counts()
+        if not isinstance(self.adata.X, sparse.csr_matrix):
+            self.adata.X = sparse.csr_matrix(self.adata.X)
+            
         if self.default_input_data == 'normlog':
             self.ensure_normlog()       
 

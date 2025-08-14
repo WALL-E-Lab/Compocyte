@@ -53,8 +53,7 @@ class DaskBatchDataset(IterableDataset):
 
 def predict_logits(model, x):
     x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=True)
-    if hasattr(x, 'todense'):
-        x = x.todense()
+    x = sparse.csr_matrix.toarray(x)
         
     if isinstance(model, DenseTorch):
         logits = model.predict_logits(x)
@@ -327,24 +326,19 @@ def fit(
     else:
         x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=True)
 
+    
+    if not isinstance(model, DenseTorch):
+        x = sparse.csr_matrix.toarray(x)
+
     y = np.array([model.labels_enc[label] for label in y])
     if isinstance(model, DenseTorch):
         return fit_torch(model, x, y, **fit_kwargs)
     
-    elif isinstance(model, LogisticRegression):
-        if hasattr(x, 'todense'):
-            x = x.todense()
-            
+    elif isinstance(model, LogisticRegression):            
         return fit_logreg(model, x, y, **fit_kwargs)
     
-    elif isinstance(model, BoostedTrees):
-        if hasattr(x, 'todense'):
-            x = x.todense()
-            
+    elif isinstance(model, BoostedTrees):            
         return fit_trees(model, x, y, **fit_kwargs)
 
-    elif isinstance(model, DummyClassifier):
-        if hasattr(x, 'todense'):
-            x = x.todense()
-            
+    elif isinstance(model, DummyClassifier):            
         return model.fit(x, y)

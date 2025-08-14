@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import sparse
 from scipy.sparse.csr import csr_matrix
 import networkx as nx
 from copy import deepcopy
@@ -15,13 +16,8 @@ def is_counts(matrix, n_rows_to_try=100):
     """Determines whether or not a matrix (such as adata.X, adata.raw.X or an adata layer) contains
     count data by manually checking a subsample of the supplied matrix.
     """
-
-    if not (isinstance(matrix, np.matrix) or isinstance(matrix, csr_matrix) or isinstance(matrix, np.ndarray)):
-        raise ValueError(f'Matrix supplied must be of type {csr_matrix} or {np.matrix} or {np.ndarray}.')
-
     test_data = matrix[:n_rows_to_try]
-    if hasattr(test_data, 'todense'):
-        test_data = test_data.todense()
+    test_data = sparse.csr_matrix.toarray(test_data)
 
     contains_negative_values = np.any(test_data < 0)
     contains_non_whole_numbers = np.any(test_data % 1 != 0)
