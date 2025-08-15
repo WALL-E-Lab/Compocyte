@@ -53,7 +53,8 @@ class DaskBatchDataset(IterableDataset):
 
 def predict_logits(model, x):
     x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=True)
-    x = sparse.csr_matrix.toarray(x)
+    if isinstance(x, sparse.csr_matrix):
+        x = sparse.csr_matrix.toarray(x)
         
     if isinstance(model, DenseTorch):
         logits = model.predict_logits(x)
@@ -72,7 +73,11 @@ def predict_logits(model, x):
 
     return logits
 
-def predict(model, x, threshold=-1, monte_carlo: int=None):
+def predict(model, x, threshold=-1, monte_carlo: int=None):    
+    x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=True)
+    if isinstance(x, sparse.csr_matrix):
+        x = sparse.csr_matrix.toarray(x)
+
     if monte_carlo is not None:
         all_logits = []
         dropout = torch.nn.Dropout(p=0.5)
