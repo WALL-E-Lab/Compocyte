@@ -16,7 +16,15 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = ["scanpy", "uncertainties"]
+dependencies = [
+  "catboost==1.2.7",
+  "balanced-loss@https://github.com/fcakyon/balanced-loss.git",
+  "scanpy==1.9.3",
+  "SEACells==0.3.3",
+  "cytopus@git+https://github.com/wallet-maker/cytopus.git",
+  "torch==2.0.1",
+  "scikit-learn==1.2.2"
+  ]
 
 [options]
 package_dir = "src"
