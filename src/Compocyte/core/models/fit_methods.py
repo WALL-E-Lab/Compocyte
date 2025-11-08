@@ -287,7 +287,7 @@ def fit_torch(
     return learning_curve
 
 def fit_logreg(model: LogisticRegression, x, y, **fit_kwargs):
-    fit = model.fit(
+    fit = model.model.fit(
         x, y,
     )
     model.labels_enc = {label: i for i, label in enumerate(model.model.classes_)}
