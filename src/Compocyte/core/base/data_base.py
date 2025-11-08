@@ -108,10 +108,9 @@ class DataBase():
                 raise ValueError('No raw counts found in adata.X or adata.raw.X or adata.layers["raw"].')
 
     def ensure_normlog(self):
-        is_normlog = np.all(
-            np.round(
+        is_normlog = len(np.unique(np.array(np.round(
                 np.sum(np.expm1(self.adata.X), axis=1)
-            ) == 10000)
+            )))) == 1
         if not is_normlog:            
             sc.pp.normalize_total(self.adata, target_sum=10000)
             sc.pp.log1p(self.adata)
