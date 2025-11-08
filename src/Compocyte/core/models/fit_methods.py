@@ -290,8 +290,8 @@ def fit_logreg(model: LogisticRegression, x, y, **fit_kwargs):
     fit = model.model.fit(
         x, y,
     )
-    model.labels_enc = {label: i for i, label in enumerate(model.model.classes_)}
-    model.labels_dec = {model.labels_enc[label]: label for label in model.labels_enc.keys()}
+    #model.labels_enc = {label: i for i, label in enumerate(model.model.classes_)}
+    #model.labels_dec = {model.labels_enc[label]: label for label in model.labels_enc.keys()}
 
     return fit
 
