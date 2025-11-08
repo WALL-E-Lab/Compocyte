@@ -286,7 +286,7 @@ def fit_torch(
     
     return learning_curve
 
-def fit_logreg(model: LogisticRegression, x, y):
+def fit_logreg(model: LogisticRegression, x, y, **fit_kwargs):
     fit = model.fit(
         x, y,
     )
