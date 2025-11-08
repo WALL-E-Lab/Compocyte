@@ -111,6 +111,9 @@ class DataBase():
         is_normlog = len(np.unique(np.array(np.round(
                 np.sum(np.expm1(self.adata.X), axis=1)
             )))) == 1
+        if 'log1p' in self.adata.uns: 
+            del self.adata.uns['log1p']
+            
         if not is_normlog:            
             sc.pp.normalize_total(self.adata, target_sum=10000)
             sc.pp.log1p(self.adata)
