@@ -32,3 +32,6 @@ package_dir = "src"
 [project.urls]
 "Homepage" = "https://github.com/WALL-E-Lab/Compocyte"
 "Bug Tracker" = "https://github.com/WALL-E-Lab/Compocyte/issues"
+
+[tool.hatch.metadata]
+allow-direct-references = true
