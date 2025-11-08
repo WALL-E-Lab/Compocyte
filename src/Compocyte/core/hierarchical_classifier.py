@@ -347,6 +347,19 @@ class HierarchicalClassifier(
         labels = subset.obs[child_obs].unique().tolist()
         n_input = len(features)
         n_output = len(labels)
+        if isinstance(classifier_type, str):
+            if classifier_type == 'DenseTorch':
+                classifier_type = DenseTorch
+
+            elif classifier_type == 'LogisticRegression':
+                classifier_type = LogisticRegression
+
+            elif classifier_type == 'BoostedTrees':
+                classifier_type = BoostedTrees
+
+            else:
+                raise Exception(f'Unknown classifier type: {classifier_type}')
+            
         if n_output == 1:
             classifier_type = DummyClassifier
 
@@ -404,6 +417,9 @@ class HierarchicalClassifier(
             if -1 in hidden_layers:
                 classifier_type = BoostedTrees
                 
+            # If classifier types other than the standard have been set, use those
+            specified_classifier_types =  getattr(self, 'specified_classifier_types', {})
+            classifier_type = specified_classifier_types.get(node, classifier_type)
             self.create_local_classifier(node, classifier_type=classifier_type, **classifier_kwargs)
         
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
@@ -436,6 +452,17 @@ class HierarchicalClassifier(
             **self.graph.nodes[node],
             'learning_curve': fit(model, x, y, standardize_idx=idx, **fit_kwargs)
         }
+    
+    def set_classifier_type(self, node, classifier_type):
+        if isinstance(node, list):
+            for n in node:
+                self.set_classifier_type(n, classifier_type)
+
+        else:
+            if not hasattr(self, 'specified_classifier_types'):
+                self.specified_classifier_types = {}
+
+            self.specified_classifier_types[node] = classifier_type
 
     def train_all_child_nodes(
         self,
