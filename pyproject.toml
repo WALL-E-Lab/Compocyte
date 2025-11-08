@@ -6,7 +6,8 @@ build-backend = "hatchling.build"
 name = "Compocyte"
 version = "1.0.2.1"
 authors = [
-  { name="Thomas Walle", email="t.walle@dkfz-heidelberg.de" },
+  { name="Thomas Walle", email="t.walle@dkfz-heidelberg.de" }
+  { name="Christopher Beltz", email="christopher.beltz@dkfz-heidelberg.de" },
 ]
 description = "Compocyte automates cell type annotation for scRNAseq data using a composite of hierarchically arranged classifiers."
 readme = "README.md"
@@ -24,7 +25,7 @@ dependencies = [
   "cytopus@git+https://github.com/wallet-maker/cytopus.git",
   "torch==2.0.1",
   "scikit-learn==1.2.2",
-  "torch==2.0.1"
+  "torch==2.5.0"
   ]
 
 [options]
