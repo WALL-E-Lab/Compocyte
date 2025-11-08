@@ -67,7 +67,7 @@ available soon
 For step-by-step guides and explanations to using Compocyte please refer to one of our tutorials.
 
 - [Applying a pre-trained classifier]()
-- [Training a custom classifier](https://colab.research.google.com/drive/1dVSAYgS4yY5ydIA1d-1rqYuIhVAfQI5-?usp=sharing)
+- [Training a custom classifier](https://colab.research.google.com/drive/10Jht-iKHjGbwOnoMqeiIHrqPA37kO745?usp=sharing)
 - [Expanding an existing classifier]()
 - [Importing an existing subset classifier]()
 

@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "Compocyte"
 version = "1.0.2.1"
 authors = [
-  { name="Thomas Walle", email="t.walle@dkfz-heidelberg.de" }
+  { name="Thomas Walle", email="t.walle@dkfz-heidelberg.de" },
   { name="Christopher Beltz", email="christopher.beltz@dkfz-heidelberg.de" },
 ]
 description = "Compocyte automates cell type annotation for scRNAseq data using a composite of hierarchically arranged classifiers."
