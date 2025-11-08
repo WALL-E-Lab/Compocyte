@@ -19,12 +19,13 @@ classifiers = [
 ]
 dependencies = [
   "catboost==1.2.7",
-  "balanced-loss@git+https://github.com/fcakyon/balanced-loss.git",
+  "balanced-loss@git+https://github.com/fcakyon/balanced-loss.git",  
+  "anndata==0.9.1",
   "scanpy==1.9.3",
   "SEACells==0.3.3",
   "cytopus@git+https://github.com/wallet-maker/cytopus.git",
   "scikit-learn==1.2.2",
-  "torch==2.5.0"
+  "torch==2.5.0",
   ]
 
 [options]
