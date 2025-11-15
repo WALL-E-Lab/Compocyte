@@ -3,6 +3,7 @@ import scanpy as sc
 import pandas as pd
 from Compocyte.core.tools import is_counts
 from scipy import sparse
+from warnings import warn
 
 class DataBase():
     """Add explanation
@@ -108,9 +109,20 @@ class DataBase():
                 raise ValueError('No raw counts found in adata.X or adata.raw.X or adata.layers["raw"].')
 
     def ensure_normlog(self):
+        test_x = self.adata.X[:min(100, len(self.adata)), :]
+        if hasattr(test_x, 'todense'):
+            test_x = test_x.todense()
+
+        test_x = np.asarray(test_x)
+        test_x = np.longdouble(test_x)
         is_normlog = len(np.unique(np.array(np.round(
-                np.sum(np.expm1(self.adata.X), axis=1)
+                np.sum(np.expm1(test_x), axis=1)
             )))) == 1
+        if is_normlog:
+            warn('You have supplied normalized, log-transformed data. Please ensure that \
+                 this is intended and data is normalized to 10_000 counts per cell prior \
+                 to log1p transformation.')
+        
         if 'log1p' in self.adata.uns: 
             del self.adata.uns['log1p']
             
