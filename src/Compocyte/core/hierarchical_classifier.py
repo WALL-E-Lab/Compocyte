@@ -32,7 +32,7 @@ class HierarchicalClassifier(
             dict_of_cell_relations=None, 
             obs_names=None,
             default_input_data='normlog',
-            num_threads=None,
+            num_threads=1,
             ignore_counts=False,
             ):
 

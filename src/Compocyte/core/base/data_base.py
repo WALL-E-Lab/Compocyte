@@ -126,6 +126,11 @@ class DataBase():
         if 'log1p' in self.adata.uns: 
             del self.adata.uns['log1p']
             
-        if not is_normlog:            
+        if not is_normlog:
+            if self.ignore_counts:
+                warn('Data is not tc-count normalized to 10_000 counts per cell and log-\
+                     transformed, thus renormalizing and re-log-transforming data. If this \
+                     is not intended, please set default_input_data to "counts".')
+                
             sc.pp.normalize_total(self.adata, target_sum=10000)
             sc.pp.log1p(self.adata)
