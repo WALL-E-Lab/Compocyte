@@ -14,6 +14,9 @@ class ExportImportBase():
 
         classifier_dict = {}
         classifier_dict['classifier'] = self.graph.nodes[node]['local_classifier']
+        if isinstance(self.graph.nodes[node]['local_classifier'], DenseTorch):
+            classifier_dict['classifier_state_dict'] = self.graph.nodes[node]['local_classifier'].state_dict()
+        
         classifier_dict['data_type'] = self.default_input_data
         if 'selected_var_names' in self.graph.nodes[node]:
             classifier_dict['selected_var_names'] = self.graph.nodes[node]['selected_var_names']
@@ -49,7 +52,11 @@ class ExportImportBase():
         
         classifier_exists = 'local_classifier' in self.graph.nodes[node]
         if (classifier_exists and overwrite) or not classifier_exists:
-            if type(classifier_dict['classifier']) in [DenseTorch, LogisticRegression, DummyClassifier, BoostedTrees]:
+            if isinstance(classifier_dict['classifier'], DenseTorch):
+                self.graph.nodes[node]['local_classifier'] = classifier_dict['classifier']
+                self.graph.nodes[node]['local_classifier'].load_state_dict(classifier_dict['classifier_state_dict'])
+
+            elif type(classifier_dict['classifier']) in [LogisticRegression, DummyClassifier, BoostedTrees]:
                 self.graph.nodes[node]['local_classifier'] = classifier_dict['classifier']
 
             elif issubclass(type(classifier_dict['classifier']), torch.nn.Module):

@@ -222,10 +222,10 @@ class Hierarchical_Metric():
             
         self.intersect_lookups[t_label][p_label] = (cardinality_intersect_t_p, cardinality_p_label_augmented)
 
-    def hP(self, true_labels, predicted_labels):
+    def hP(self):
         numerator = []
         denominator = []
-        for t_label, p_label in zip(true_labels, predicted_labels):
+        for t_label, p_label in zip(self.true_labels, self.predicted_labels):
             if not (t_label in self.intersect_lookups.keys() and p_label in self.intersect_lookups[t_label].keys()):
                 t_label_augmented = self.augmented_set_of_node_n(t_label)
                 p_label_augmented = self.augmented_set_of_node_n(p_label) 
@@ -238,10 +238,10 @@ class Hierarchical_Metric():
         return np.sum(np.array(numerator)) / np.sum(np.array(denominator))
 
 
-    def hR(self, true_labels, predicted_labels):
+    def hR(self):
         numerator = []
         denominator = []
-        for t_label, p_label in zip(true_labels, predicted_labels):
+        for t_label, p_label in zip(self.true_labels, self.predicted_labels):
             t_label_augmented = self.augmented_set_of_node_n(t_label)
             p_label_augmented = self.augmented_set_of_node_n(p_label)
             if not (t_label in self.intersect_lookups.keys() and p_label in self.intersect_lookups[t_label].keys()):
