@@ -257,8 +257,8 @@ class Hierarchical_Metric():
 
     def hF(self, beta):
 
-        hP = self.hP(self.true_labels, self.predicted_labels) 
-        hR = self.hR(self.true_labels, self.predicted_labels)
+        hP = self.hP() 
+        hR = self.hR()
         
         hF = (beta**2 + 1) * hP * hR / (beta**2 * hP + hR)
 
@@ -273,8 +273,8 @@ class Hierarchical_Metric():
 
         for label in labels: 
             true_label_idcs = np.where(self.true_labels == label)[0]
-            hP = self.hP(self.true_labels[true_label_idcs], self.predicted_labels[true_label_idcs])
-            hR = self.hR(self.true_labels[true_label_idcs], self.predicted_labels[true_label_idcs])
+            hP = self.hP()
+            hR = self.hR()
 
             Fb = (beta**2 + 1) * hP * hR / (beta**2 * hP + hR)
             label_Fb.append(Fb)
@@ -285,8 +285,8 @@ class Hierarchical_Metric():
         label_metrics = pd.DataFrame(columns=[f'hF{beta}', 'hR', 'hP'])
         for label in np.unique(self.true_labels): 
             true_label_idcs = np.where(self.true_labels == label)[0]
-            hP = self.hP(self.true_labels[true_label_idcs], self.predicted_labels[true_label_idcs])
-            hR = self.hR(self.true_labels[true_label_idcs], self.predicted_labels[true_label_idcs])
+            hP = self.hP()
+            hR = self.hR()
 
             Fb = (beta**2 + 1) * hP * hR / (beta**2 * hP + hR)
             label_metrics.loc[label] = [np.round(Fb, 2), np.round(hR, 2), np.round(hP, 2)]
