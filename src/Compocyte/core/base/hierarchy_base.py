@@ -29,7 +29,7 @@ class HierarchyBase():
         self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
         self.make_classifier_graph()        
         if contains_classifier:
-            self.import_classifiers(dict_of_cell_relations_with_classifiers, parent_key=root_node)
+            self.import_classifiers(dict_of_cell_relations_with_classifiers, temp_path, parent_key=root_node)
 
     def ensure_depth_match(self, dict_of_cell_relations, obs_names):
         """Check if the annotations supplied in .obs under obs_names are sufficiently deep to work 
@@ -104,7 +104,7 @@ class HierarchyBase():
 
         return parent_node
 
-    def update_hierarchy(self, dict_of_cell_relations, root_node=None, overwrite=False):
+    def update_hierarchy(self, dict_of_cell_relations, temp_path=None, root_node=None, overwrite=False):
         dict_of_cell_relations_with_classifiers = deepcopy(dict_of_cell_relations)
         dict_of_cell_relations, contains_classifier = delete_dict_entries(dict_of_cell_relations, 'classifier')
         if root_node is not None:
@@ -168,4 +168,4 @@ class HierarchyBase():
                 self.graph.nodes[node]['local_classifier'].reset_output(len(child_nodes))
 
         if contains_classifier:
-            self.import_classifiers(dict_of_cell_relations_with_classifiers, overwrite=overwrite)
+            self.import_classifiers(dict_of_cell_relations_with_classifiers, temp_path, overwrite=overwrite)
