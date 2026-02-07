@@ -1,4 +1,5 @@
 from copy import deepcopy
+import os
 from Compocyte.core.models.dense_torch import DenseTorch
 from Compocyte.core.models.dummy_classifier import DummyClassifier
 from Compocyte.core.models.log_reg import LogisticRegression
@@ -9,13 +10,12 @@ import sklearn
 from Compocyte.core.models.trees import BoostedTrees
 
 class ExportImportBase():
-    def make_classifier_dict(self, node):
+    def make_classifier_dict(self, node, temp_path):
         """Export local classifier into externally applicable format"""
 
         classifier_dict = {}
-        classifier_dict['classifier'] = self.graph.nodes[node]['local_classifier']
-        if isinstance(self.graph.nodes[node]['local_classifier'], DenseTorch):
-            classifier_dict['classifier_state_dict'] = self.graph.nodes[node]['local_classifier'].state_dict()
+        classifier_dict['classifier'] = os.path.join(temp_path, node)
+        self.graph.nodes[node]['local_classifier']._save(os.path.join(temp_path, node))
         
         classifier_dict['data_type'] = self.default_input_data
         if 'selected_var_names' in self.graph.nodes[node]:
@@ -26,7 +26,7 @@ class ExportImportBase():
 
         return classifier_dict
 
-    def export_classifiers(self):
+    def export_classifiers(self, temp_path):
         dict_of_cell_relations = deepcopy(self.dict_of_cell_relations)
         for node in list(self.graph):
             if 'local_classifier' in self.graph.nodes[node]:
@@ -38,11 +38,11 @@ class ExportImportBase():
                 for p in path_to_node:
                     child_dict = child_dict[p]
 
-                child_dict['classifier'] = self.make_classifier_dict(node)
+                child_dict['classifier'] = self.make_classifier_dict(node, temp_path=temp_path)
 
         return dict_of_cell_relations
 
-    def import_classifier(self, node, classifier_dict, overwrite=False):
+    def import_classifier(self, node, classifier_dict, temp_path, overwrite=False):
         for a in ['classifier', 'data_type', 'selected_var_names']:
             if a not in classifier_dict:
                 raise KeyError(f'Missing key {a} for successful classifier import.')
@@ -52,32 +52,20 @@ class ExportImportBase():
         
         classifier_exists = 'local_classifier' in self.graph.nodes[node]
         if (classifier_exists and overwrite) or not classifier_exists:
-            if isinstance(classifier_dict['classifier'], DenseTorch):
-                self.graph.nodes[node]['local_classifier'] = classifier_dict['classifier']
-                self.graph.nodes[node]['local_classifier'].load_state_dict(classifier_dict['classifier_state_dict'])
+            contents = os.listdir(os.path.join(temp_path, node))
+            if len([c for c in contents if c.startswith('non_param_dict')]) > 0:
+                    classifier = DenseTorch._load(os.path.join(temp_path, node))
 
-            elif type(classifier_dict['classifier']) in [LogisticRegression, DummyClassifier, BoostedTrees]:
-                self.graph.nodes[node]['local_classifier'] = classifier_dict['classifier']
+            elif 'labels_dec.pickle' in contents and not 'model.cbm' in contents:
+                classifier = LogisticRegression._load(os.path.join(temp_path, node))
 
-            elif issubclass(type(classifier_dict['classifier']), torch.nn.Module):
-                if 'fit_function' not in classifier_dict or 'predict_function' not in classifier_dict:
-                    raise KeyError('Missing key fit_function/predict_function for successful classifier import.')
+            elif 'labels_dec.pickle' in contents and 'model.cbm' in contents:
+                classifier = BoostedTrees._load(os.path.join(temp_path, node))
 
-                self.graph.nodes[node]['local_classifier'] = DenseTorch.import_external(
-                    model=classifier_dict['classifier'],
-                    data_type=classifier_dict['data_type'],
-                    fit_function=classifier_dict['fit_function'],
-                    predict_function=classifier_dict['predict_function']
-                )
-
-            elif issubclass(type(classifier_dict['classifier']), sklearn.linear_model.LogisticRegression):
-                self.graph.nodes[node]['local_classifier'] = LogisticRegression(
-                    classifier_dict['classifier'], 
-                    classifier_dict['data_type'])
-                
             else:
-                raise Exception('Cannot currently import classifier of this type. Please post an issue on Github.')
+                classifier = DummyClassifier._load(os.path.join(temp_path, node))
 
+            self.graph.nodes[node]['local_classifier'] = classifier
             sel_var = classifier_dict['selected_var_names']
             var_not_present = [v for v in sel_var if v not in self.var_names]
             if len(var_not_present) > 0:
@@ -92,10 +80,10 @@ class ExportImportBase():
         else:
             print(f'Classifier already exists at {node} and overwrite is set to False.')
 
-    def import_classifiers(self, dictionary, parent_key, overwrite=False):
+    def import_classifiers(self, dictionary, parent_key, temp_path, overwrite=False):
         for key in dictionary.keys():
             if key == 'classifier':
-                self.import_classifier(parent_key, dictionary[key], overwrite=overwrite)
+                self.import_classifier(parent_key, dictionary[key], temp_path, overwrite=overwrite)
             
             elif isinstance(dictionary[key], dict) and len(dictionary[key].keys()) > 0:
-                self.import_classifiers(dictionary[key], overwrite=True, parent_key=key)
+                self.import_classifiers(dictionary[key], temp_path=temp_path, overwrite=True, parent_key=key)

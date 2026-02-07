@@ -34,6 +34,7 @@ class HierarchicalClassifier(
             default_input_data='normlog',
             num_threads=1,
             ignore_counts=False,
+            temp_path=None
             ):
 
         self.save_path = save_path
@@ -50,7 +51,7 @@ class HierarchicalClassifier(
             self.load_adata(adata)
 
         if root_node is not None and dict_of_cell_relations is not None and obs_names is not None:
-            self.set_cell_relations(root_node, dict_of_cell_relations, obs_names)
+            self.set_cell_relations(root_node, dict_of_cell_relations, obs_names, temp_path)
 
     def save(self, save_adata=False):
         # save all attributes

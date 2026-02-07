@@ -10,7 +10,7 @@ class HierarchyBase():
     """Add explanation
     """
 
-    def set_cell_relations(self, root_node, dict_of_cell_relations, obs_names):
+    def set_cell_relations(self, root_node, dict_of_cell_relations, obs_names, temp_path):
         """Once set, cell relations can only be changed one node at a time, using supplied methods,
         not by simply calling defining new cell relations
         """
