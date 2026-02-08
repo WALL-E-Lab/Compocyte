@@ -15,6 +15,9 @@ class ExportImportBase():
 
         classifier_dict = {}
         classifier_dict['classifier'] = os.path.join(temp_path, node)
+        if not os.path.exists(os.path.join(temp_path, node)):
+            os.makedirs(os.path.join(temp_path, node))
+            
         self.graph.nodes[node]['local_classifier']._save(os.path.join(temp_path, node))
         
         classifier_dict['data_type'] = self.default_input_data
