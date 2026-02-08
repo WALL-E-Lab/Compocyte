@@ -17,7 +17,7 @@ class ExportImportBase():
         classifier_dict['classifier'] = os.path.join(temp_path, node)
         if not os.path.exists(os.path.join(temp_path, node)):
             os.makedirs(os.path.join(temp_path, node))
-            
+
         self.graph.nodes[node]['local_classifier']._save(os.path.join(temp_path, node))
         
         classifier_dict['data_type'] = self.default_input_data
@@ -86,7 +86,7 @@ class ExportImportBase():
     def import_classifiers(self, dictionary, parent_key, temp_path, overwrite=False):
         for key in dictionary.keys():
             if key == 'classifier':
-                self.import_classifier(parent_key, dictionary[key], temp_path, overwrite=overwrite)
+                self.import_classifier(parent_key, dictionary[key], temp_path=temp_path, overwrite=overwrite)
             
             elif isinstance(dictionary[key], dict) and len(dictionary[key].keys()) > 0:
                 self.import_classifiers(dictionary[key], temp_path=temp_path, overwrite=True, parent_key=key)
