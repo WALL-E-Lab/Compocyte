@@ -30,6 +30,7 @@ class HierarchyBase():
         self.make_classifier_graph()        
         if contains_classifier:
             self.import_classifiers(dict_of_cell_relations_with_classifiers, temp_path=temp_path, parent_key=root_node)
+            self.ensure_normlog()
 
     def ensure_depth_match(self, dict_of_cell_relations, obs_names):
         """Check if the annotations supplied in .obs under obs_names are sufficiently deep to work 
@@ -169,3 +170,4 @@ class HierarchyBase():
 
         if contains_classifier:
             self.import_classifiers(dict_of_cell_relations_with_classifiers, temp_path=temp_path, overwrite=overwrite)
+            self.ensure_normlog()

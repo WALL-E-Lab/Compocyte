@@ -92,7 +92,7 @@ class DenseTorch(torch.nn.Module):
             pickle.dump(non_param_dict, f)
 
     @classmethod
-    def _load(cls, path):
+    def   _load(cls, path):
         # Reinitialize because simply using keras.load_model messes up the variable type of the model
         model = torch.load(os.path.join(path, 'model'))
         with open(os.path.join(path, 'non_param_dict.pickle'), 'rb') as f:
