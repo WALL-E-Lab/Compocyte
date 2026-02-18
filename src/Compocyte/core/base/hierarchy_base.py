@@ -1,3 +1,9 @@
+"""Hierarchy graph management utilities.
+
+This module provides helpers and a base class for constructing and managing
+the hierarchical graph of cell types used by the hierarchical classifier.
+"""
+
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt

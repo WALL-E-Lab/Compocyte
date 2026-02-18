@@ -1,3 +1,10 @@
+"""Utility functions for Compocyte.
+
+This module implements helper functions used across the package such as
+data transformations, dictionary helpers and small utilities that keep the
+core code focused on algorithmic logic.
+"""
+
 import numpy as np
 from scipy import sparse
 from scipy.sparse.csr import csr_matrix

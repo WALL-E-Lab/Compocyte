@@ -1,3 +1,9 @@
+"""Shared fit and predict helper methods for different model wrappers.
+
+This module centralises common training and prediction routines that are used
+by the different model wrappers (PyTorch, logistic regression, CatBoost etc.).
+"""
+
 from copy import deepcopy
 import os
 from typing import Union

@@ -1,3 +1,9 @@
+"""Data handling base class utilities.
+
+This module contains base functionality for reading, validating and
+preprocessing AnnData objects used by the rest of the package.
+"""
+
 import numpy as np
 import scanpy as sc
 import pandas as pd

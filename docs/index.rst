@@ -8,9 +8,16 @@ Welcome to Compocyte's documentation!
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Tutorials:
 
+   getting_started
+   usage
 
+.. toctree::
+   :maxdepth: 2
+   :caption: API
+
+   api
 
 Indices and tables
 ==================

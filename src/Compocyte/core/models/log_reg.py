@@ -1,3 +1,9 @@
+"""Logistic regression wrapper used as a lightweight local classifier.
+
+Provides a simple scikit-learn logistic regression interface adapted to the
+package conventions (load/save helpers, label encoders, and prediction helpers).
+"""
+
 import numpy as np
 from sklearn.linear_model import LogisticRegression as LogReg
 import pickle

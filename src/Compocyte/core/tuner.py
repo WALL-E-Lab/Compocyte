@@ -1,3 +1,9 @@
+"""Hyperparameter tuner utilities.
+
+This module contains helper code for tuning hyperparameters of local
+classifiers, storing results and orchestrating grid/random search runs.
+"""
+
 import sqlite3
 import time
 import numpy as np

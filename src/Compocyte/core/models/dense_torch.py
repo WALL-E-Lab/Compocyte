@@ -1,3 +1,10 @@
+"""PyTorch dense model wrapper for Compocyte.
+
+This module wraps PyTorch-based feed-forward models used as local classifiers
+inside the hierarchical framework. It provides loading/saving helpers and a
+standard interface for training and prediction used by the higher-level code.
+"""
+
 import numpy as np
 import torch
 import os

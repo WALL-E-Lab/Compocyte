@@ -1,3 +1,10 @@
+"""CatBoost-based boosted trees wrapper.
+
+This module wraps CatBoost models used as one of the available local
+classifier options. It provides training/prediction wrappers and load/save
+helpers that the hierarchical classifier expects.
+"""
+
 import numpy as np
 from catboost import CatBoostClassifier, metrics
 import pickle

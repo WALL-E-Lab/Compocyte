@@ -1,3 +1,9 @@
+"""Export / import helpers for hierarchical classifiers.
+
+Provides reusable code to serialise and deserialise classifier state, node
+content and trained models to disk.
+"""
+
 from copy import deepcopy
 import os
 from Compocyte.core.models.dense_torch import DenseTorch

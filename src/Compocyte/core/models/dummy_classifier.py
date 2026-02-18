@@ -1,3 +1,9 @@
+"""A minimal dummy classifier used as a fallback local classifier.
+
+The dummy classifier is used when a node only has a single output class or
+to provide a lightweight default during development and testing.
+"""
+
 import os
 import pickle
 import numpy as np

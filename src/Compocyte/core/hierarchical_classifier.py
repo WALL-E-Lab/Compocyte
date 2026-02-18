@@ -1,3 +1,11 @@
+"""Hierarchical classifier implementation.
+
+This module provides `HierarchicalClassifier`, a composite classifier that
+manages a hierarchy of local classifiers for annotating single-cell data.
+The class orchestrates feature selection, training and prediction across the
+hierarchy and provides save/load utilities.
+"""
+
 from typing import Union
 from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.preprocessing import robust_scale
