@@ -3,5 +3,10 @@ build:
   os: ubuntu-24.04
   tools:
     python: "3.13"
+
+python:
+  install:
+    - requirements: requirements.txt  # Path to your requirements.txt
+
 sphinx:
    configuration: source/conf.py
