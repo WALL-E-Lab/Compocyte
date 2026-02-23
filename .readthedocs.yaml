@@ -4,4 +4,4 @@ build:
   tools:
     python: "3.13"
 sphinx:
-   configuration: docs/conf.py
+   configuration: source/conf.py
