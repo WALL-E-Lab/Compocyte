@@ -13,7 +13,7 @@ def test_data() -> ad.AnnData:
     -------
     AnnData with raw counts in .X, cell type labels in .obs['labels']
     """
-    data_path = files("Compocyte.datasets.data").joinpath("test_data.h5ad")
+    data_path = files("Compocyte.data.data").joinpath("test_data.h5ad")
     return ad.read_h5ad(data_path)
 
 def test_hierarchy() -> dict:
@@ -24,7 +24,7 @@ def test_hierarchy() -> dict:
     -------
     AnnData with raw counts in .X, cell type labels in .obs['labels']
     """
-    data_path = files("Compocyte.datasets.data").joinpath("test_hierarchy.pkl")
+    data_path = files("Compocyte.data.data").joinpath("test_hierarchy.pkl")
     with open(data_path, 'rb') as f:
         hierarchy = pickle.load(f)
         
