@@ -14,10 +14,24 @@ from Compocyte.core.models.dense_torch import DenseTorch
 from Compocyte.core.models.dummy_classifier import DummyClassifier
 from Compocyte.core.models.log_reg import LogisticRegression
 from Compocyte.core.models.trees import BoostedTrees
-from keras.utils import to_categorical
 from balanced_loss import Loss as BalancedLoss
 
 logger = logging.getLogger(__name__)
+
+def to_categorical(y, num_classes, dtype="float32"):
+    """
+    Simplified from keras to avoid dependency and premature conversion to a Tensor.
+    """
+    y = np.array(y, dtype="int")
+    input_shape = y.shape
+    y = y.reshape(-1)
+    n = y.shape[0]
+    categorical = np.zeros((n, num_classes), dtype=dtype)
+    categorical[np.arange(n), y] = 1
+    output_shape = input_shape + (num_classes,)
+    categorical = np.reshape(categorical, output_shape)
+
+    return categorical
 
 
 class DaskBatchDataset(IterableDataset):
