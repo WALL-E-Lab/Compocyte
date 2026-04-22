@@ -37,3 +37,6 @@ package_dir = "src"
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.setuptools.package-data]
+"Compocyte.datasets" = ["data/*.h5ad", "data/*.pkl"]
