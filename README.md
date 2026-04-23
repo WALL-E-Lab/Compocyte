@@ -7,35 +7,30 @@ is a composite classifier for modular hierarchical cell type annotation of singl
 
 <br clear="all" />
 
-## Getting started
+# Table of contents
 
-### Installation
+<!-- START doctoc -->
+<!-- END doctoc -->
 
-#### Install dependencies
+# Getting started
 
-All dependencies are included in the compocyte Docker image uploaded to Docker Hub. Alternatively, you can install Python 3.14 and then install Compocyte from source and its dependencies.
+## Installation
+
+For most users, we suggest making use of our prepared Docker image. This comes with all required dependencies for standard use cases.
+
+### Docker
+
+Will be added shortly.
+
+### Manual installation
+
+Alternatively, you can install Python 3.14 using micromamba or another environment manager, and then install Compocyte and its dependencies from source/PyPI.
 
 ```
 micromamba create -n compocyte_python314 python=3.14
 micromamba activate compocyte_python314
 micromamba install catboost
 pip install "git+https://github.com/WALL-E-Lab/Compocyte.git"
-```
-
-### Inference 
-
-Hierarchically classify cells using a pretrained classifier
-
-```
-import Compocyte
-from Compocyte.core.hierarchical_classifier import HierarchicalClassifier
-from Compocyte.pretrained import til_pretrained, pbmc_pretrained
-
-hc = til_pretrained()
-adata = Compocyte.data.test_data()
-hc.load_adata(adata)
-hc.predict_all_child_nodes('blood')
-print(hc.adata.obs)
 ```
 
 ## Pretrained model files
@@ -45,21 +40,44 @@ Pretrained Compocyte models are available on Zenodo.
 - [TIL classifier 1.0](https://zenodo.org/records/19707910)
 
 They can also be loaded from within Compocyte the following way:
-```
+```python
 import Compocyte
 pbmc_hc = Compocyte.pretrained.pbmc_pretrained()
 til_hc = Compocyte.pretrained.til_pretrained()
 ```
 
-## Full tutorials
+### Inference 
 
-For step-by-step guides and explanations to using Compocyte please refer to one of our tutorials.
+You can try out our pretrained models to infer cell type predictions on the included tumor-infiltrating leukocyte test dataset in the following way: 
 
-- [Applying a pre-trained classifier]()
-- [Training a custom classifier](https://colab.research.google.com/drive/10Jht-iKHjGbwOnoMqeiIHrqPA37kO745?usp=sharing)
-- [Expanding an existing classifier]()
-- [Importing an existing subset classifier]()
+```python
+import Compocyte
+from Compocyte.core.hierarchical_classifier import HierarchicalClassifier
+from Compocyte.pretrained import til_pretrained, pbmc_pretrained
 
-## Citation
+hc = til_pretrained()
+adata = Compocyte.data.test_data()
+hc.load_adata(adata)
 
-Results will soon be published.
+hc.predict_all_child_nodes('blood')
+print(hc.adata.obs)
+```
+Because the prediction process is hierarchical in nature we need to specify the root node for our inference run.  Don't be confused by our choice of root node above. The fact that the TIL hierarchy starts with "blood" will be patched in future version.
+
+Alternatively you can do the same on the sample PBMC dataset included in scanpy.
+
+```python
+import scanpy as sc
+
+hc = pbmc_pretrained()
+adata = sc.datasets.pbmc3k()
+hc.load_adata(adata)
+hc.predict_all_child_nodes('Blood')
+print(hc.adata.obs)
+```
+
+# Citation
+
+When using our pretrained classification models, please cite the Zenodo publications above.
+
+When using Compocyte, please cite our publication (DOI will be provided shortly).

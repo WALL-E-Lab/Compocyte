@@ -21,3 +21,12 @@ def test_til_pretrained_predict():
     print(hc.adata.obs)
     assert 'Level_1_pred' in hc.adata.obs    
     assert 'Level_2_pred' in hc.adata.obs
+
+def test_pbmc_pretrained_predict():
+    hc = pbmc_pretrained()
+    adata = Compocyte.data.test_data()
+    hc.load_adata(adata)
+    hc.predict_all_child_nodes('Blood')
+    print(hc.adata.obs)
+    assert 'Level_1_pred' in hc.adata.obs    
+    assert 'Level_2_pred' in hc.adata.obs
