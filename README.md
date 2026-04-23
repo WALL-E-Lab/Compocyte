@@ -27,33 +27,29 @@ pip install "git+https://github.com/WALL-E-Lab/Compocyte.git"
 Hierarchically classify cells using a pretrained classifier
 
 ```
-#paths to model files and adata
-model_folder_path = '~/Compocyte/PBMC_pretrained_1.1'
-adata_path = '~/adata.h5ad'
-adata_save_path = '~/adata_compocyte.h5ad'
+import Compocyte
+from Compocyte.core.hierarchical_classifier import HierarchicalClassifier
+from Compocyte.pretrained import til_pretrained, pbmc_pretrained
 
-#name of root cell type
-root_node = 'Blood'
-
-#load adata
-adata = sc.read(adata_path)
-
-#load classifier 
-classifier= Compocyte.core.hierarchical_classifier.HierarchicalClassifier(model_folder_path)
-classifier.load()
-classifier.load_adata(adata)
-
-#inference
-classifier.predict_all_child_nodes(root_node)
-
-#save adata with classifier outputs
-classifier.adata.write(adata_save_path)
-print('saved to',adata_save_path)
+hc = til_pretrained()
+adata = Compocyte.data.test_data()
+hc.load_adata(adata)
+hc.predict_all_child_nodes('blood')
+print(hc.adata.obs)
 ```
 
 ## Pretrained model files
 
-available soon
+Pretrained Compocyte models are available on Zenodo.
+- [PBMC classifier 1.0](https://zenodo.org/records/19708295)
+- [TIL classifier 1.0](https://zenodo.org/records/19707910)
+
+They can also be loaded from within Compocyte the following way:
+```
+import Compocyte
+pbmc_hc = Compocyte.pretrained.pbmc_pretrained()
+til_hc = Compocyte.pretrained.til_pretrained()
+```
 
 ## Full tutorials
 
