@@ -93,7 +93,7 @@ class DenseTorch(torch.nn.Module):
 
     @classmethod
     def _load(cls, path):
-        model = torch.load(os.path.join(path, 'model'))
+        model = torch.load(os.path.join(path, 'model'), weights_only=False)
         with open(os.path.join(path, 'non_param_dict.pickle'), 'rb') as f:
             non_param_dict = pickle.load(f)
 

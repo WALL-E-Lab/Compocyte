@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import sparse
-from scipy.sparse.csr import csr_matrix
+from scipy.sparse import csr_matrix
 import networkx as nx
 from copy import deepcopy
 import pandas as pd
