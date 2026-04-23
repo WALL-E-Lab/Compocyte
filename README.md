@@ -9,8 +9,19 @@ is a composite classifier for modular hierarchical cell type annotation of singl
 
 # Table of contents
 
-<!-- START doctoc -->
-<!-- END doctoc -->
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**
+
+- [Getting started](#getting-started)
+  - [Installation](#installation)
+    - [Docker](#docker)
+    - [Manual installation](#manual-installation)
+  - [Pretrained model files](#pretrained-model-files)
+    - [Inference](#inference)
+- [Citation](#citation)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 # Getting started
 
