@@ -1,13 +1,14 @@
 # Compocyte 🐙 🎯
 
-<img src="https://github.com/WALL-E-Lab/Compocyte/blob/main/Compocyte.png" alt="Logo" width="250" align="left" hspace="20"/>
+<div style="display:flex; align-items:center; gap:1rem;">
 
-<strong>Compocyte</strong>
-is a composite classifier for modular hierarchical cell type annotation of single cell data. Using Compocyte you can build different hierarchical classifier architectures (local classifier per parent node, local classifer per node and local classifier per level) using all relevant models from pytorch, TensorFlow and keras. Local classifiers can be individually modified to account for alterations in classification taxonomies or selectively improve specific annotations in human-in-the-loop approaches. While compocyte has been primarily developed for single cell RNA sequencing data it can also be used with other single cell data compatible with the AnnData and scanpy packages.<br>
+<div align="justify"><strong>Compocyte</strong> is a composite classifier for modular hierarchical cell type annotation of single cell data. Using Compocyte you can build different hierarchical classifier architectures (local classifier per parent node, local classifer per node and local classifier per level) using all relevant models from pytorch, TensorFlow and keras. Local classifiers can be individually modified to account for alterations in classification taxonomies or selectively improve specific annotations in human-in-the-loop approaches. While compocyte has been primarily developed for single cell RNA sequencing data it can also be used with other single cell data compatible with the AnnData and scanpy packages.
+</div>
+
+<img src="https://github.com/WALL-E-Lab/Compocyte/blob/main/Compocyte.png" alt="Logo" style="width:150px; flex-shrink:0; align:right;"/>
+</div>
 
 <br clear="all" />
-
-# Table of contents
 
 <!-- START doctoc -->
 <!-- END doctoc -->
@@ -56,7 +57,7 @@ from Compocyte.core.hierarchical_classifier import HierarchicalClassifier
 from Compocyte.pretrained import til_pretrained, pbmc_pretrained
 
 hc = til_pretrained()
-adata = Compocyte.data.test_data()
+adata = Compocyte.data.sample_data()
 hc.load_adata(adata)
 
 hc.predict_all_child_nodes('blood')

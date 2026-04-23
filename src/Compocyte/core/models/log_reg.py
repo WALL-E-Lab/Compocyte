@@ -21,7 +21,6 @@ class LogisticRegression():
                 C=C, 
                 solver=solver, 
                 max_iter=max_iter, 
-                multi_class='ovr', 
                 n_jobs=n_jobs, 
                 **logreg_kwargs)
 

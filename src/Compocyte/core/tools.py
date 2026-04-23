@@ -1,9 +1,11 @@
+import anndata
 import numpy as np
 from scipy import sparse
 from scipy.sparse import csr_matrix
 import networkx as nx
 from copy import deepcopy
 import pandas as pd
+
 
 def set_node_to_depth(dictionary, depth=0, node_to_depth={}):
     for node in dictionary.keys():
@@ -42,6 +44,86 @@ def dict_depth(dictionary, running_count=0):
                 running_count))
 
     return max(running_counts_subdicts) + 1
+
+def infer_levels(hierarchy, labels, root_node, adata=None, prefix_obs='Level_'):
+    """
+    Infer hierarchical levels for labels based on a hierarchy graph.
+    This function takes a hierarchy (either as a dict or NetworkX DiGraph) and assigns
+    hierarchical levels to labels by finding the shortest path from a root node to each
+    label in the hierarchy graph.
+    Parameters
+    ----------
+    hierarchy : dict or nx.DiGraph
+        The hierarchy structure. Can be either a dictionary of edges or a NetworkX
+        directed graph. If a dict is provided, it will be converted to a DiGraph.
+    labels : str, list, or array-like
+        The labels to infer levels for. Can be:
+        - A string key referring to a column in adata.obs
+        - A list of labels
+        - An array-like object (with tolist() method) of labels
+    root_node : str or int
+        The root node of the hierarchy from which to compute shortest paths.
+    adata : anndata.AnnData, optional
+        An AnnData object. If provided, the obs dataframe from this object will be used
+        as the base dataframe. If None, a new empty DataFrame is created. Default is None.
+    prefix_obs : str, optional
+        Prefix for the level column names. Default is 'Level_'.
+        Level columns will be named 'Level_0', 'Level_1', etc.
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame with the original labels and new columns for each hierarchical level,
+        containing the nodes at each level of the hierarchy for each label.
+    list
+        A list of the new level column names.
+    Notes
+    -----
+    - Paths shorter than the maximum depth are padded with empty strings.
+    - The number of levels is determined by the depth of the hierarchy.
+    """
+    
+    if isinstance(hierarchy, dict):
+        graph = nx.DiGraph()
+        make_graph_from_edges(hierarchy, graph)
+
+    elif isinstance(hierarchy, nx.DiGraph):
+        graph = hierarchy
+
+    else:
+        raise TypeError('Hierarchy must be provided as a dict or a NetworkX DiGraph.')
+    
+    
+    if adata is not None and isinstance(adata, anndata.AnnData):
+        obs = adata.obs
+
+    else:
+        obs = pd.DataFrame()
+    
+    labels_key = 'label'
+    if isinstance(labels, str) and labels in obs.columns:
+        labels_key = labels
+    
+    elif hasattr(labels, 'tolist'):
+        labels = labels.tolist()
+        obs[labels_key] = labels
+
+    elif isinstance(labels, list):
+        obs[labels_key] = labels
+
+    else:
+        raise TypeError('Labels must be provided as a list.')
+    
+    depth = dict_depth(hierarchy)
+    levels = [f'{prefix_obs}{i}' for i in range(depth)]
+    for level in levels: 
+        obs[level] = ''
+
+    for label in obs[labels_key].unique():
+        path = nx.shortest_path(graph, root_node, label)
+        path = path + [''] * (depth - len(path))
+        obs.loc[obs[labels_key] == label, levels] = path
+
+    return obs, levels
 
 def flatten_dict(dictionary, running_list_of_values=[]):
     if not type(dictionary) == dict:

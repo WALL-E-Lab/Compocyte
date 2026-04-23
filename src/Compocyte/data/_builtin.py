@@ -2,7 +2,7 @@ from importlib.resources import files
 import anndata as ad
 import pickle
 
-def test_data() -> ad.AnnData:
+def sample_data() -> ad.AnnData:
     """
     Small tumor-infiltrating T cell dataset.
     For testing and tutorials.
@@ -16,7 +16,7 @@ def test_data() -> ad.AnnData:
     data_path = files("Compocyte.data.data").joinpath("test_data.h5ad")
     return ad.read_h5ad(data_path)
 
-def test_hierarchy() -> dict:
+def sample_hierarchy() -> dict:
     """
     Test hierarchy for the test dataset.
     

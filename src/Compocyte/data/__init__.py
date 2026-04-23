@@ -1,1 +1,1 @@
-from ._builtin import test_data, test_hierarchy
+from ._builtin import sample_data, sample_hierarchy

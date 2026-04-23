@@ -256,8 +256,7 @@ def fit_torch(
         max_lr=max_lr,
         div_factor=10,
         epochs=epochs,
-        steps_per_epoch=num_batches,
-        verbose=False
+        steps_per_epoch=num_batches
     )
     loss_function = BalancedLoss(
         loss_type="focal_loss",
@@ -297,6 +296,7 @@ def fit_torch(
         state_dicts.append(deepcopy(model.state_dict()))
         
     model.load_state_dict(state_dicts[np.argmin(learning_curve['val_loss'].values)])
+    model.is_fitted = True
     
     return learning_curve
 
@@ -304,6 +304,7 @@ def fit_logreg(model: LogisticRegression, x, y, **fit_kwargs):
     fit = model.model.fit(
         x, y,
     )
+    model.is_fitted = True
     #model.labels_enc = {label: i for i, label in enumerate(model.model.classes_)}
     #model.labels_dec = {model.labels_enc[label]: label for label in model.labels_enc.keys()}
 
@@ -321,6 +322,7 @@ def fit_trees(model: BoostedTrees, x, y, **fit_kwargs):
         eval_set=[(x_val, y_val)],
         #**fit_kwargs
     )
+    model.is_fitted = True
 
     return fit
 
@@ -359,5 +361,6 @@ def fit(
     elif isinstance(model, BoostedTrees):            
         return fit_trees(model, x, y, **fit_kwargs)
 
-    elif isinstance(model, DummyClassifier):            
+    elif isinstance(model, DummyClassifier):
+        model.is_fitted = True         
         return model.fit(x, y)

@@ -130,3 +130,4 @@ dmypy.json
 .pyre/
 
 **/*.h5ad
+**/catboost_info/

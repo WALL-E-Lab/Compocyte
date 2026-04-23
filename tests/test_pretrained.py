@@ -15,7 +15,7 @@ def test_pbmc_pretrained():
 
 def test_til_pretrained_predict():
     hc = til_pretrained()
-    adata = Compocyte.data.test_data()
+    adata = Compocyte.data.sample_data()
     hc.load_adata(adata)
     hc.predict_all_child_nodes('blood')
     print(hc.adata.obs)
@@ -24,7 +24,7 @@ def test_til_pretrained_predict():
 
 def test_pbmc_pretrained_predict():
     hc = pbmc_pretrained()
-    adata = Compocyte.data.test_data()
+    adata = Compocyte.data.sample_data()
     hc.load_adata(adata)
     hc.predict_all_child_nodes('Blood')
     print(hc.adata.obs)
