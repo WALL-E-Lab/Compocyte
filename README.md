@@ -10,8 +10,20 @@
 
 <br clear="all" />
 
-<!-- START doctoc -->
-<!-- END doctoc -->
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**
+
+- [Table of contents](#table-of-contents)
+- [Getting started](#getting-started)
+  - [Installation](#installation)
+    - [Docker](#docker)
+    - [Manual installation](#manual-installation)
+  - [Pretrained model files](#pretrained-model-files)
+    - [Inference](#inference)
+- [Citation](#citation)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 # Table of contents
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
