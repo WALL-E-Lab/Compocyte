@@ -13,21 +13,14 @@ is a composite classifier for modular hierarchical cell type annotation of singl
 
 #### Install dependencies
 
-Tensorflow is currently not available for python >3.12. Here we use micromamba to create a python 3.12 environment first then install the required dependencies.
+All dependencies are included in the compocyte Docker image uploaded to Docker Hub. Alternatively, you can install Python 3.14 and then install Compocyte from source and its dependencies.
 
 ```
-micromamba create -n compocyte_python312 python=3.12
-micromamba activate compocyte_python312
+micromamba create -n compocyte_python314 python=3.14
+micromamba activate compocyte_python314
 micromamba install catboost
-pip install torch
-micromamba install keras
-micromamba install tensorflow
-pip install balanced_loss
+pip install "git+https://github.com/WALL-E-Lab/Compocyte.git"
 ```
-
-#### Install Compocyte from source
-
-`pip install "git+https://github.com/WALL-E-Lab/Compocyte.git"`
 
 ### Inference 
 

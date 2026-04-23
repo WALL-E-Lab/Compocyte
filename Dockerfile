@@ -1,9 +1,9 @@
 # --- build stage ---
 FROM python:3.14-slim-bookworm AS base
 WORKDIR /app
-COPY . .
 RUN apt-get update; \
 	apt-get install -y gcc g++
+COPY . .
 RUN pip install -e ".[dev]"
 
 # --- test stage ---
