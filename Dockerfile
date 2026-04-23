@@ -8,7 +8,7 @@ RUN pip install -e ".[dev]"
 
 # --- test stage ---
 FROM base AS test
-RUN pytest tests/
+RUN pytest
 
 # --- production stage ---
 #FROM base AS prod
