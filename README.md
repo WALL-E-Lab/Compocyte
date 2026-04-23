@@ -32,13 +32,28 @@ For most users, we suggest making use of our prepared Docker image. This comes w
 
 ### Docker
 
-Will be added shortly.
+1. Pull the image.
+```bash
+docker pull chbeltz/compocyte:latest
+```
+2. Start an interactive container.
+```bash
+docker run -it --rm chbeltz/compocyte:latest bash
+```
+
+If you want to work with your own data, mount a local directory into the container:
+```bash
+docker run -it --rm \
+  -v /path/to/your/data:/data \
+  chbeltz/compocyte:latest bash
+```
+Your files will then be accessible inside the container at /data.
 
 ### Manual installation
 
 Alternatively, you can install Python 3.14 using micromamba or another environment manager, and then install Compocyte and its dependencies from source/PyPI.
 
-```
+```bash
 micromamba create -n compocyte_python314 python=3.14
 micromamba activate compocyte_python314
 micromamba install catboost
