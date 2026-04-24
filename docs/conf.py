@@ -14,10 +14,12 @@ release = '0.1.0b1'
 
 # -- General configuration ---
 extensions = [
+    'myst_parser',
     'sphinx.ext.autodoc',           # Auto-generate API docs
     'sphinx.ext.napoleon',          # Support for NumPy/Google docstring styles
     'sphinx.ext.viewcode',          # Link to source code
     'sphinx.ext.intersphinx',       # Link to other projects (e.g., numpy, scipy)
+    'sphinx.ext.autosummary',       # Generate summary tables for modules/classes/functions
     'nbsphinx',                     # Jupyter notebook support
     'sphinx_design',                # Cards/grids for better layout
 ]

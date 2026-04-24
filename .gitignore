@@ -131,3 +131,4 @@ dmypy.json
 
 **/*.h5ad
 **/catboost_info/
+**/generated/

@@ -6,8 +6,3 @@ API Reference
    :recursive:
 
    Compocyte
-
-.. toctree::
-   :maxdepth: 2
-
-   generated/Compocyte
