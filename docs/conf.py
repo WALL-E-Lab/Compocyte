@@ -63,15 +63,13 @@ intersphinx_mapping = {
 html_theme = 'furo'  # Modern, responsive theme
 
 html_theme_options = {
-    'sidebar_hide_on_mobile': True,
-    'light_logo': 'logo.png',
-    'dark_logo': 'logo.png',
+    'light_logo': "../Compocyte.png",
 }
 
 html_static_path = ['_static']
 html_title = 'Compocyte Documentation'
-html_logo = None  # Set to a logo if you have one
-html_favicon = None
+html_logo = "../Compocyte.png"  # Set to a logo if you have one
+html_favicon = "../Compocyte.png"
 
 # -- Additional HTML context ---
 html_context = {
