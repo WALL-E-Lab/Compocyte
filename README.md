@@ -5,7 +5,7 @@
 </div>
 <br>
 
-<strong>Compocyte</strong> is a composite classifier for modular hierarchical cell type annotation of single cell data. Using Compocyte you can build different hierarchical classifier architectures (local classifier per parent node, local classifer per node and local classifier per level) using all relevant models from pytorch, TensorFlow and keras. Local classifiers can be individually modified to account for alterations in classification taxonomies or selectively improve specific annotations in human-in-the-loop approaches. While compocyte has been primarily developed for single cell RNA sequencing data it can also be used with other single cell data compatible with the AnnData and scanpy packages.
+<strong>Compocyte</strong> is a composite classifier for modular hierarchical cell type annotation of single cell data. Using Compocyte you can build different hierarchical classifier architectures following a local classifier per parent node approach. Local classifiers are built around pytorch, sklearn or CatBoost. Local classifiers can be individually modified to account for alterations in classification taxonomies or selectively improve specific annotations in human-in-the-loop approaches. While compocyte has been primarily developed for single cell RNA sequencing data it can also be used with other single cell data compatible with the AnnData and scanpy packages.
 
 
 <br clear="all" />
@@ -89,7 +89,9 @@ hc.load_adata(adata)
 hc.predict_all_child_nodes('blood')
 print(hc.adata.obs)
 ```
-Because the prediction process is hierarchical in nature we need to specify the root node for our inference run.  Don't be confused by our choice of root node above. The fact that the TIL hierarchy starts with "blood" will be patched in future version.
+Because the prediction process is hierarchical in nature we need to specify the root node for our inference run.  Don't be confused by our choice of root node above. 
+
+The fact that the TIL hierarchy starts with "blood" will be patched in future versions.
 
 Alternatively you can do the same on the sample PBMC dataset included in scanpy.
 

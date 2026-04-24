@@ -12,5 +12,5 @@ def test_monte_carlo():
     assert 'Level_2_pred' in hc.adata.obs
     assert 'monte_carlo_mean' in hc.adata.obs
     assert 'monte_carlo_std' in hc.adata.obs
-    assert not hc.adata.obs['monte_carlo_mean'].isna().all()    
-    assert not hc.adata.obs['monte_carlo_std'].isna().all()
+    assert not hc.adata.obs['monte_carlo_mean'].isna().any()    
+    assert not hc.adata.obs['monte_carlo_std'].isna().any()
