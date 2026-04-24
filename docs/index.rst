@@ -1,7 +1,7 @@
 .. Compocyte documentation master file
 
 =====================================
-Compocyte Documentation
+Compocyte
 =====================================
 
 .. toctree::
@@ -25,16 +25,17 @@ Compocyte Documentation
    :hidden:
    :caption: Resources
 
-   troubleshooting
+   resources/troubleshooting
    resources/citation
    GitHub Repository <https://github.com/WALL-E-Lab/Compocyte>
 
-
-.. include:: overview.md
-   :parser: myst_parser.docutils_
+Introduction
+==================
+Compocyte is a composite classifier for modular hierarchical cell type annotation of single cell data. Using Compocyte you can build different hierarchical classifier architectures following a local classifier per parent node approach. Local classifiers are built around pytorch, sklearn or CatBoost. Local classifiers can be individually modified to account for alterations in classification taxonomies or selectively improve specific annotations in human-in-the-loop approaches. While compocyte has been primarily developed for single cell RNA sequencing data it can also be used with other single cell data compatible with the AnnData and scanpy packages.
 
 Quick links
 ==================
+
 .. grid:: 1 2 2 2
    :gutter: 2
 
