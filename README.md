@@ -16,11 +16,6 @@
 **Table of Contents**
 
 - [Getting started](#getting-started)
-  - [Installation](#installation)
-    - [Docker](#docker)
-    - [Manual installation](#manual-installation)
-  - [Pretrained model files](#pretrained-model-files)
-    - [Inference](#inference)
 - [Citation](#citation)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
