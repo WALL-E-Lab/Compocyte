@@ -1,55 +1,80 @@
-# Configuration file for the Sphinx documentation builder.
-#
-# This file only contains a selection of the most common options. For a full
-# list see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
+"""Configuration file for the Sphinx documentation builder."""
 
-# -- Path setup --------------------------------------------------------------
+import os
+import sys
 
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+# Add source path for autodoc
+sys.path.insert(0, os.path.abspath('../src'))
 
-
-# -- Project information -----------------------------------------------------
-
+# -- Project information ---
 project = 'Compocyte'
 copyright = '2025, Christopher Beltz, Leon Sadowski, Thomas Walle'
 author = 'Christopher Beltz, Leon Sadowski, Thomas Walle'
-
-# The full version, including alpha/beta/rc tags
 release = '0.1.0b1'
 
-
-# -- General configuration ---------------------------------------------------
-
-# Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
-# ones.
+# -- General configuration ---
 extensions = [
+    'sphinx.ext.autodoc',           # Auto-generate API docs
+    'sphinx.ext.napoleon',          # Support for NumPy/Google docstring styles
+    'sphinx.ext.viewcode',          # Link to source code
+    'sphinx.ext.intersphinx',       # Link to other projects (e.g., numpy, scipy)
+    'nbsphinx',                     # Jupyter notebook support
+    'sphinx_design',                # Cards/grids for better layout
 ]
 
-# Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '**.ipynb_checkpoints']
 
-# List of patterns, relative to source directory, that match files and
-# directories to ignore when looking for source files.
-# This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+# -- Autodoc configuration ---
+autodoc_member_order = 'bysource'
+autodoc_typehints = 'description'
+autodoc_default_options = {
+    'members': True,
+    'member-order': 'bysource',
+    'special-members': '__init__',
+    'undoc-members': False,
+    'show-inheritance': True,
+}
 
+# -- Napoleon configuration (for docstring parsing) ---
+napoleon_google_docstring = True
+napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = True
+napoleon_include_private_with_doc = False
+napoleon_include_special_with_doc = True
 
-# -- Options for HTML output -------------------------------------------------
+# -- nbsphinx configuration ---
+nbsphinx_execute = 'never'  # Don't execute notebooks on build (can set to 'always' later)
+nbsphinx_kernel_name = 'python3'
 
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-#
-html_theme = 'alabaster'
+# -- Intersphinx mapping ---
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy/', None),
+    'pandas': ('https://pandas.pydata.org/docs/', None),
+    'scanpy': ('https://scanpy.readthedocs.io/en/stable/', None),
+    'anndata': ('https://anndata.readthedocs.io/en/stable/', None),
+}
 
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
+# -- HTML output configuration ---
+html_theme = 'furo'  # Modern, responsive theme
+
+html_theme_options = {
+    'sidebar_hide_on_mobile': True,
+    'light_logo': 'logo.png',
+    'dark_logo': 'logo.png',
+}
+
 html_static_path = ['_static']
+html_title = 'Compocyte Documentation'
+html_logo = None  # Set to a logo if you have one
+html_favicon = None
+
+# -- Additional HTML context ---
+html_context = {
+    'github_user': 'WALL-E-Lab',
+    'github_repo': 'Compocyte',
+    'github_version': 'main',
+    'doc_path': 'docs',
+}
