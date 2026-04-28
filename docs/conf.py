@@ -1,5 +1,6 @@
 """Configuration file for the Sphinx documentation builder."""
 
+import datetime
 import os
 import sys
 
@@ -8,9 +9,14 @@ sys.path.insert(0, os.path.abspath('../src'))
 
 # -- Project information ---
 project = 'Compocyte'
-copyright = '2025, Christopher Beltz, Leon Sadowski, Thomas Walle'
+copyright = f'{datetime.datetime.now().year}, Christopher Beltz, Leon Sadowski, Thomas Walle'
 author = 'Christopher Beltz, Leon Sadowski, Thomas Walle'
-release = '0.1.0b1'
+
+try:
+    from Compocyte import __version__
+    release = __version__
+except ImportError:
+    release = "0.0.0"
 
 # -- General configuration ---
 extensions = [

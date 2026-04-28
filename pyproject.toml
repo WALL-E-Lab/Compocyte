@@ -1,10 +1,26 @@
+# =============================================================================
+# Versioning Guide for Contributors
+# =============================================================================
+# This project uses setuptools-scm for automatic versioning from git tags.
+#
+# To release a new version:
+#   1. Ensure all changes are committed
+#   2. Tag the release: git tag v1.2.3
+#   3. Push the tag:  git push --tags
+#
+# Version format: vMAJOR.MINOR.PATCH (e.g., v1.0.2, v2.1.0-beta1)
+# The version is written to src/Compocyte/_version.py during build.
+# =============================================================================
+
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools-scm>=8.0", "hatchling"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "src/Compocyte/_version.py"
 
 [project]
 name = "Compocyte"
-version = "1.0.2.1"
 authors = [
   { name="Thomas Walle", email="t.walle@dkfz-heidelberg.de" },
   { name="Christopher Beltz", email="christopher.beltz@dkfz-heidelberg.de" },
