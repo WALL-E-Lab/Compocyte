@@ -6,7 +6,7 @@
 
 # Getting started
 
-For a quick dive into using Compocyte to label single-cell data, refer to our [Getting started](https://compocyte.readthedocs.io/tutorials/getting_started.html) on readthedocs. There, you can also find tutorials to help you make full use of Compocyte's features.
+For a quick dive into using Compocyte to label single-cell data, refer to our [Getting started](https://compocyte.readthedocs.io/en/latest/tutorials/getting_started.html) on readthedocs. There, you can also find tutorials to help you make full use of Compocyte's features.
 
 # Citation
 

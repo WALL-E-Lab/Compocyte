@@ -5,4 +5,3 @@ sphinx-design
 nbsphinx
 myst-parser
 ipython
-nbsphinx

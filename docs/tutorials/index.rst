@@ -7,5 +7,4 @@ Learn how to use Compocyte with practical examples and walkthroughs.
    :maxdepth: 2
 
    getting_started
-   training_classifiers
-   hierarchical_inference
+   training_PBMC_classifier

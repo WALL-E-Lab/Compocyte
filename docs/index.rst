@@ -10,8 +10,7 @@ Compocyte
    :caption: Tutorials
 
    tutorials/getting_started
-   tutorials/training_classifiers
-   tutorials/hierarchical_inference
+   tutorials/training_PBMC_classifier
 
 .. toctree::
    :maxdepth: 2
