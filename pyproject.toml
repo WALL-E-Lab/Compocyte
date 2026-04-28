@@ -17,10 +17,11 @@ requires = ["setuptools-scm>=8.0", "hatchling"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-write_to = "src/Compocyte/_version.py"
+version_file = "src/Compocyte/_version.py"
 
 [project]
 name = "Compocyte"
+dynamic = ["version"]
 authors = [
   { name="Thomas Walle", email="t.walle@dkfz-heidelberg.de" },
   { name="Christopher Beltz", email="christopher.beltz@dkfz-heidelberg.de" },

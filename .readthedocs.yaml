@@ -6,6 +6,9 @@ build:
     python: "3.14"
   apt_packages:
     - pandoc
+  jobs:
+    pre_install:
+      - git fetch --tags --unshallow
 
 python:
   install:
