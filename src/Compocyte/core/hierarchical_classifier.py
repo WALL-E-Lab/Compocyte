@@ -16,7 +16,7 @@ import pickle
 import scanpy as sc
 import multiprocessing as mp
 from Compocyte.core.models.trees import BoostedTrees
-from Compocyte.core.tools import z_transform_properties
+from Compocyte.core.tools import infer_dict, z_transform_properties
 
 
 class HierarchicalClassifier(
@@ -34,8 +34,16 @@ class HierarchicalClassifier(
             default_input_data='normlog',
             num_threads=1,
             ignore_counts=False,
-            temp_path=None
+            temp_paths=None,
+            graph=None
             ):
+
+        if graph is None and dict_of_cell_relations is None:
+            print('Neither graph nor dict_of_cell_relations defined upon initialization.')
+            print('Please run .load() to load an existing classifier.')
+
+        elif obs_names is None or root_node is None:
+            print('obs_names and root_node must be defined upon initialization if a new classifier is initialized.')
 
         self.save_path = save_path
         self.default_input_data = default_input_data
@@ -47,11 +55,14 @@ class HierarchicalClassifier(
         self.obs_names = None
         self.ignore_counts = ignore_counts
 
+        if dict_of_cell_relations is None and graph is not None:
+            dict_of_cell_relations = infer_dict(graph)
+
         if type(adata) != type(None):
             self.load_adata(adata)
 
         if root_node is not None and dict_of_cell_relations is not None and obs_names is not None:
-            self.set_cell_relations(root_node, dict_of_cell_relations, obs_names, temp_path)
+            self.set_cell_relations(root_node, dict_of_cell_relations, obs_names, temp_paths)
 
     def save(self, save_adata=False):
         # save all attributes

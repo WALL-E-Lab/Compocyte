@@ -8,3 +8,4 @@ Learn how to use Compocyte with practical examples and walkthroughs.
 
    getting_started
    training_PBMC_classifier
+   modifying_classifiers

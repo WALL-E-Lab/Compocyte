@@ -11,6 +11,7 @@ Compocyte
 
    tutorials/getting_started
    tutorials/training_PBMC_classifier
+   tutorials/modifying_classifiers
 
 .. toctree::
    :maxdepth: 2

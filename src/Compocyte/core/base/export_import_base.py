@@ -45,7 +45,7 @@ class ExportImportBase():
 
         return dict_of_cell_relations
 
-    def import_classifier(self, node, classifier_dict, temp_path, overwrite=False):
+    def import_classifier(self, node, classifier_dict, temp_paths, overwrite=False):
         for a in ['classifier', 'data_type', 'selected_var_names']:
             if a not in classifier_dict:
                 raise KeyError(f'Missing key {a} for successful classifier import.')
@@ -53,9 +53,24 @@ class ExportImportBase():
         if classifier_dict['data_type'] != self.default_input_data:
             raise Exception('Data type of supplied classifier must match other local classifiers: {self.default_input_data}')
         
+        if isinstance(temp_paths, str):
+            temp_paths = [temp_paths]
+
         classifier_exists = 'local_classifier' in self.graph.nodes[node]
         if (classifier_exists and overwrite) or not classifier_exists:
-            contents = os.listdir(os.path.join(temp_path, node))
+            contents = None
+            temp_path = None
+            for path in temp_paths:
+                try:
+                    contents = os.listdir(os.path.join(path, node))
+                    temp_path = path
+
+                except:
+                    pass
+
+            if contents is None:
+                raise Exception(f'No classifier found at {node} in any of the supplied temp paths.')
+
             if len([c for c in contents if c.startswith('non_param_dict')]) > 0:
                     classifier = DenseTorch._load(os.path.join(temp_path, node))
 
@@ -83,10 +98,20 @@ class ExportImportBase():
         else:
             print(f'Classifier already exists at {node} and overwrite is set to False.')
 
-    def import_classifiers(self, dictionary, parent_key, temp_path, overwrite=False):
+    def import_classifiers(self, dictionary, parent_key, temp_paths, overwrite=False):
         for key in dictionary.keys():
             if key == 'classifier':
-                self.import_classifier(parent_key, dictionary[key], temp_path=temp_path, overwrite=overwrite)
+                self.import_classifier(parent_key, dictionary[key], temp_paths=temp_paths, overwrite=overwrite)
             
             elif isinstance(dictionary[key], dict) and len(dictionary[key].keys()) > 0:
-                self.import_classifiers(dictionary[key], temp_path=temp_path, overwrite=True, parent_key=key)
+                self.import_classifiers(dictionary[key], temp_paths=temp_paths, overwrite=True, parent_key=key)
+
+    def rename(self, old_label, new_label, parent_label):
+        """Rename a node in the hierarchy and update the local classifier's label encoding if necessary."""
+
+        if 'local_classifier' in self.graph.nodes[parent_label]:
+            classifier = self.graph.nodes[parent_label]['local_classifier']
+            if hasattr(classifier, 'labels_enc'):
+                classifier.labels_enc[new_label] = classifier.labels_enc[old_label]
+                del classifier.labels_enc[old_label]
+                classifier.labels_dec = {classifier.labels_enc[label]: label for label in classifier.labels_enc.keys()}

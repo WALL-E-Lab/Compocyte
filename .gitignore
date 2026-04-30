@@ -133,3 +133,4 @@ dmypy.json
 **/catboost_info/
 **/generated/
 **/exclude
+**/cellxgene_tools.py

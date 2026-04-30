@@ -10,7 +10,7 @@ class HierarchyBase():
     """Add explanation
     """
 
-    def set_cell_relations(self, root_node, dict_of_cell_relations, obs_names, temp_path):
+    def set_cell_relations(self, root_node, dict_of_cell_relations, obs_names, temp_paths):
         """Once set, cell relations can only be changed one node at a time, using supplied methods,
         not by simply calling defining new cell relations
         """
@@ -29,7 +29,7 @@ class HierarchyBase():
         self.node_to_depth = set_node_to_depth(self.dict_of_cell_relations)
         self.make_classifier_graph()        
         if contains_classifier:
-            self.import_classifiers(dict_of_cell_relations_with_classifiers, temp_path=temp_path, parent_key=root_node)
+            self.import_classifiers(dict_of_cell_relations_with_classifiers, temp_paths=temp_paths, parent_key=root_node)
             self.ensure_normlog()
 
     def ensure_depth_match(self, dict_of_cell_relations, obs_names):

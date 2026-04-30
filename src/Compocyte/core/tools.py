@@ -1,11 +1,9 @@
 import anndata
 import numpy as np
 from scipy import sparse
-from scipy.sparse import csr_matrix
 import networkx as nx
 from copy import deepcopy
 import pandas as pd
-
 
 def set_node_to_depth(dictionary, depth=0, node_to_depth={}):
     for node in dictionary.keys():
@@ -88,6 +86,7 @@ def infer_levels(hierarchy, labels, root_node, adata=None, prefix_obs='Level_'):
 
     elif isinstance(hierarchy, nx.DiGraph):
         graph = hierarchy
+        hierarchy = infer_dict(graph)
 
     else:
         raise TypeError('Hierarchy must be provided as a dict or a NetworkX DiGraph.')
@@ -374,3 +373,25 @@ class Hierarchical_Metric():
             label_metrics.loc[label] = [np.round(Fb, 2), np.round(hR, 2), np.round(hP, 2)]
 
         return label_metrics
+
+def infer_dict(graph, parent=None):
+    dict_of_cell_relations = {}
+    if parent is None:
+        for node in graph.nodes:
+            if len(list(graph.predecessors(node))) == 0:
+                parent = node
+                dict_of_cell_relations[parent] = infer_dict(
+                    graph, 
+                    parent=parent
+                )
+                
+    else:
+        for parent_node, child_node in graph.edges:
+            if parent_node == parent:           
+                dict_of_cell_relations[child_node] = infer_dict(
+                    graph, 
+                    parent=child_node
+                )
+
+    
+    return dict_of_cell_relations

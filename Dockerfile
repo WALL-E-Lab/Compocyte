@@ -2,7 +2,7 @@
 FROM python:3.14-slim-bookworm AS base
 WORKDIR /app
 RUN apt-get update; \
-	apt-get install -y gcc g++
+	apt-get install -y gcc g++ graphviz graphviz-dev
 COPY . .
 RUN pip install -e ".[dev]"
 
