@@ -39,22 +39,34 @@ class DaskBatchDataset(IterableDataset):
         # Convert both to lists of delayed chunks
         self.X_chunks = X.to_delayed().ravel()
         self.y_chunks = y.to_delayed().ravel()
+        self._epoch = 0
 
         assert len(self.X_chunks) == len(self.y_chunks), \
             "Feature and label chunks must be aligned"
 
+    def set_epoch(self, epoch):
+        # Call before each epoch so __iter__ uses a fresh permutation.
+        # Must be called in the main process before the DataLoader starts iterating
+        # (before workers are spawned), so the updated value is pickled into each worker.
+        self._epoch = epoch
+
     def __iter__(self):
+        # All workers derive the same permutation from the epoch seed, then each takes
+        # a disjoint slice — this gives epoch-level shuffling that is safe with num_workers > 0.
+        rng = np.random.default_rng(self._epoch)
+        perm = rng.permutation(len(self.X_chunks))
+        X_shuffled = self.X_chunks[perm]
+        y_shuffled = self.y_chunks[perm]
+
         worker_info = get_worker_info()
         if worker_info is None:
-            # Single-process loading
-            chunk_iter = zip(self.X_chunks, self.y_chunks)
+            chunk_iter = zip(X_shuffled, y_shuffled)
         else:
-            # Split chunks among workers
             worker_id = worker_info.id
             num_workers = worker_info.num_workers
             chunk_iter = zip(
-                self.X_chunks[worker_id::num_workers],
-                self.y_chunks[worker_id::num_workers]
+                X_shuffled[worker_id::num_workers],
+                y_shuffled[worker_id::num_workers]
             )
 
         for X_chunk, y_chunk in chunk_iter:
@@ -269,6 +281,9 @@ def fit_torch(
     state_dicts = []
     learning_curve = pd.DataFrame(columns=['loss', 'val_loss', 'lr'])
     for epoch in range(epochs):
+        if hasattr(train_dataloader.dataset, 'set_epoch'):
+            train_dataloader.dataset.set_epoch(epoch)
+            
         model.train()
         cumulative_loss = 0
         for xb, yb in train_dataloader:
@@ -284,8 +299,11 @@ def fit_torch(
 
         cumulative_loss = cumulative_loss / num_batches
         model.eval()
-        running_vloss = 0.0
-        for xb, yb in val_dataloader:
+        running_vloss = 0.0    
+        if hasattr(val_dataloader.dataset, 'set_epoch'):
+            val_dataloader.dataset.set_epoch(epoch)
+
+        for xb, yb in val_dataloader:                
             logits = model(xb)
             logits = torch.clamp(logits, 0, 1)
             val_loss = loss_function(logits, torch.argmax(yb, dim=-1).to(torch.int64)).item()
