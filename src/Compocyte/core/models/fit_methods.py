@@ -69,13 +69,35 @@ class DaskBatchDataset(IterableDataset):
                 y_shuffled[worker_id::num_workers]
             )
 
+        window_size = 5
+        buf_X, buf_y, chunk_sizes = [], [], []
+
+        def _flush(buf_X, buf_y, chunk_sizes):
+            X_buf = np.concatenate(buf_X, axis=0)
+            y_buf = np.concatenate(buf_y, axis=0)
+            perm = rng.permutation(len(X_buf))
+            X_buf, y_buf = X_buf[perm], y_buf[perm]
+            start = 0
+            for size in chunk_sizes:
+                yield (
+                    torch.from_numpy(X_buf[start:start + size]).to(torch.float32),
+                    torch.from_numpy(y_buf[start:start + size]).to(torch.float32)
+                )
+                start += size
+
         for X_chunk, y_chunk in chunk_iter:
             X_np = X_chunk.compute()
             y_np = y_chunk.compute()
-            yield (
-                torch.from_numpy(X_np).to(torch.float32),
-                torch.from_numpy(y_np).to(torch.float32)
-            )
+            buf_X.append(X_np)
+            buf_y.append(y_np)
+            chunk_sizes.append(len(X_np))
+
+            if len(buf_X) == window_size:
+                yield from _flush(buf_X, buf_y, chunk_sizes)
+                buf_X, buf_y, chunk_sizes = [], [], []
+
+        if buf_X:
+            yield from _flush(buf_X, buf_y, chunk_sizes)
 
 def predict_logits(model, x):
     x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=True)
