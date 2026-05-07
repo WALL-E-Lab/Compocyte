@@ -489,8 +489,8 @@ class HierarchicalClassifier(
 
         if not parallelize:
             for node in nodes_to_train:
-                self.train_single_node(node, parallelize=False)
-
+                _, learning_curve = self.train_single_node(node, parallelize=False)
+                self.graph.nodes[node]['learning_curve'] = learning_curve
         else: 
             if processes is None:
                 raise Exception('Please specify the number of processes to use for parallelization.')
