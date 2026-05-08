@@ -28,8 +28,8 @@ Alternatively, you can install Python 3.14 using micromamba or another environme
 ```bash
 micromamba create -n compocyte_python314 python=3.14
 micromamba activate compocyte_python314
-micromamba install catboost
-pip install "git+https://github.com/WALL-E-Lab/Compocyte.git"
+micromamba install gcc gxx graphviz pygraphviz
+pip install Compocyte
 ```
 
 ## Pretrained model files

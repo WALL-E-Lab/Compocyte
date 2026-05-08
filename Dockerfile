@@ -9,6 +9,7 @@ RUN pip install -e ".[dev]"
 # --- test stage ---
 FROM base AS test
 RUN pytest
+RUN pytest --nbmake docs/**/*.ipynb
 
 # --- production stage ---
 #FROM base AS prod
