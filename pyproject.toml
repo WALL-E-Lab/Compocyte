@@ -64,10 +64,7 @@ dependencies = [
 "Bug Tracker" = "https://github.com/WALL-E-Lab/Compocyte/issues"
 
 [project.optional-dependencies]
-dev = [
-    "pytest",
-    "pytest-cov",
-]
+dev = []
 docs = [
     "sphinx>=7.0",
     "furo>=2024.01.29",
