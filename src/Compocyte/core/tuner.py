@@ -17,13 +17,14 @@ class Tuner():
         self.root_node = root_node
         self.obs_names = obs_names
         
-    def train_from_tuner(self, save_path: str, adata: sc.AnnData, parallelize=True, max_cells: int=None, stratify_by: str=None, processes: int=None) -> HierarchicalClassifier:
+    def train_from_tuner(self, save_path: str, adata: sc.AnnData, parallelize=True, max_cells: int=None, stratify_by: str=None, processes: int=None, intermittent_saving=False) -> HierarchicalClassifier:
         classifier = HierarchicalClassifier(
             save_path, 
             root_node=self.root_node, 
             adata=adata, 
             dict_of_cell_relations=self.hierarchy,
-            obs_names=self.obs_names)
+            obs_names=self.obs_names,
+            intermittent_saving=intermittent_saving)
         
         for node in classifier.graph.nodes:
             n_children = len(list(classifier.graph.successors(node)))

@@ -35,7 +35,8 @@ class HierarchicalClassifier(
             num_threads=1,
             ignore_counts=False,
             temp_paths=None,
-            graph=None
+            graph=None,
+            intermittent_saving=False,
             ):
 
         if graph is None and dict_of_cell_relations is None:
@@ -54,6 +55,7 @@ class HierarchicalClassifier(
         self.root_node = None
         self.obs_names = None
         self.ignore_counts = ignore_counts
+        self.intermittent_saving = intermittent_saving
 
         if dict_of_cell_relations is None and graph is not None:
             dict_of_cell_relations = infer_dict(graph)
@@ -491,6 +493,9 @@ class HierarchicalClassifier(
             for node in nodes_to_train:
                 learning_curve = self.train_single_node(node, parallelize=False)['learning_curve']
                 self.graph.nodes[node]['learning_curve'] = learning_curve
+                if self.intermittent_saving:
+                    self.save()
+                    
         else: 
             if processes is None:
                 raise Exception('Please specify the number of processes to use for parallelization.')
