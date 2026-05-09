@@ -40,6 +40,11 @@ class DenseTorch(torch.nn.Module):
 
                 self.layers.append(new_dropout)
 
+            else:
+                self.layers.append(
+                    torch.nn.Softmax(dim=1)
+                )
+
     def forward(self, x):
         torch.autograd.set_detect_anomaly(True)
         for layer in self.layers:            
@@ -50,9 +55,8 @@ class DenseTorch(torch.nn.Module):
     def predict_logits(self, x) -> np.array:
         self.eval()
         x = torch.from_numpy(x).to(torch.float32)
-        logits = self(x)
-        probs = torch.softmax(logits, dim=1)
-        return probs.detach().numpy()
+
+        return self(x).detach().numpy()
 
     def predict(self, x) -> np.array:        
         logits = self.predict_logits(x)
@@ -64,13 +68,17 @@ class DenseTorch(torch.nn.Module):
         return pred    
 
     def reset_output(self, n_output):
-        in_features = self.layers[-1].in_features
-        del self.layers[-1]
+        in_features = self.layers[-2].in_features
+        del self.layers[-2] # last dense
+        del self.layers[-1] # softmax
         self.layers.append(
             torch.nn.Linear(in_features, n_output)
         )
         torch.nn.init.xavier_uniform_(self.layers[-1].weight, gain=torch.nn.init.calculate_gain('leaky_relu', 0.1))
         torch.nn.init.zeros_(self.layers[-1].bias)
+        self.layers.append(
+            torch.nn.Softmax(dim=1)
+        )
 
     def _save(self, path):
         non_param_attr = ['histories', 'labels_enc', 'labels_dec']
