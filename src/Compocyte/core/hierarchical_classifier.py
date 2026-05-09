@@ -1,6 +1,5 @@
 from typing import Union
 from sklearn.feature_selection import SelectKBest, f_classif
-from sklearn.preprocessing import robust_scale
 from Compocyte.core.base.data_base import DataBase
 from Compocyte.core.base.hierarchy_base import HierarchyBase
 from Compocyte.core.base.export_import_base import ExportImportBase
@@ -332,7 +331,6 @@ class HierarchicalClassifier(
         n_features = min(n_features, max_features)
 
         x = np.asarray(x)
-        x = robust_scale(x, axis=0, with_centering=False, copy=False, unit_variance=False)
         y = np.array(subset.obs[child_obs])
         selecter = SelectKBest(f_classif, k=n_features)
         selecter.fit(x, y)

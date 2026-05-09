@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import robust_scale
 import torch
 import logging
 import dask.array as da
@@ -100,7 +99,6 @@ class DaskBatchDataset(IterableDataset):
             yield from _flush(buf_X, buf_y, chunk_sizes)
 
 def predict_logits(model, x):
-    x = robust_scale(x, axis=0, with_centering=False, copy=False, unit_variance=False)
     if isinstance(x, sparse.csr_matrix):
         x = sparse.csr_matrix.toarray(x)
         
@@ -122,7 +120,6 @@ def predict_logits(model, x):
     return logits
 
 def predict(model, x, threshold=-1, monte_carlo: int=None):    
-    x = robust_scale(x, axis=0, with_centering=False, copy=False, unit_variance=False)
     if isinstance(x, sparse.csr_matrix):
         x = sparse.csr_matrix.toarray(x)
 
@@ -376,16 +373,8 @@ def fit(
 
     Returns:
         _type_: _description_
-    """
-    
-    # Standardize batches separately if list of idxs per dataset is provided
-    if standardize_idx is not None:
-        for idx in standardize_idx:
-            x[idx] = robust_scale(x[idx], axis=1, with_centering=False, copy=False, unit_variance=False)
-    else:
-        x = robust_scale(x, axis=0, with_centering=False, copy=False, unit_variance=False)
+    """    
 
-    
     if not isinstance(model, DenseTorch):
         x = sparse.csr_matrix.toarray(x)
 
