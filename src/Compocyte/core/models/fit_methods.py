@@ -100,7 +100,7 @@ class DaskBatchDataset(IterableDataset):
             yield from _flush(buf_X, buf_y, chunk_sizes)
 
 def predict_logits(model, x):
-    x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=True)
+    x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=False)
     if isinstance(x, sparse.csr_matrix):
         x = sparse.csr_matrix.toarray(x)
         
@@ -122,7 +122,7 @@ def predict_logits(model, x):
     return logits
 
 def predict(model, x, threshold=-1, monte_carlo: int=None):    
-    x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=True)
+    x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=False)
     if isinstance(x, sparse.csr_matrix):
         x = sparse.csr_matrix.toarray(x)
 
@@ -310,7 +310,6 @@ def fit_torch(
         cumulative_loss = 0
         for xb, yb in train_dataloader:
             logits = model(xb)
-            logits = torch.clamp(logits, 0, 1)
             loss = loss_function(logits, torch.argmax(yb, dim=-1).to(torch.int64))
             loss.backward()
 
@@ -325,9 +324,8 @@ def fit_torch(
         if hasattr(val_dataloader.dataset, 'set_epoch'):
             val_dataloader.dataset.set_epoch(epoch)
 
-        for xb, yb in val_dataloader:                
+        for xb, yb in val_dataloader:
             logits = model(xb)
-            logits = torch.clamp(logits, 0, 1)
             val_loss = loss_function(logits, torch.argmax(yb, dim=-1).to(torch.int64)).item()
             running_vloss += val_loss
 
@@ -383,9 +381,9 @@ def fit(
     # Standardize batches separately if list of idxs per dataset is provided
     if standardize_idx is not None:
         for idx in standardize_idx:
-            x[idx] = robust_scale(x[idx], axis=1, with_centering=False, copy=False, unit_variance=True)
+            x[idx] = robust_scale(x[idx], axis=1, with_centering=False, copy=False, unit_variance=False)
     else:
-        x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=True)
+        x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=False)
 
     
     if not isinstance(model, DenseTorch):
