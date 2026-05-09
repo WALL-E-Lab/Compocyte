@@ -100,7 +100,7 @@ class DaskBatchDataset(IterableDataset):
             yield from _flush(buf_X, buf_y, chunk_sizes)
 
 def predict_logits(model, x):
-    x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=False)
+    x = robust_scale(x, axis=0, with_centering=False, copy=False, unit_variance=False)
     if isinstance(x, sparse.csr_matrix):
         x = sparse.csr_matrix.toarray(x)
         
@@ -122,7 +122,7 @@ def predict_logits(model, x):
     return logits
 
 def predict(model, x, threshold=-1, monte_carlo: int=None):    
-    x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=False)
+    x = robust_scale(x, axis=0, with_centering=False, copy=False, unit_variance=False)
     if isinstance(x, sparse.csr_matrix):
         x = sparse.csr_matrix.toarray(x)
 
@@ -383,7 +383,7 @@ def fit(
         for idx in standardize_idx:
             x[idx] = robust_scale(x[idx], axis=1, with_centering=False, copy=False, unit_variance=False)
     else:
-        x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=False)
+        x = robust_scale(x, axis=0, with_centering=False, copy=False, unit_variance=False)
 
     
     if not isinstance(model, DenseTorch):
