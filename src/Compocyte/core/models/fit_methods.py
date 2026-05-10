@@ -289,6 +289,7 @@ def fit_torch(
         epochs=epochs,
         steps_per_epoch=num_batches
     )
+    samples_per_class = samples_per_class(y)
     # Loss adapted from https://github.com/fcakyon/balanced-loss
     effective_num = 1.0 - np.power(beta, samples_per_class)
     # Avoid division by 0 error for test cases without all labels present.
