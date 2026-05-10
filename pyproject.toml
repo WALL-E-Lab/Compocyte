@@ -45,7 +45,6 @@ classifiers = [
 ]
 dependencies = [
   "catboost==1.2.10",
-  "balanced-loss==0.1.1",
   "anndata==0.12.11",
   "scanpy==1.12.1",
   "SEACells==0.3.3",
@@ -58,6 +57,7 @@ dependencies = [
   "pooch==1.9.0",
   "leidenalg==0.11.0",
   "pygraphviz==1.14",
+  "scikit-misc==0.5.2",
 ]
 
 [project.urls]

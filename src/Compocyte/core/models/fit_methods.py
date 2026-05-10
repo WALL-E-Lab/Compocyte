@@ -6,6 +6,7 @@ import pandas as pd
 from scipy import sparse
 from sklearn.model_selection import train_test_split
 import torch
+import torch.nn.functional as F
 import logging
 import dask.array as da
 from torch.utils.data import TensorDataset, random_split, DataLoader, IterableDataset, get_worker_info
@@ -13,7 +14,6 @@ from Compocyte.core.models.dense_torch import DenseTorch
 from Compocyte.core.models.dummy_classifier import DummyClassifier
 from Compocyte.core.models.log_reg import LogisticRegression
 from Compocyte.core.models.trees import BoostedTrees
-from balanced_loss import Loss as BalancedLoss
 
 logger = logging.getLogger(__name__)
 
@@ -289,14 +289,15 @@ def fit_torch(
         epochs=epochs,
         steps_per_epoch=num_batches
     )
-    loss_function = BalancedLoss(
-        loss_type="focal_loss",
-        samples_per_class=samples_per_class(y),
-        beta=beta, # class-balanced loss beta
-        fl_gamma=gamma, # focal loss gamma
-        class_balanced=class_balance,
-        safe=True
-    )
+    # Loss adapted from https://github.com/fcakyon/balanced-loss
+    effective_num = 1.0 - np.power(beta, samples_per_class)
+    # Avoid division by 0 error for test cases without all labels present.
+    effective_num_classes = np.sum(effective_num != 0)
+    effective_num[effective_num == 0] = np.inf
+    weights = (1.0 - beta) / np.array(effective_num)
+    weights = weights / np.sum(weights) * effective_num_classes
+    weights = torch.tensor(weights, device=logits.device).float()
+
     state_dicts = []
     learning_curve = pd.DataFrame(columns=['loss', 'val_loss', 'lr'])
     for epoch in range(epochs):
@@ -306,8 +307,20 @@ def fit_torch(
         model.train()
         cumulative_loss = 0
         for xb, yb in train_dataloader:
-            logits = model(xb)
-            loss = loss_function(logits, torch.argmax(yb, dim=-1).to(torch.int64))
+            logits = model(xb)            
+            # Used a stable cross-entropy based focal loss implementation instead 
+            # to avoid numerical instability with large gamma values.
+            # Using the existing cross-entropy implementation to avoid exponetiating
+            # large logits directly.
+            ce = F.cross_entropy(
+                logits,
+                torch.argmax(yb, dim=-1).to(torch.int64),
+                reduction='none',
+                weight=weights
+            )
+            pt = torch.exp(-ce)
+            loss = ((1 - pt) ** gamma) * ce
+            loss = loss.mean()
             loss.backward()
 
             cumulative_loss += loss.item()
@@ -323,7 +336,15 @@ def fit_torch(
 
         for xb, yb in val_dataloader:
             logits = model(xb)
-            val_loss = loss_function(logits, torch.argmax(yb, dim=-1).to(torch.int64)).item()
+            ce = F.cross_entropy(
+                logits,
+                torch.argmax(yb, dim=-1).to(torch.int64),
+                reduction='none',
+                weight=weights
+            )
+            pt = torch.exp(-ce)
+            val_loss = ((1 - pt) ** gamma) * ce
+            val_loss = val_loss.mean().item()
             running_vloss += val_loss
 
         val_loss = running_vloss / num_batches_val
