@@ -260,7 +260,7 @@ def fit_torch(
         model: DenseTorch, 
         x: np.array, y: np.array, 
         epochs: int=40, batch_size: int=64, 
-        starting_lr: float=0.001, max_lr: float=0.01, momentum: float=0.5, 
+        starting_lr: float=0.001, max_lr: float=0.1, momentum: float=0.5, 
         parallelize: bool=True, num_threads: int=1, 
         beta: float=0.8, gamma: float=2.0, class_balance: bool=True, max_cells: int=1_000_000):
     
@@ -296,7 +296,7 @@ def fit_torch(
     effective_num[effective_num == 0] = np.inf
     weights = (1.0 - beta) / np.array(effective_num)
     weights = weights / np.sum(weights) * effective_num_classes
-    weights = torch.tensor(weights, device=logits.device).float()
+    weights = torch.tensor(weights).float()
 
     state_dicts = []
     learning_curve = pd.DataFrame(columns=['loss', 'val_loss', 'lr'])
