@@ -205,6 +205,8 @@ def dataloaders_from_dask(x, y, batch_size, num_workers):
     indices_val = indices[int(np.floor(total_samples * .8)):]
     x_train, y_train = x[indices_train], y[indices_train]
     x_val, y_val = x[indices_val], y[indices_val]
+    x_train = sparse.csr_matrix(x_train)  # materialize any AnnData view wrapper
+    x_val = sparse.csr_matrix(x_val)
 
     batch_size = min(batch_size, x_train.shape[0])
     x_train = da.from_array(x_train, chunks=(batch_size, x_train.shape[1]))
