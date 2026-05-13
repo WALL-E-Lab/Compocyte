@@ -503,7 +503,7 @@ class HierarchicalClassifier(
                 processes = int(processes / self.num_threads)
 
             print(f"Using multiprocessing for training with {mp.cpu_count()} available CPU cores.\n")           
-            with mp.Pool(processes=processes) as pool: 
+            with mp.get_context('fork').Pool(processes=processes) as pool: 
                 all_trained_node_params = pool.map(self.train_single_node, nodes_to_train)
             
             for node, params in zip(nodes_to_train, all_trained_node_params):
