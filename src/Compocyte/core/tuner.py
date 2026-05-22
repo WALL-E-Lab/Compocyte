@@ -7,7 +7,7 @@ import optuna
 import os
 
 import torch
-import torch.functional as F
+import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader, random_split
 from Compocyte.core.hierarchical_classifier import HierarchicalClassifier
 from Compocyte.core.models.dense_torch import DenseTorch
