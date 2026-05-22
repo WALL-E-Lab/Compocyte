@@ -41,12 +41,12 @@ def tune_with_optuna(
             hidden_layers=eval(trial.suggest_categorical('hidden_layers', ['[]', '[64, 64]', '[128, 128, 128, 128]', '[256, 256, 256, 256, 256, 256, 256, 256]'])),
             dropout=trial.suggest_float('dropout', 0, 0.5),
         )        
-        epochs=trial.suggest_int('epochs', 10, 100),
-        batch_size=trial.suggest_categorical('batch_size', [64, 256, 512]),
-        starting_lr=trial.suggest_float('starting_lr', 1e-5, 1e-3, log=True),
-        max_lr=trial.suggest_float('max_lr', 1e-3, 1e-1, log=True),
-        momentum=trial.suggest_float('momentum', 0.4, 0.9),
-        beta=trial.suggest_float('beta', 0.8, 0.999),
+        epochs=trial.suggest_int('epochs', 10, 100)
+        batch_size=trial.suggest_categorical('batch_size', [64, 256, 512])
+        starting_lr=trial.suggest_float('starting_lr', 1e-5, 1e-3, log=True)
+        max_lr=trial.suggest_float('max_lr', 1e-3, 1e-1, log=True)
+        momentum=trial.suggest_float('momentum', 0.4, 0.9)
+        beta=trial.suggest_float('beta', 0.8, 0.999)
         gamma=trial.suggest_float('gamma', 1, 4)
         
         train_dataset = TensorDataset(x, y)
