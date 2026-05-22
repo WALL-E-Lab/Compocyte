@@ -30,7 +30,7 @@ def tune_with_optuna(
     y = to_categorical(y_train, num_classes=len(np.unique(y_train)))
     x = torch.from_numpy(X_train).to(torch.float32)
     y = torch.from_numpy(y).to(torch.float32)
-    y = to_categorical(y_val, num_classes=len(np.unique(y_train)))
+    y_val = to_categorical(y_val, num_classes=len(np.unique(y_train)))
     x_val = torch.from_numpy(X_val).to(torch.float32)
     y_val = torch.from_numpy(y_val).to(torch.float32)
     def objective(trial):
