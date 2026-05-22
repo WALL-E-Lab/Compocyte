@@ -13,7 +13,10 @@ class DataBase():
         self,
         adata):
 
-        self.adata = adata
+        self.adata = adata        
+        if not isinstance(self.adata.X, sparse.csr_matrix):
+            self.adata.X = sparse.csr_matrix(self.adata.X)
+
         if self.var_names is not None: # Load new adata for transfer learning/prediction
             self.adata = self.variable_match_adata(adata)
 
@@ -21,10 +24,7 @@ class DataBase():
             self.var_names = self.adata.var_names.tolist()
 
         self.ensure_not_view()
-        self.check_for_counts()
-        if not isinstance(self.adata.X, sparse.csr_matrix):
-            self.adata.X = sparse.csr_matrix(self.adata.X)
-            
+        self.check_for_counts()            
         if self.default_input_data == 'normlog':
             self.ensure_normlog()       
 

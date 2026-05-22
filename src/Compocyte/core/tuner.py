@@ -3,10 +3,165 @@ import time
 import numpy as np
 import pandas as pd
 import scanpy as sc
+import optuna
+import os
+
+import torch
+import torch.functional as F
+from torch.utils.data import TensorDataset, DataLoader, random_split
 from Compocyte.core.hierarchical_classifier import HierarchicalClassifier
 from Compocyte.core.models.dense_torch import DenseTorch
 from Compocyte.core.models.trees import BoostedTrees
-from Compocyte.core.models.fit_methods import fit, predict_logits
+from Compocyte.core.models.fit_methods import dataloaders_from_dense, fit, predict_logits, samples_per_class, to_categorical
+
+def tune_with_optuna(
+        storage_path: str,
+        X_train: np.ndarray,
+        y_train: np.ndarray,
+        X_val: np.ndarray,
+        y_val: np.ndarray,
+        cores: int,
+        n_trials=50, n_startup_trials=5
+        ) -> optuna.Study:
+    
+    os.environ["OMP_NUM_THREADS"] = "1"
+    os.environ["MKL_NUM_THREADS"] = "1"
+    os.environ["OPENBLAS_NUM_THREADS"] = "1"
+    y = to_categorical(y_train, num_classes=len(np.unique(y_train)))
+    x = torch.from_numpy(X_train).to(torch.float32)
+    y = torch.from_numpy(y).to(torch.float32)
+    y = to_categorical(y_val, num_classes=len(np.unique(y_train)))
+    x_val = torch.from_numpy(X_val).to(torch.float32)
+    y_val = torch.from_numpy(y_val).to(torch.float32)
+    def objective(trial):
+        model = DenseTorch(
+            labels=list(np.unique(y_train)), 
+            n_input=X_train.shape[1],
+            n_output=len(np.unique(y_train)),
+            hidden_layers=eval(trial.suggest_categorical('hidden_layers', ['[]', '[64, 64]', '[128, 128, 128, 128]', '[256, 256, 256, 256, 256, 256, 256, 256]'])),
+            dropout=trial.suggest_float('dropout', 0, 0.5),
+        )        
+        epochs=trial.suggest_int('epochs', 10, 100),
+        batch_size=trial.suggest_categorical('batch_size', [64, 256, 512]),
+        starting_lr=trial.suggest_float('starting_lr', 1e-5, 1e-3, log=True),
+        max_lr=trial.suggest_float('max_lr', 1e-3, 1e-1, log=True),
+        momentum=trial.suggest_float('momentum', 0.4, 0.9),
+        beta=trial.suggest_float('beta', 0.8, 0.999),
+        gamma=trial.suggest_float('gamma', 1, 4)
+        
+        train_dataset = TensorDataset(x, y)
+        val_dataset = TensorDataset(x_val, y_val)
+        batch_size = min(batch_size, len(train_dataset))
+        leaves_remainder = len(train_dataset) % batch_size == 1
+        train_dataloader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            drop_last=leaves_remainder,
+            num_workers=1)
+        
+        batch_size = min(batch_size, len(val_dataset))    
+        leaves_remainder = len(val_dataset) % batch_size == 1
+        val_dataloader = DataLoader(
+            val_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            drop_last=leaves_remainder,
+            num_workers=1)
+        num_batches = len(train_dataloader)
+        num_batches_val = len(val_dataloader)
+
+        model.train()
+        optimizer = torch.optim.SGD(
+            model.parameters(), 
+            lr=starting_lr, 
+            momentum=momentum
+        )
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, 
+            max_lr=max_lr,
+            div_factor=10,
+            epochs=epochs,
+            steps_per_epoch=num_batches,
+            pct_start=0.3
+        )
+        # Loss adapted from https://github.com/fcakyon/balanced-loss
+        effective_num = 1.0 - np.power(beta, samples_per_class(y))
+        # Avoid division by 0 error for test cases without all labels present.
+        effective_num_classes = np.sum(effective_num != 0)
+        effective_num[effective_num == 0] = np.inf
+        weights = (1.0 - beta) / np.array(effective_num)
+        weights = weights / np.sum(weights) * effective_num_classes
+        weights = torch.tensor(weights).float()
+
+        for epoch in range(epochs):                
+            model.train()
+            cumulative_loss = 0
+            for xb, yb in train_dataloader:
+                logits = model(xb)            
+                # Used a stable cross-entropy based focal loss implementation instead 
+                # to avoid numerical instability with large gamma values.
+                # Using the existing cross-entropy implementation to avoid exponetiating
+                # large logits directly.
+                ce = F.cross_entropy(
+                    logits,
+                    torch.argmax(yb, dim=-1).to(torch.int64),
+                    reduction='none',
+                    weight=weights
+                )
+                pt = torch.exp(-ce)
+                loss = ((1 - pt) ** gamma) * ce
+                loss = loss.mean()
+                loss.backward()
+
+                cumulative_loss += loss.item()
+                optimizer.step()
+                scheduler.step()
+                optimizer.zero_grad()
+
+            cumulative_loss = cumulative_loss / num_batches
+            model.eval()
+            running_vloss = 0.0
+            for xb, yb in val_dataloader:
+                logits = model(xb)
+                ce = F.cross_entropy(
+                    logits,
+                    torch.argmax(yb, dim=-1).to(torch.int64),
+                    reduction='none',
+                    weight=weights
+                )
+                pt = torch.exp(-ce)
+                val_loss = ((1 - pt) ** gamma) * ce
+                val_loss = val_loss.mean().item()
+                running_vloss += val_loss
+
+            val_loss = running_vloss / num_batches_val
+            if epoch > epochs * 0.3: # val loss is only reported after 30% of epochs have passed to allow for warmup
+                trial.report(val_loss, epoch)
+
+        return val_loss
+
+    storage = f"sqlite:///{storage_path}" if storage_path is not None else None
+    study = optuna.create_study(
+        storage=storage,
+        load_if_exists=False,
+        direction="minimize",
+        pruner=optuna.pruners.PercentilePruner(
+            percentile=25.0,
+            n_startup_trials=n_startup_trials,
+            n_warmup_steps=0,
+            interval_steps=1
+        ),
+    )
+    study.optimize(objective, n_trials=n_trials, n_jobs=cores-1)
+
+    return study
+
+def train_from_tuned_with_optuna(classifier: HierarchicalClassifier, studies: dict):
+    for node in classifier.graph.nodes:
+        pass
+
+    # TODO: implement
 
 class Tuner():
     def __init__(self, database_path: str, adata_path: str, hierarchy: dict, root_node: str, obs_names: list):
@@ -73,27 +228,11 @@ class Tuner():
     
     def trial_run(
         self,
-        cv_key: str, 
-        n_features: int, 
-        hidden_layers: list, 
-        dropout: float, 
-        epochs: int, 
-        batch_size: int, 
-        starting_lr: float, 
-        max_lr: float, 
-        momentum: float, 
-        beta: float, 
-        gamma: float,
-        test_factor: int,
-        parallelize: bool=True,
-        num_threads=None,
-        standardize_separately: str=None) -> None:	
+        cv_key: str,
+        node: str,
+        standardize_separately: str=None) -> None:
         
         adata = sc.read_h5ad(self.adata_path)
-        rng = np.random.default_rng(42)
-        adata = adata[
-            rng.choice(adata.obs_names, int(len(adata) / test_factor), replace=False)]
-        performance_per_cv = pd.DataFrame(columns=['node', 'threshold', 'max_correct', 'correct_total'])
         for dataset in adata.obs[cv_key].unique():
             train_adata = adata[adata.obs[cv_key] != dataset]
             val_adata = adata[adata.obs[cv_key] == dataset]
@@ -103,57 +242,56 @@ class Tuner():
                 adata=train_adata, 
                 dict_of_cell_relations=self.hierarchy,
                 obs_names=self.obs_names)
-            classifier.num_threads = num_threads
-            for node in classifier.graph.nodes:
-                n_children = len(list(classifier.graph.successors(node)))
-                if n_children >= 1:
-                    subset = classifier.select_subset(node)
-                    if len(subset) < 5:
-                        continue
-                        
-                    features = classifier.run_feature_selection(
-                        node=node,
-                        overwrite=False,
-                        n_features=n_features,
-                        max_features=None,
-                        min_features=30,
-                        test_factor=test_factor)
-                    classifier.graph.nodes[node]['selected_var_names'] = features
-                    classifier_type = DenseTorch
-                    hidden_layers = hidden_layers if isinstance(hidden_layers, list) else eval(hidden_layers)
-                    if -1 in hidden_layers:
-                        classifier_type = BoostedTrees
+            
+            n_children = len(list(classifier.graph.successors(node)))
+            if n_children >= 1:
+                subset = classifier.select_subset(node)
+                if len(subset) < 5:
+                    continue
+                    
+                features = classifier.run_feature_selection(
+                    node=node,
+                    overwrite=False,
+                    n_features=n_features,
+                    max_features=None,
+                    min_features=30,
+                    test_factor=test_factor)
+                classifier.graph.nodes[node]['selected_var_names'] = features
+                classifier_type = DenseTorch
+                hidden_layers = hidden_layers if isinstance(hidden_layers, list) else eval(hidden_layers)
+                if -1 in hidden_layers:
+                    classifier_type = BoostedTrees
 
-                    classifier.create_local_classifier(
-                        node,
-                        hidden_layers=hidden_layers,
-                        dropout=dropout,
-                        batchnorm=True,
-                        classifier_type=classifier_type
-                    )
-                    features = classifier.graph.nodes[node]['selected_var_names']
-                    model = classifier.graph.nodes[node]['local_classifier']
-                    subset = classifier.select_subset(node, features=features)
-                    x = subset.X
-                    child_obs = classifier.obs_names[classifier.node_to_depth[node] + 1]
-                    y = subset.obs[child_obs].values
-                    if standardize_separately is not None:
-                        idx = []
-                        for dataset in subset.obs[standardize_separately].unique():
-                            idx.append(np.where(subset.obs[standardize_separately] == dataset))
+                classifier.create_local_classifier(
+                    node,
+                    hidden_layers=hidden_layers,
+                    dropout=dropout,
+                    batchnorm=True,
+                    classifier_type=classifier_type
+                )
+                features = classifier.graph.nodes[node]['selected_var_names']
+                model = classifier.graph.nodes[node]['local_classifier']
+                subset = classifier.select_subset(node, features=features)
+                x = subset.X
+                child_obs = classifier.obs_names[classifier.node_to_depth[node] + 1]
+                y = subset.obs[child_obs].values
+                if standardize_separately is not None:
+                    idx = []
+                    for dataset in subset.obs[standardize_separately].unique():
+                        idx.append(np.where(subset.obs[standardize_separately] == dataset))
 
-                    else:
-                        idx = None
+                else:
+                    idx = None
 
-                    fit(model, x, y, 
-                        standardize_idx=idx,
-                        epochs=epochs,
-                        batch_size=batch_size,
-                        starting_lr=starting_lr,
-                        max_lr=max_lr,
-                        momentum=momentum,
-                        beta=beta,
-                        gamma=gamma)
+                fit(model, x, y, 
+                    standardize_idx=idx,
+                    epochs=epochs,
+                    batch_size=batch_size,
+                    starting_lr=starting_lr,
+                    max_lr=max_lr,
+                    momentum=momentum,
+                    beta=beta,
+                    gamma=gamma)
                     
             classifier.load_adata(val_adata)
             for node in classifier.graph.nodes:

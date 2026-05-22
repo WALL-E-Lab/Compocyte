@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import robust_scale
 import torch
 import torch.nn.functional as F
 import logging
@@ -397,6 +398,13 @@ def fit(
     Returns:
         _type_: _description_
     """    
+
+    # Standardize batches separately if list of idxs per dataset is provided
+    if standardize_idx is not None:
+        for idx in standardize_idx:
+            x[idx] = robust_scale(x[idx], axis=0, with_centering=False, copy=False, unit_variance=False)
+    else:
+        x = robust_scale(x, axis=0, with_centering=False, copy=False, unit_variance=False)
 
     if not isinstance(model, DenseTorch):
         x = sparse.csr_matrix.toarray(x)
