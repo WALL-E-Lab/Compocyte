@@ -38,6 +38,43 @@ class HierarchicalClassifier(
             graph=None,
             intermittent_saving=False,
             ):
+        """Initialize a HierarchicalClassifier.
+
+        Args:
+            save_path (str): Directory where classifier state is saved and loaded from.
+            adata (sc.AnnData, optional): AnnData object containing single-cell data.
+            root_node (str, optional): Name of the root node in the cell-type hierarchy.
+            dict_of_cell_relations (dict, optional): Nested dictionary defining the
+                cell-type hierarchy, e.g.
+                ``{'root': {'T cell': {'CD4+': {}, 'CD8+': {}}}}``.
+            obs_names (list of str, optional): List of ``adata.obs`` column names
+                indexed by hierarchy depth (index 0 = root level, index 1 = first child,
+                …).
+            default_input_data (str): Input data representation to use. One of
+                ``'normlog'`` (log-normalized counts in ``adata.X``) or ``'counts'``
+                (raw counts). Defaults to ``'normlog'``.
+            num_threads (int): Number of CPU threads to use per training process.
+                Defaults to ``1``.
+            ignore_counts (bool): If ``True``, the presence of raw count data is not 
+                confirmed. Must be used, for example, if .X contains 
+                dimensionality-reduced or manually normalized data. Defaults to ``False``.
+            temp_paths (str or list of str, optional): Temporary directory paths used
+                when importing or exporting classifier model files.
+            graph (networkx.DiGraph, optional): Pre-built hierarchy graph. When
+                provided, ``dict_of_cell_relations`` is inferred from it via
+                ``infer_dict``.
+            intermittent_saving (bool): If ``True``, the classifier state is saved to
+                disk after each node is trained. Defaults to ``False``.
+
+        Example:
+            >>> hc = HierarchicalClassifier(
+            ...     save_path='/data/classifier',
+            ...     adata=adata,
+            ...     root_node='root',
+            ...     dict_of_cell_relations={'root': {'T cell': {}, 'B cell': {}}},
+            ...     obs_names=['cell_type_l1', 'cell_type_l2'],
+            ... )
+        """
 
         if graph is None and dict_of_cell_relations is None:
             print('Neither graph nor dict_of_cell_relations defined upon initialization.')
@@ -67,6 +104,19 @@ class HierarchicalClassifier(
             self.set_cell_relations(root_node, dict_of_cell_relations, obs_names, temp_paths)
 
     def save(self, save_adata=False):
+        """Save the classifier state to disk.
+
+        Serializes instance attributes, per-node graph content, and local classifiers
+        to timestamped subdirectories under ``self.save_path``. Each call creates a
+        new timestamped snapshot; loading always restores the most recent snapshot.
+
+        Args:
+            save_adata (bool): If ``True``, also writes ``self.adata`` to an ``.h5ad``
+                file under ``<save_path>/data/``. Defaults to ``False``.
+
+        Example:
+            >>> hc.save()
+        """
         # save all attributes
         # get types, for adata use adatas write function with hash of adata
         # save state of all local classifiers (what does dumping self.graph do?)
@@ -135,6 +185,24 @@ class HierarchicalClassifier(
                     pickle.dump(self.graph.nodes[node][key], f)
 
     def load(self, load_path=None, load_adata=False):
+        """Load the most recent classifier snapshot from disk.
+
+        Restores instance attributes from the latest timestamped pickle under
+        ``<load_path>/hierarchical_classifiers/``, optionally reloads ``adata``, and
+        deserializes per-node graph content and local classifiers. Reconstructs
+        ``self.graph`` if it does not already exist.
+
+        Args:
+            load_path (str, optional): Root directory to load from. Defaults to
+                ``self.save_path``.
+            load_adata (bool): If ``True``, loads the most recent ``.h5ad`` file from
+                ``<load_path>/data/`` into ``self.adata``. Defaults to ``False``.
+
+        Example:
+            >>> hc = HierarchicalClassifier(save_path='/data/classifier')
+            >>> hc.load()
+            >>> hc.load(load_path='/backup/classifier', load_adata=True)
+        """
         if load_path is None:
             load_path = self.save_path
             
@@ -207,10 +275,32 @@ class HierarchicalClassifier(
 
     def limit_cells(
             self,
-            subset: sc.AnnData, 
-            max_cells: int, 
+            subset: sc.AnnData,
+            max_cells: int,
             stratify_by: str) -> sc.AnnData:
-        
+        """Randomly subsample cells from a subset, stratified by a given obs column if
+        a maximum cell count (max_cells) is exceeded.
+
+        Cells are sampled equally from each stratum defined by ``stratify_by``. If the
+        total after stratified sampling falls below ``max_cells``, additional cells are
+        drawn at random from the remaining pool to reach the cap.
+
+        Args:
+            subset (sc.AnnData): AnnData slice to subsample.
+            max_cells (int): Maximum number of cells to retain.
+            stratify_by (str): ``adata.obs`` column name used to define strata
+                (e.g. ``'dataset'``).
+
+        Returns:
+            sc.AnnData: Subsampled AnnData with at most ``max_cells`` observations.
+                Returns the original ``subset`` unchanged if
+                ``len(subset) <= max_cells``.
+
+        Example:
+            >>> limited = hc.limit_cells(
+            ...     subset, max_cells=10_000, stratify_by='dataset'
+            ... )
+        """
         if len(subset) > max_cells:
             rng = np.random.default_rng(42)
             datasets = subset.obs[stratify_by].unique()
@@ -237,37 +327,61 @@ class HierarchicalClassifier(
         return subset
 
     def introduce_limit(self, max_cells: int, stratify_by: str):
-        """
-        Introduces a limit on the number of cells per local classifier training and \
-            specifies a stratification criterion.
+        """Set a per-training-run cell cap and stratification column.
 
-        Parameters:
-        max_cells (int): The maximum number of cells allowed.
-        stratify_by (str): The criterion by which to stratify the cells.
+        The limit is applied during :meth:`select_subset` whenever ``max_cells`` is
+        passed to that call. Cells are subsampled via :meth:`limit_cells` using the
+        specified ``stratify_by`` column.
+
+        Args:
+            max_cells (int): Maximum number of cells per local classifier training run.
+            stratify_by (str): ``adata.obs`` column name used to stratify subsampling
+                (e.g. ``'dataset'``).
+
+        Example:
+            >>> hc.introduce_limit(max_cells=50_000, stratify_by='dataset')
         """
 
         self.max_cells = max_cells
         self.stratify_by = stratify_by
 
     def select_subset(
-            self, 
-            node: str, 
+            self,
+            node: str,
             features: list=None,
             max_cells: int=None) -> sc.AnnData:
-        
+        """Select training cells for a given hierarchy node.
+
+        Returns cells labeled as ``node`` at the node's depth level that also carry a
+        non-empty child-level label (i.e. cells with a known subtype). Optionally
+        restricts to a specified feature set and applies a stratified cell count cap.
+
+        Args:
+            node (str): Name of the hierarchy node to select cells for.
+            features (list of str, optional): Gene/feature names to restrict the
+                returned subset to. If ``None``, all features are included.
+            max_cells (int, optional): Maximum number of cells to return. Only applied
+                when :meth:`introduce_limit` has been called first (to set
+                ``self.stratify_by``); otherwise ignored.
+
+        Returns:
+            sc.AnnData: Subset of ``self.adata`` containing only cells labeled as
+                ``node`` with a non-empty child-level annotation.
+
+        Example:
+            >>> subset = hc.select_subset('T cell')
+            >>> subset = hc.select_subset(
+            ...     'T cell', features=['CD3D', 'CD4'], max_cells=10_000
+            ... )
+        """
         obs = self.obs_names[self.node_to_depth[node]]
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
         is_node = self.adata.obs[obs] == node
         has_child_label = self.adata.obs[child_obs] != ''
         subset = self.adata[is_node & has_child_label]
         if features is not None:
-            subset = subset[:, features]
+            subset = subset[:, features]        
 
-        stratify_by = getattr(self, 'stratify_by', None)
-        if max_cells is not None and stratify_by is not None:
-            subset = self.limit_cells(subset, max_cells, stratify_by)
-
-        """
         if max_cells is None:
             max_cells = getattr(self, 'max_cells', None)
 
@@ -275,11 +389,37 @@ class HierarchicalClassifier(
         if max_cells is not None and stratify_by is not None:
             subset = self.limit_cells(subset, max_cells, stratify_by)
 
-        """
-
         return subset
     
-    def select_subset_prediction(self, node: str, features: list=None, for_trial=False) -> sc.AnnData:
+    def select_subset_prediction(
+            self,
+            node: str,
+            features: list=None,
+            for_trial: bool=False) -> sc.AnnData:
+        """Select cells assigned to a given node for inference.
+
+        In normal prediction mode cells are selected by their previously predicted
+        label at the node's depth level. When the predicted obs column does not yet
+        exist, all cells are returned (root-level fallback). With ``for_trial=True``
+        ground-truth labels are used instead of predictions.
+
+        Args:
+            node (str): Name of the hierarchy node.
+            features (list of str, optional): Gene/feature names to restrict the
+                returned subset to. If ``None``, all features are included.
+            for_trial (bool): If ``True``, uses ground-truth obs labels instead of
+                predicted labels to select cells, to train with all ground-truth relevant 
+                cells. Defaults to ``False``.
+
+        Returns:
+            sc.AnnData: Subset of ``self.adata`` containing cells associated with
+                ``node`` for prediction purposes.
+
+        Example:
+            >>> subset = hc.select_subset_prediction('T cell')
+            >>> subset = hc.select_subset_prediction('T cell', for_trial=True)
+        """
+
         obs = self.obs_names[self.node_to_depth[node]]
         obs = f'{obs}_pred'
         if obs not in self.adata.obs.columns and not for_trial:
@@ -308,6 +448,44 @@ class HierarchicalClassifier(
             test_factor: float=1.0,
             max_cells=100_000):
         
+        """Select the most informative features for classifying children of a node.
+
+        Uses ANOVA F-statistics (``SelectKBest`` with ``f_classif``) on
+        robustly-scaled expression values to rank and select features. The target
+        feature count is either specified directly via ``n_features`` or inferred from
+        sample count using the heuristic of 1 feature per 100 cells, then clamped to
+        ``[min_features, max_features]``.
+
+        Args:
+            node (str): Name of the hierarchy node whose children are the prediction
+                targets.
+            overwrite (bool): If ``True``, overwrite any previously stored feature
+                selection for this node. Defaults to ``False``.
+            n_features (int): Exact number of features to select. Use ``-1`` to infer
+                the count from sample size. Defaults to ``-1``.
+            max_features (int, optional): Upper bound on the number of features
+                selected. Defaults to the total number of features in ``self.adata``.
+            min_features (int): Lower bound on the number of features selected.
+                Defaults to ``30``.
+            test_factor (float): Multiplier applied to the sample-size-inferred feature
+                count. Defaults to ``1.0``.
+            max_cells (int): Maximum number of cells used for feature selection.
+                Defaults to ``100_000``.
+
+        Returns:
+            list of str: Names of the selected features (genes).
+
+        Raises:
+            Exception: If features have already been selected for ``node`` and
+                ``overwrite`` is ``False``.
+
+        Example:
+            >>> features = hc.run_feature_selection('T cell', n_features=200)
+            >>> features = hc.run_feature_selection(
+            ...     'T cell', overwrite=True, min_features=50, max_features=500
+            ... )
+        """
+
         has_features = 'selected_var_names' in self.graph.nodes[node].keys()
         if has_features and not overwrite:
             raise Exception(f'Features have already been selected at {node}.')
@@ -341,12 +519,40 @@ class HierarchicalClassifier(
         return features.tolist()
 
     def create_local_classifier(
-            self, 
+            self,
             node: str,
             overwrite: bool=False,
             classifier_type: Union[DenseTorch, LogisticRegression, BoostedTrees]=DenseTorch,
             **classifier_kwargs):
-        
+        """Instantiate and attach a local classifier to a hierarchy node.
+
+        Creates a classifier of the specified type using the node's previously selected
+        features and unique child labels. If the node has only one child label, a
+        ``DummyClassifier`` is created regardless of ``classifier_type``.
+
+        Args:
+            node (str): Name of the hierarchy node.
+            overwrite (bool): If ``True``, replace any existing classifier at this
+                node. Defaults to ``False``.
+            classifier_type (type or str): Classifier class to instantiate, or one of
+                the strings ``'DenseTorch'``, ``'LogisticRegression'``, or
+                ``'BoostedTrees'``. Defaults to ``DenseTorch``.
+            **classifier_kwargs: Additional keyword arguments forwarded to the
+                classifier constructor (e.g. ``hidden_layers``, ``dropout``).
+
+        Raises:
+            Exception: If a classifier already exists at ``node`` and ``overwrite``
+                is ``False``.
+            Exception: If :meth:`run_feature_selection` has not been called for
+                ``node`` first.
+            Exception: If ``classifier_type`` is an unrecognized string.
+
+        Example:
+            >>> hc.create_local_classifier(
+            ...     'T cell', classifier_type='DenseTorch',
+            ...     hidden_layers=[64, 32], dropout=0.2
+            ... )
+        """
         has_classifier = 'local_classifier' in self.graph.nodes[node].keys()
         if has_classifier and not overwrite:
             raise Exception(f'A classifier already exists at {node}.')
@@ -385,7 +591,44 @@ class HierarchicalClassifier(
         self.graph.nodes[node]['local_classifier'] = local_classifier
 
 
-    def train_single_node(self, node, standardize_separately: str=None, **fit_kwargs):
+    def train_single_node(
+            self,
+            node: str,
+            standardize_separately: str=None,
+            **fit_kwargs):
+        """Train the local classifier at a single hierarchy node.
+
+        Runs feature selection and classifier creation if they have not been performed
+        yet, then fits the model on cells labeled as ``node``. When
+        ``self.tuned_kwargs`` contains an entry for ``node``, those hyperparameters
+        override any provided ``fit_kwargs``. Returns ``None`` when the node has fewer
+        than 5 labeled cells.
+
+        The method returns a dict of updated node parameters rather than modifying
+        ``self.graph`` in-place, which is required for safe use with
+        ``multiprocessing.Pool``.
+
+        Args:
+            node (str): Name of the hierarchy node to train.
+            standardize_separately (str, optional): ``adata.obs`` column name
+                (e.g. ``'dataset'``). When provided, cells are grouped by unique
+                values of this column and each group is robustly scaled independently
+                before training.
+            **fit_kwargs: Additional keyword arguments forwarded to
+                :func:`~Compocyte.core.models.fit_methods.fit` (e.g. ``epochs``,
+                ``batch_size``, ``starting_lr``).
+
+        Returns:
+            dict or None: Dictionary of updated node parameters including
+                ``'learning_curve'``, or ``None`` if the node has too few cells.
+
+        Raises:
+            Exception: If ``num_threads`` is not set on the instance and not provided
+                in ``fit_kwargs``.
+
+        Example:
+            >>> params = hc.train_single_node('T cell', epochs=50, batch_size=256)
+        """
         if not hasattr(self, 'num_threads') and not 'num_threads' in fit_kwargs:
             raise Exception('Please specify the number of threads to use for training.')
         
@@ -468,6 +711,22 @@ class HierarchicalClassifier(
         }
     
     def set_classifier_type(self, node, classifier_type):
+        """Override the default classifier type for one or more hierarchy nodes.
+
+        Stores the mapping in ``self.specified_classifier_types``, which is consulted
+        by :meth:`train_single_node` when creating local classifiers. Can be called
+        with a single node name or a list of node names.
+
+        Args:
+            node (str or list of str): Node name(s) for which to set the classifier
+                type.
+            classifier_type (type): Classifier class to use at the specified node(s),
+                e.g. ``LogisticRegression`` or ``BoostedTrees``.
+
+        Example:
+            >>> hc.set_classifier_type('T cell', LogisticRegression)
+            >>> hc.set_classifier_type(['B cell', 'NK cell'], BoostedTrees)
+        """
         if isinstance(node, list):
             for n in node:
                 self.set_classifier_type(n, classifier_type)
@@ -482,7 +741,31 @@ class HierarchicalClassifier(
         self,
         parallelize: bool=False,
         processes: int=None) -> None:
-        
+        """Train local classifiers for all non-leaf nodes in the hierarchy.
+
+        Iterates over every node that has at least one child and calls
+        :meth:`train_single_node`. In sequential mode, saves the classifier state
+        after each node when ``self.intermittent_saving`` is ``True``. In parallel
+        mode, node parameters are collected after all workers finish and written back
+        to the graph.
+
+        Args:
+            parallelize (bool): If ``True``, train nodes in parallel using
+                ``multiprocessing.Pool``. Defaults to ``False``.
+            processes (int, optional): Total number of worker processes. Required when
+                ``parallelize=True``. Automatically reduced when
+                ``self.num_threads > 1`` to avoid CPU oversubscription.
+
+        Returns:
+            None
+
+        Raises:
+            Exception: If ``parallelize=True`` and ``processes`` is not specified.
+
+        Example:
+            >>> hc.train_all_child_nodes()
+            >>> hc.train_all_child_nodes(parallelize=True, processes=8)
+        """
         nodes_to_train = []
         for node in self.graph.nodes:
             n_children = len(list(self.graph.successors(node)))
@@ -515,10 +798,39 @@ class HierarchicalClassifier(
                             self.graph.nodes[node][key] = params.get(key)
 
     def predict_single_node(
-        self, 
+        self,
         node: str,
         threshold: float=-1,
-        monte_carlo: int=None) -> np.array:
+        monte_carlo: int=None) -> np.ndarray:
+        """Run inference at a single hierarchy node and write predictions to adata.obs.
+
+        Selects cells currently routed to ``node``, runs the node's local classifier,
+        and writes predicted child-level labels to ``<child_obs>_pred`` in
+        ``self.adata.obs``. If an ``'overclustering'`` column is present, predictions
+        are harmonized per cluster by majority vote.
+
+        When ``monte_carlo`` is set, the method also computes per-sample mean and
+        standard deviation of the winning label's activation across MC iterations and
+        stores them in ``self.adata.obs['monte_carlo_mean']`` and
+        ``self.adata.obs['monte_carlo_std']``.
+
+        Args:
+            node (str): Name of the hierarchy node at which to run prediction.
+            threshold (float): Minimum confidence required to assign a label. Use
+                ``-1`` to disable thresholding and always assign the top-scoring
+                label. Defaults to ``-1``.
+            monte_carlo (int, optional): Number of Monte Carlo dropout forward passes
+                for uncertainty estimation. If ``None``, standard deterministic
+                inference is used.
+
+        Returns:
+            numpy.ndarray: Array of predicted child-level cell-type labels for cells
+                routed to ``node``.
+
+        Example:
+            >>> pred = hc.predict_single_node('T cell')
+            >>> pred = hc.predict_single_node('T cell', threshold=0.9, monte_carlo=100)
+        """
 
         if 'local_classifier' not in self.graph.nodes[node]:
             return []
@@ -593,12 +905,33 @@ class HierarchicalClassifier(
         return pred    
 
     def predict_all_child_nodes(
-        self, 
+        self,
         node: str,
         threshold: float=-1,
         mlnp: bool=False,
         monte_carlo: int=None):
+        """Recursively predict cell types from a starting node down the hierarchy.
 
+        Calls :meth:`predict_single_node` at ``node``, then recurses into each child
+        that itself has children (i.e. non-leaf children). Per-node thresholds stored
+        in ``self.graph.nodes[node]['threshold']`` take precedence over the
+        ``threshold`` argument unless ``mlnp=True``.
+
+        Args:
+            node (str): Root of the subtree to predict. Typically ``self.root_node``.
+            threshold (float): Default confidence threshold applied at each node.
+                Use ``-1`` to always assign a label. Defaults to ``-1``.
+            mlnp (bool): Mandatory leaf-node prediction. If ``True``, per-node
+                thresholds are ignored and prediction is forced to leaf nodes.
+                Defaults to ``False``.
+            monte_carlo (int, optional): Number of Monte Carlo dropout iterations,
+                forwarded to :meth:`predict_single_node`.
+
+        Example:
+            >>> hc.predict_all_child_nodes(hc.root_node)
+            >>> hc.predict_all_child_nodes(hc.root_node, threshold=0.9)
+            >>> hc.predict_all_child_nodes(hc.root_node, monte_carlo=50)
+        """
         # For mandatory leaf node prediction use -1
         if not mlnp:
             threshold = self.graph.nodes[node].get('threshold', threshold)

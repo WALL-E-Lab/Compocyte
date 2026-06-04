@@ -10,8 +10,8 @@ Compocyte
    :caption: Tutorials
 
    tutorials/getting_started
-   tutorials/training_PBMC_classifier
-   tutorials/modifying_classifiers
+   tutorials/01_training_PBMC_classifier
+   tutorials/02_modifying_classifiers
 
 .. toctree::
    :maxdepth: 2
