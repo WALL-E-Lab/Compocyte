@@ -23,7 +23,6 @@ class HierarchicalClassifier(
         DataBase,
         HierarchyBase,
         ExportImportBase):
-
     def __init__(
             self,
             save_path,

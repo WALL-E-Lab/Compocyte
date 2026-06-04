@@ -6,9 +6,18 @@ def til_pretrained() -> HierarchicalClassifier:
     """
     Pretrained TIL classifier from Beltz et al 2026.
     
-    Returns
-    -------
-    HierarchicalClassifier with pretrained parameters.
+    Returns:
+        :class:`~compocyte.core.hierarchical_classifier.HierarchicalClassifier` with pretrained parameters.
+
+    Example:
+        >>> import Compocyte
+        >>> from Compocyte.core.hierarchical_classifier import HierarchicalClassifier
+        >>> from Compocyte.pretrained import til_pretrained, pbmc_pretrained
+        >>> hc = til_pretrained()
+        >>> adata = Compocyte.data.sample_data()
+        >>> hc.load_adata(adata)
+        >>> hc.predict_all_child_nodes('blood')
+        >>> print(hc.adata.obs)
     """
 
     data_path = pooch.retrieve(
@@ -26,9 +35,19 @@ def pbmc_pretrained() -> HierarchicalClassifier:
     """
     Pretrained PBMC classifier from Beltz et al 2026.
 
-    Returns
-    -------
-    HierarchicalClassifier with pretrained parameters.
+    Returns:
+        :class:`~compocyte.core.hierarchical_classifier.HierarchicalClassifier` with pretrained parameters.
+
+    Example:
+        >>> import Compocyte
+        >>> import scanpy as sc
+        >>> from Compocyte.core.hierarchical_classifier import HierarchicalClassifier
+        >>> from Compocyte.pretrained import til_pretrained, pbmc_pretrained
+        >>> hc = pbmc_pretrained()
+        >>> adata = sc.datasets.pbmc3k()
+        >>> hc.load_adata(adata)
+        >>> hc.predict_all_child_nodes('Blood')
+        >>> print(hc.adata.obs)
     """
 
     data_path = pooch.retrieve(

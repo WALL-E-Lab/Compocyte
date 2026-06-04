@@ -16,9 +16,16 @@ Compocyte
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: API Reference
 
    api/modules
+
+   :toctree: generated
+   :nosignatures:
+   :caption: Important classes and methods
+
+   Compocyte.core.hierarchical_classifier
+   Compocyte.pretrained.pbmc_pretrained
+   Compocyte.pretrained.til_pretrained
 
 .. toctree::
    :maxdepth: 1
