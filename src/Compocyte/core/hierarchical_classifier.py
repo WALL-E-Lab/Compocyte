@@ -391,12 +391,10 @@ class HierarchicalClassifier(
             self.num_threads = fit_kwargs['num_threads']
 
         has_classifier = 'local_classifier' in self.graph.nodes[node].keys()
-        # This weird approach is currently necessary to allow for training with mp.pool
+        # This weird approach is currently necessary to allow for training with mp.pool        
+        features_kwargs = {}
         if hasattr(self, 'tuned_kwargs') and node in self.tuned_kwargs:
             kwargs = self.tuned_kwargs[node]
-            features_kwargs = {
-                'n_features': kwargs['n_features']
-            }
             classifier_kwargs = {
                 'hidden_layers': kwargs['hidden_layers'],
                 'dropout': kwargs['dropout'],
@@ -414,7 +412,6 @@ class HierarchicalClassifier(
             self.graph.nodes[node]['threshold'] = kwargs['threshold']
 
         else:
-            features_kwargs = {}
             classifier_kwargs = {}
 
         if not has_classifier:
