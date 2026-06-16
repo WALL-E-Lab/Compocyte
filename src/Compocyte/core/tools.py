@@ -122,6 +122,9 @@ def infer_levels(hierarchy, labels, root_node, adata=None, prefix_obs='Level_'):
         path = path + [''] * (depth - len(path))
         obs.loc[obs[labels_key] == label, levels] = path
 
+    if adata is not None and isinstance(adata, anndata.AnnData):
+        adata.obs = obs
+
     return obs, levels
 
 def flatten_dict(dictionary, running_list_of_values=[]):

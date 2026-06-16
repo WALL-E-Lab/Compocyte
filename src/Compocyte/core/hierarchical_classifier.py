@@ -409,7 +409,7 @@ class HierarchicalClassifier(
                 'gamma': kwargs['gamma'],
                 'max_cells': getattr(self, 'max_cells', 1_000_000)
             }
-            self.graph.nodes[node]['threshold'] = kwargs['threshold']
+            #self.graph.nodes[node]['threshold'] = kwargs['threshold']
 
         else:
             classifier_kwargs = {}
