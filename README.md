@@ -4,6 +4,8 @@
 
 <br>
 
+	**Please cite the Compocyte preprint: https://doi.org/10.64898/2026.05.30.728980**
+
 ## Installation
 
 For most users, we suggest making use of our prepared Docker image. This comes with all required dependencies for standard use cases.
