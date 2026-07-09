@@ -51,6 +51,13 @@ pbmc_hc = Compocyte.pretrained.pbmc_pretrained()
 til_hc = Compocyte.pretrained.til_pretrained()
 ```
 
+## Colab tutorials
+
+Alternatively, refer to our tutorials on Google Colab.
+
+[Using our pretrained Compocyte classifiers.](https://colab.research.google.com/drive/17pItBWQqf_ClAAzGch5o00dKlR13jEKL)
+[Training a simple Compocyte classifier with PBMC data.](https://colab.research.google.com/drive/1IQTwwHSW9Q2UtnZ_ioA6Mhs9kkKgzYiY)
+
 ## Getting started
 
 For a quick dive into using Compocyte to label single-cell data, refer to our [Getting started](https://compocyte.readthedocs.io/en/latest/tutorials/getting_started.html) on readthedocs. There, you can also find tutorials to help you make full use of Compocyte's features.
