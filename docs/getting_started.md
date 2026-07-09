@@ -82,4 +82,5 @@ print(hc.adata.obs)
 Alternatively, refer to our tutorials on Google Colab.
 
 [Using our pretrained Compocyte classifiers.](https://colab.research.google.com/drive/17pItBWQqf_ClAAzGch5o00dKlR13jEKL)
+
 [Training a simple Compocyte classifier with PBMC data.](https://colab.research.google.com/drive/1IQTwwHSW9Q2UtnZ_ioA6Mhs9kkKgzYiY)
