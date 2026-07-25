@@ -2,6 +2,7 @@
 
 <strong>Compocyte</strong> is a composite classifier for modular hierarchical cell type annotation of single cell data. Using Compocyte you can build different hierarchical classifier architectures following a local classifier per parent node approach. Local classifiers are built around pytorch, sklearn or CatBoost. Local classifiers can be individually modified to account for alterations in classification taxonomies or selectively improve specific annotations in human-in-the-loop approaches. While compocyte has been primarily developed for single cell RNA sequencing data it can also be used with other single cell data compatible with the AnnData and scanpy packages.
 
+<strong>If you use Compocyte please cite our [preprint](https://doi.org/10.64898/2026.05.30.728980)</strong> 
 <br>
 
 ## Installation
@@ -51,13 +52,14 @@ pbmc_hc = Compocyte.pretrained.pbmc_pretrained()
 til_hc = Compocyte.pretrained.til_pretrained()
 ```
 
-## Colab tutorials
+## Interactive Colab tutorials
 
 Alternatively, refer to our tutorials on Google Colab.
 
-[Using our pretrained Compocyte classifiers.](https://colab.research.google.com/drive/17pItBWQqf_ClAAzGch5o00dKlR13jEKL)
+Learn how to label your data using pretrained models [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WALL-E-Lab/Compocyte/blob/main/colab_tutorials/02_pretrained_classifiers.ipynb)
 
-[Training a simple Compocyte classifier with PBMC data.](https://colab.research.google.com/drive/1IQTwwHSW9Q2UtnZ_ioA6Mhs9kkKgzYiY)
+Learn how to train a Compocyte classifier [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WALL-E-Lab/Compocyte/blob/main/colab_tutorials/01_training_PBMC_classifier.ipynb)
+
 
 ## Getting started
 
