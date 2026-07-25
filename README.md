@@ -56,9 +56,9 @@ til_hc = Compocyte.pretrained.til_pretrained()
 
 Alternatively, refer to our tutorials on Google Colab.
 
-Learn how to label your data using pretrained models [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WALL-E-Lab/Compocyte/blob/main/colab_tutorials/02_pretrained_classifiers.ipynb)
+Learn how to label your data using pretrained models [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WALL-E-Lab/Compocyte/blob/colab_with_cytopus/colab_tutorials/02_pretrained_classifiers.ipynb)
 
-Learn how to train a Compocyte classifier [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WALL-E-Lab/Compocyte/blob/main/colab_tutorials/01_training_PBMC_classifier.ipynb)
+Learn how to train a Compocyte classifier [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WALL-E-Lab/Compocyte/blob/colab_with_cytopus/colab_tutorials/01_training_PBMC_classifier.ipynb)
 
 
 ## Getting started
