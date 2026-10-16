@@ -226,6 +226,43 @@ def row_robust_scale_sparse(X, chunk_rows=4096):
         blocks.append(sparse.csr_matrix(block))
     return sparse.vstack(blocks, format='csr') if len(blocks) > 1 else blocks[0]
 
+
+def row_robust_scale_sparse_to_scale(X, chunk_rows=4096):
+    """Return only the per-row IQR scale factors (no scaled matrix copy).
+
+    Used by training paths that apply scaling inside the batch collate so that
+    workers do not each materialize a full scaled copy of the node matrix.
+    Numerics are identical to :func:`row_robust_scale_sparse`; zeros stay
+    zero, so multiplying a batch by the scale vector in collate is equivalent.
+    """
+    if not _USE_SPARSE_TRAIN:
+        # dense path: compute via row_robust_scale and extract scale
+        scaled = row_robust_scale(X)
+        # row_robust_scale modified X in place or returned a copy; reconstruct
+        # scale by comparing one non-trivial row. Simpler: compute scale directly.
+        X = np.asarray(X)
+        q = np.percentile(X, (25.0, 75.0), axis=1)
+        scale = q[1] - q[0]
+        scale[scale < 10 * np.finfo(scale.dtype).eps] = 1.0
+        scale = scale / _IQR_ADJUST
+        return scale
+
+    X = X.tocsr()
+    n = X.shape[0]
+    if n == 0:
+        return np.ones(0)
+    scales = np.empty(n, dtype=np.float64)
+    chunk_rows = max(1, int(chunk_rows))
+    for start in range(0, n, chunk_rows):
+        end = min(start + chunk_rows, n)
+        block = X[start:end].toarray()
+        q = np.percentile(block, (25.0, 75.0), axis=1)
+        scale = q[1] - q[0]
+        scale[scale < 10 * np.finfo(scale.dtype).eps] = 1.0
+        scale = scale / _IQR_ADJUST
+        scales[start:end] = scale
+    return scales
+
 def to_categorical(y, num_classes, dtype="float32"):
     """
     Simplified from keras to avoid dependency and premature conversion to a Tensor.
@@ -331,10 +368,13 @@ class SparseBatchDataset(Dataset):
         return int(idx)
 
 
-def _sparse_collate(batch_idx, X_csr, y_cat):
+def _sparse_collate(batch_idx, X_csr, y_cat, row_scale=None):
     _require_torch()
     idx = np.asarray(batch_idx, dtype=np.int64)
-    xb = torch.from_numpy(np.asarray(X_csr[idx].toarray(), dtype=np.float32))
+    xb = np.asarray(X_csr[idx].toarray(), dtype=np.float64)
+    if row_scale is not None:
+        xb /= row_scale[idx][:, None]
+    xb = torch.from_numpy(xb.astype(np.float32))
     yb = torch.from_numpy(np.asarray(y_cat)[idx]).to(torch.float32)
     return xb, yb
 
@@ -478,7 +518,7 @@ def set_threads(num_threads, parallelize, num_workers=None):
 
 def dataloaders_from_dask(x, y, batch_size, num_workers, seed=12345, pin_memory=False):
     _require_torch()
-    _require_dask()
+    da = _require_dask()
     total_samples = x.shape[0]
 
     indices = np.arange(total_samples)
@@ -486,7 +526,12 @@ def dataloaders_from_dask(x, y, batch_size, num_workers, seed=12345, pin_memory=
     rng.shuffle(indices)
     indices_train = np.sort(indices[:int(np.floor(total_samples * .8))])
     indices_val = np.sort(indices[int(np.floor(total_samples * .8)):])
-    x_d = da.from_array(np.asarray(x), chunks=(max(1, batch_size), x.shape[1]))
+    # Keep sparse input sparse: dask slices row chunks without densifying and
+    # map_blocks(_to_dense) below materializes one batch-size chunk at a time.
+    # Densifying here would allocate the full node matrix up front.
+    x_d = da.from_array(
+        x if sparse.issparse(x) else np.asarray(x),
+        chunks=(max(1, batch_size), x.shape[1]))
     y_d = da.from_array(np.asarray(y), chunks=(max(1, batch_size), y.shape[1]))
     x_train, y_train = x_d[indices_train], y_d[indices_train]
     x_val, y_val = x_d[indices_val], y_d[indices_val]
@@ -532,7 +577,8 @@ def _loader_kwargs(workers, prefetch, pin):
         kw['persistent_workers'] = True
     return kw
 
-def dataloaders_from_dense(x, y, batch_size, num_workers, seed=12345, pin_memory=False):
+def dataloaders_from_dense(x, y, batch_size, num_workers, seed=12345, pin_memory=False,
+                           row_scale=None):
     _require_torch()
     n_cells = x.shape[0]
     n_genes = x.shape[1]
@@ -542,7 +588,8 @@ def dataloaders_from_dense(x, y, batch_size, num_workers, seed=12345, pin_memory
 
     if sparse.issparse(x):
         dataset = SparseBatchDataset(x, y)
-        collate = partial(_sparse_collate, X_csr=dataset.X_csr, y_cat=np.asarray(y))
+        collate = partial(_sparse_collate, X_csr=dataset.X_csr, y_cat=np.asarray(y),
+                          row_scale=row_scale)
         train_dataset, val_dataset = _seeded_split(dataset, seed)
         batch_size = min(batch_size, len(train_dataset))
         leaves_remainder = len(train_dataset) % batch_size == 1
@@ -591,13 +638,14 @@ def dataloaders_from_dense(x, y, batch_size, num_workers, seed=12345, pin_memory
     return train_dataloader, val_dataloader
 
 def fit_torch(
-        model: DenseTorch, 
-        x: np.array, y: np.array, 
-        epochs: int=40, batch_size: int=64, 
-        starting_lr: float=0.01, max_lr: float=0.1, momentum: float=0.5, 
+        model: DenseTorch,
+        x: np.array, y: np.array,
+        epochs: int=40, batch_size: int=64,
+        starting_lr: float=0.01, max_lr: float=0.1, momentum: float=0.5,
         parallelize: bool=True, num_threads: int=1, num_workers: int=None,
         beta: float=0.8, gamma: float=2.0, class_balance: bool=True, max_cells: int=1_000_000,
-        device=None, seed: int=12345, resource_stats: dict=None):
+        device=None, seed: int=12345, resource_stats: dict=None,
+        row_scale: np.ndarray=None):
 
     _require_torch()
     num_workers = set_threads(num_threads, parallelize, num_workers)
@@ -622,8 +670,10 @@ def fit_torch(
         dense_bytes = x.shape[0] * x.shape[1] * 4
         y_t = torch.from_numpy(y).to(dev, non_blocking=True)
         if dense_bytes <= _GPU_DENSE_LIMIT_BYTES:
-            x_dense = np.asarray(_to_dense(x), dtype=np.float32)
-            x_t = torch.from_numpy(x_dense).to(dev, non_blocking=True)
+            x_dense = np.asarray(_to_dense(x), dtype=np.float64)
+            if row_scale is not None:
+                x_dense = x_dense / row_scale[:, None]
+            x_t = torch.from_numpy(x_dense.astype(np.float32)).to(dev, non_blocking=True)
             tensors_on_device = True
             dataset = TensorDataset(x_t, y_t)
             train_dataset, val_dataset = _seeded_split(dataset, seed)
@@ -646,13 +696,17 @@ def fit_torch(
     if not tensors_on_device:
         pin = (str(dev.type) == 'cuda'
                and os.environ.get('COMPOCYTE_PIN_MEMORY', '1') == '1')
-        if total_samples > max_cells:
+        # Sparse matrices are kept in-memory and served by SparseBatchDataset,
+        # which only densifies one batch at a time. Dask is only useful for
+        # genuine out-of-core dense arrays that exceed max_cells.
+        if total_samples > max_cells and not sparse.issparse(x):
             train_dataloader, val_dataloader, num_batches, num_batches_val = dataloaders_from_dask(
                 x, y, batch_size, num_workers, seed=seed, pin_memory=pin)
 
         else:
             train_dataloader, val_dataloader = dataloaders_from_dense(
-                x, y, batch_size, num_workers, seed=seed, pin_memory=pin)
+                x, y, batch_size, num_workers, seed=seed, pin_memory=pin,
+                row_scale=row_scale)
             num_batches = len(train_dataloader)
             num_batches_val = len(val_dataloader)
 
@@ -660,6 +714,12 @@ def fit_torch(
         cfg = _resolve_loader_config(total_samples, x.shape[1], batch_size,
                                      0 if tensors_on_device else num_workers)
         resource_stats.update(cfg)
+        resource_stats['dataloader_path'] = 'device' if tensors_on_device else (
+            'dask' if total_samples > max_cells else 'dense')
+        resource_stats['n_samples'] = int(total_samples)
+        resource_stats['max_cells'] = int(max_cells)
+        if row_scale is not None:
+            resource_stats['row_scale_applied'] = True
         resource_stats['device'] = str(dev)
         resource_stats['pin_memory'] = bool(pin)
         resource_stats['num_workers_requested'] = 0 if tensors_on_device else num_workers
@@ -777,7 +837,7 @@ def fit_trees(model: BoostedTrees, x, y, **fit_kwargs):
     return fit
 
 def fit(
-        model: Union[DenseTorch, LogisticRegression, DummyClassifier], 
+        model: Union[DenseTorch, LogisticRegression, DummyClassifier],
         x: np.array, y: np.array,
         standardize_idx: list=None,
         **fit_kwargs):
@@ -801,24 +861,27 @@ def fit(
             x[idx] = sparse.csr_matrix(scaled) if sparse.issparse(x) else scaled
     elif isinstance(model, DenseTorch) and sparse.issparse(x):
         # Keep the training matrix sparse so no full dense copy is materialized.
-        x = row_robust_scale_sparse(x)
+        # For large-node training, defer the scale application into the batch
+        # collate to avoid a full scaled sparse copy per worker process.
+        row_scale = row_robust_scale_sparse_to_scale(x)
+        fit_kwargs['row_scale'] = row_scale
     else:
         x = row_robust_scale(x)
 
-    
+
     if not isinstance(model, DenseTorch):
         x = _to_dense(x)
 
     y = np.array([model.labels_enc[label] for label in y])
     if isinstance(model, DenseTorch):
         return fit_torch(model, x, y, **fit_kwargs)
-    
-    elif isinstance(model, LogisticRegression):            
+
+    elif isinstance(model, LogisticRegression):
         return fit_logreg(model, x, y, **fit_kwargs)
-    
-    elif isinstance(model, BoostedTrees):            
+
+    elif isinstance(model, BoostedTrees):
         return fit_trees(model, x, y, **fit_kwargs)
 
     elif isinstance(model, DummyClassifier):
-        model.is_fitted = True         
+        model.is_fitted = True
         return model.fit(x, y)

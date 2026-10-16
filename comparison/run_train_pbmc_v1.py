@@ -12,7 +12,7 @@ Notes
 -----
 * PBMC root is `Blood` (see Compocyte.pretrained.pbmc_pretrained).
 * Datasets are >500k cells each. We still apply the same 80/20 split and
-  default epochs=10 to keep the v1 framework on equal footing; raise
+  default epochs=100 to keep the v1 framework on equal footing; raise
   `--epochs` for a true production run.
 """
 import argparse
@@ -127,6 +127,9 @@ def main():
     rss0 = peak_rss()
     t0 = time.perf_counter()
     for node in nodes:
+        # v1 base case: the frozen v1 API has no `selection_max_cells` knob
+        # (its feature selection already defaults to max_cells=100_000), so
+        # only pass the v1-supported training kwargs through.
         params = hc.train_single_node(
             node, epochs=args.epochs, batch_size=args.batch_size)
         if params is not None:

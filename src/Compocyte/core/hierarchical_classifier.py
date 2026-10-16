@@ -1,6 +1,8 @@
 from typing import Union
 from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.preprocessing import robust_scale
+from Compocyte.core.models.fit_methods import (
+    row_robust_scale_sparse, train_resource_budget)
 from Compocyte.core.base.data_base import DataBase
 from Compocyte.core.base.hierarchy_base import HierarchyBase
 from Compocyte.core.base.export_import_base import ExportImportBase
@@ -23,7 +25,17 @@ _PARALLEL_TRAIN_STATE = None
 
 def _train_single_node_worker(node):
     state, fit_kwargs = _PARALLEL_TRAIN_STATE
-    return state.train_single_node(node, **fit_kwargs)
+    params = state.train_single_node(node, **fit_kwargs)
+    # DenseTorch models contain torch.Tensors. Returning them through
+    # multiprocessing.Pool uses PyTorch's file-descriptor tensor sharing,
+    # which deadlocks when workers exit before the parent unpickles the FDs
+    # (e.g. with maxtasksperchild). Serialize to a plain dict of numpy arrays
+    # in the worker and reconstruct the model in the parent.
+    if params is not None:
+        clf = params.get('local_classifier')
+        if isinstance(clf, DenseTorch):
+            params['local_classifier'] = clf.state_to_dict()
+    return params
 
 
 class HierarchicalClassifier(
@@ -309,22 +321,22 @@ class HierarchicalClassifier(
         """
         if len(subset) > max_cells:
             rng = np.random.default_rng(42)
-            datasets = subset.obs[stratify_by].unique()
-            cells_per_dataset = max_cells // len(datasets)
+            strata = subset.obs[stratify_by].unique()
+            cells_per_stratum = max_cells // len(strata)
             limited_indices = []
 
-            for dataset in datasets:
-                dataset_indices = subset.obs[subset.obs['dataset'] == dataset].index
-                if len(dataset_indices) > cells_per_dataset:
-                    dataset_indices = rng.choice(dataset_indices, cells_per_dataset, replace=False)
-                    
-                limited_indices.extend(dataset_indices)
+            for stratum in strata:
+                stratum_indices = subset.obs[subset.obs[stratify_by] == stratum].index
+                if len(stratum_indices) > cells_per_stratum:
+                    stratum_indices = rng.choice(stratum_indices, cells_per_stratum, replace=False)
+
+                limited_indices.extend(stratum_indices)
 
             # If we have fewer cells than max_cells, randomly sample additional cells to reach max_cells
             if len(limited_indices) < max_cells:
                 additional_indices = rng.choice(
-                    subset.obs.index.difference(limited_indices), 
-                    max_cells - len(limited_indices), 
+                    subset.obs.index.difference(limited_indices),
+                    max_cells - len(limited_indices),
                     replace=False)
                 limited_indices.extend(additional_indices)
 
@@ -394,6 +406,13 @@ class HierarchicalClassifier(
         stratify_by = getattr(self, 'stratify_by', None)
         if max_cells is not None and stratify_by is not None:
             subset = self.limit_cells(subset, max_cells, stratify_by)
+        elif max_cells is not None and len(subset) > max_cells:
+            # If no explicit stratify_by is configured, still honour the cap by
+            # stratifying on the child label we are about to classify. This
+            # prevents huge root/top-level nodes from densifying during feature
+            # selection (e.g. PBMC datasets with >1M cells).
+            child_obs = self.obs_names[self.node_to_depth[node] + 1]
+            subset = self.limit_cells(subset, max_cells, child_obs)
 
         return subset
     
@@ -511,16 +530,16 @@ class HierarchicalClassifier(
             raise Exception(f'Features have already been selected at {node}.')
         
         subset = self.select_subset(node, max_cells=max_cells)
-        x = sparse.csr_matrix.toarray(subset.X)
-            
+
         child_obs = self.obs_names[self.node_to_depth[node] + 1]
         if len(subset.obs[child_obs].unique()) <= 1:
             return self.adata.var_names.tolist()
-        
+
         # Rule of thumb from Google's rules of ML:
-        # At least 100 samples per feature
+        # At least 100 samples per feature. Use the capped subset size so giant
+        # nodes request the same 1 gene / 100 cells count as historical runs
+        # (which capped selection at max_cells), keeping runtime/memory stable.
         if n_features < 0:
-            # test_factor should be taken account during hypopt with reduced sample numbers
             n_features = int(len(subset) / 100 * test_factor)
 
         n_features = max(min_features, n_features)
@@ -529,8 +548,10 @@ class HierarchicalClassifier(
 
         n_features = min(n_features, max_features)
 
-        x = np.asarray(x)
-        x = robust_scale(x, axis=1, with_centering=False, copy=False, unit_variance=True)
+        # Sparse-safe, axis-1 (per-cell) robust scaling. row_robust_scale_sparse
+        # densifies only small row chunks and is bitwise identical to the old
+        # dense robust_scale(..., axis=1, with_centering=False) call.
+        x = row_robust_scale_sparse(subset.X)
         y = np.array(subset.obs[child_obs])
         selecter = SelectKBest(f_classif, k=n_features)
         selecter.fit(x, y)
@@ -679,6 +700,16 @@ class HierarchicalClassifier(
             features_kwargs = {}
             classifier_kwargs = {}
 
+        # feature selection cap is independent of the fit() dataloader threshold.
+        # Pop it here so it never reaches fit_torch (which uses max_cells for the
+        # dask-vs-dense decision).
+        selection_max_cells = fit_kwargs.pop('selection_max_cells', 100_000)
+        if 'max_cells' in fit_kwargs:
+            # legacy kwarg: only affected training threshold historically; keep it
+            # for the fit path, not selection.
+            pass
+        features_kwargs['max_cells'] = selection_max_cells
+
         import time
         node_timing = {}
         if not has_classifier:
@@ -819,6 +850,19 @@ class HierarchicalClassifier(
                         if params.get(key) is not None:    
                             self.graph.nodes[node][key] = params.get(key)
 
+    def _estimate_node_bytes(self, node):
+        """Estimate memory needed for training a node (bytes per fork copy)."""
+        subset = self.select_subset(node)
+        if len(subset) == 0:
+            return 0
+        x = subset.X
+        if sparse.issparse(x):
+            # CSR data + indices + indptr, plus a generous overhead factor.
+            return int(x.nnz * x.dtype.itemsize * 2.5)
+        # Avoid np.asarray() on a dense view, which can force a full copy.
+        x = np.asarray(x)
+        return int(x.nbytes * 1.5)
+
     def _train_nodes_in_pool(self, nodes_to_train, processes, fit_kwargs=None):
         """Train nodes in a process pool without pickling ``self`` per task.
 
@@ -828,25 +872,80 @@ class HierarchicalClassifier(
         children already inherit the parent's address space, so handing them a
         module-level reference avoids the copies entirely.
         """
+        fit_kwargs = fit_kwargs or {}
+        budget = train_resource_budget()
+        ram_budget = budget['ram_budget_bytes']
+
+        # Memory-aware scheduling: giant nodes run sequentially (or with a single
+        # worker) to avoid N workers each materializing a full copy; small nodes
+        # run in parallel. This keeps total RSS within COMPOCYTE_MAX_RAM_FRACTION
+        # while still exploiting parallelism for the long tail of small nodes.
+        big_nodes, small_nodes = [], []
+        for node in nodes_to_train:
+            # Allow RAM for the node copy + model + training overhead per worker.
+            node_bytes = self._estimate_node_bytes(node)
+            if node_bytes * max(1, processes) > ram_budget * 0.6:
+                big_nodes.append(node)
+            else:
+                small_nodes.append(node)
+
+        results = {}
+
         global _PARALLEL_TRAIN_STATE
         try:
             start_method = mp.get_start_method(allow_none=False)
         except Exception:
             start_method = None
 
-        if start_method != 'fork':
-            from functools import partial
-            with mp.Pool(processes=processes) as pool:
-                return pool.map(
-                    partial(self.train_single_node, **(fit_kwargs or {})),
-                    nodes_to_train)
+        def _run_pool(node_list, nproc):
+            if not node_list:
+                return {}
+            if start_method != 'fork':
+                from functools import partial
+                with mp.Pool(processes=nproc) as pool:
+                    out = pool.map(
+                        partial(self.train_single_node, **fit_kwargs),
+                        node_list)
+                return dict(zip(node_list, out))
 
-        _PARALLEL_TRAIN_STATE = (self, fit_kwargs or {})
+            # NOTE: _PARALLEL_TRAIN_STATE is assigned in the outer scope (which
+            # declares it global) so forked workers inherit it. Assigning here
+            # would create a function-local variable and leave workers with None.
+            with mp.Pool(processes=nproc) as pool:
+                out = pool.map(_train_single_node_worker, node_list)
+            return dict(zip(node_list, out))
+
+        def _reconstruct(params):
+            if params is None:
+                return params
+            clf = params.get('local_classifier')
+            if isinstance(clf, dict) and clf.get('__dense_torch_state__'):
+                params['local_classifier'] = DenseTorch.from_state_dict(clf)
+            return params
+
+        # Set the module-level state BEFORE forking so workers inherit it.
+        _PARALLEL_TRAIN_STATE = (self, fit_kwargs)
         try:
-            with mp.Pool(processes=processes) as pool:
-                return pool.map(_train_single_node_worker, nodes_to_train)
+            results.update({node: _reconstruct(p)
+                            for node, p in _run_pool(small_nodes, processes).items()})
         finally:
             _PARALLEL_TRAIN_STATE = None
+
+        # Big nodes run sequentially in the parent AFTER the pool closes so that
+        # (1) the full RAM budget is available, and (2) OpenMP/MKL thread pools
+        # are not initialized in the parent before workers are forked.
+        if big_nodes:
+            big_threads = min(
+                processes * fit_kwargs.get('num_threads', self.num_threads),
+                budget['max_threads'])
+            big_kwargs = dict(fit_kwargs)
+            big_kwargs['num_threads'] = max(1, int(big_threads))
+            big_kwargs['num_workers'] = 0
+            big_kwargs['parallelize'] = False
+            for node in big_nodes:
+                results[node] = self.train_single_node(node, **big_kwargs)
+
+        return [results.get(node) for node in nodes_to_train]
 
     def predict_single_node(
         self,

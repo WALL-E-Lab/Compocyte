@@ -186,6 +186,58 @@ class DenseTorch(_DenseTorchBase):
             torch.nn.Softmax(dim=1)
         )
 
+    def state_to_dict(self):
+        """Serialize model weights and architecture to plain Python/numpy objects.
+
+        Avoids returning a live ``torch.nn.Module`` across a ``multiprocessing.Pool``,
+        which would otherwise rely on PyTorch's file-descriptor tensor sharing and
+        can deadlock when workers exit before the parent unpickles the FDs.
+        """
+        n_input = self.layers[0].in_features
+        n_output = self.layers[-2].out_features
+        hidden_layers = []
+        dropout = 0.0
+        batchnorm = False
+        for layer in self.layers:
+            if isinstance(layer, torch.nn.Linear):
+                hidden_layers.append(layer.out_features)
+            elif isinstance(layer, torch.nn.Dropout):
+                dropout = layer.p
+            elif isinstance(layer, torch.nn.BatchNorm1d):
+                batchnorm = True
+        # Last linear output is n_output, so intermediate hidden layers are all
+        # Linear outputs except the final one.
+        hidden_layers = hidden_layers[:-1]
+        return {
+            '__dense_torch_state__': True,
+            'state_dict': {k: v.detach().cpu().numpy() for k, v in self.state_dict().items()},
+            'labels_enc': self.labels_enc,
+            'labels_dec': self.labels_dec,
+            'n_input': n_input,
+            'n_output': n_output,
+            'hidden_layers': hidden_layers,
+            'dropout': dropout,
+            'batchnorm': batchnorm,
+            'device': str(self.device),
+        }
+
+    @classmethod
+    def from_state_dict(cls, d):
+        """Reconstruct a DenseTorch from a dict produced by :meth:`state_to_dict`."""
+        model = cls(
+            labels=list(d['labels_enc'].keys()),
+            n_input=d['n_input'],
+            n_output=d['n_output'],
+            hidden_layers=d['hidden_layers'],
+            dropout=d.get('dropout', 0.0),
+            batchnorm=d.get('batchnorm', True),
+            device=d.get('device', 'cpu'),
+        )
+        state = {k: torch.from_numpy(v) for k, v in d['state_dict'].items()}
+        model.load_state_dict(state)
+        model.is_fitted = True
+        return model
+
     def _save(self, path):
         non_param_attr = ['histories', 'labels_enc', 'labels_dec', 'device']
         non_param_dict = {}

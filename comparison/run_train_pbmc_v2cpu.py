@@ -160,7 +160,7 @@ def main():
         root_node=ROOT_NODE, dict_of_cell_relations=hierarchy, obs_names=obs_names)
     hc.num_threads = args.num_threads
     fit_kwargs = {"epochs": args.epochs, "batch_size": args.batch_size,
-                  "num_threads": args.num_threads}
+                  "num_threads": args.num_threads, "selection_max_cells": 100_000}
     nodes = [n for n in hc.graph.nodes
              if len(list(hc.graph.successors(n))) >= 1]
     rss0 = peak_rss()

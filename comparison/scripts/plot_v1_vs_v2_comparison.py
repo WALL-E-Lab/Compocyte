@@ -1,11 +1,15 @@
 """
-Plot v1 vs v2.0 comparison figures for 4 TIL datasets.
+Plot v1 vs v2.0 comparison figures for TIL and PBMC datasets.
 
-Generates 4 figures (one per dataset), each with:
+Generates one figure per dataset, each with:
 - Left panel: Speedup (Train + Total) for v1/v2_cpu/v2_gpu
 - Right panel: Per-level accuracy AND coverage (grouped bars)
 
 Output: comparison/figs/{dataset}_v1_vs_v2_comparison.{png,pdf}
+
+Example:
+    python comparison/scripts/plot_v1_vs_v2_comparison.py
+    python comparison/scripts/plot_v1_vs_v2_comparison.py --domain pbmc --datasets oelen_e1
 """
 
 import json
@@ -37,16 +41,40 @@ COLORS = {
     'v2_gpu': '#228833'   # green
 }
 
-DATASETS = ['steele', 'che', 'wang', 'bassez']
-LEVELS = ['Level_1_pred', 'Level_2_pred', 'Level_3_pred', 
-          'Level_4_pred', 'Level_5_pred', 'Level_6_pred', 'Level_7_pred']
-LEVEL_LABELS = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7']
+DEFAULT_DATASETS = ['steele', 'che', 'wang', 'bassez']
 
-def load_dataset(dataset):
+RESULT_BASE = {
+    'til': Path('comparison/result/pretraining'),
+    'pbmc': Path('comparison/result/pretraining_pbmc'),
+}
+
+import re as _re
+
+
+def load_dataset(dataset, domain='til'):
     """Load comparison JSON for a dataset."""
-    path = Path('comparison/result/pretraining/compare_{dataset}.json'.format(dataset=dataset))
+    path = RESULT_BASE[domain] / 'compare_{dataset}.json'.format(dataset=dataset)
     with open(path) as f:
         return json.load(f)
+
+
+def dataset_levels(data):
+    """Derive ordered prediction levels from the comparison payload."""
+    levels = list(data['correctness_vs_truth']['v1']['per_level_vs_truth'].keys())
+
+    def _key(col):
+        m = _re.search(r'\d+', col)
+        return int(m.group()) if m else 0
+
+    return sorted(levels, key=_key)
+
+
+def level_labels(levels):
+    labels = []
+    for lvl in levels:
+        m = _re.search(r'(\d+)', lvl)
+        labels.append('L{}'.format(m.group(1)) if m else lvl)
+    return labels
 
 def plot_speedup_panel(ax, data, dataset):
     """Left panel: speedup comparison (Train + Total)."""
@@ -97,24 +125,30 @@ def plot_speedup_panel(ax, data, dataset):
     ax.legend(loc='upper left', frameon=False, fontsize=8)
     ax.set_title(f'Dataset: {dataset.capitalize()}', fontsize=11, fontweight='bold', pad=10)
 
+def _pct(value):
+    return value * 100 if value is not None else 0.0
+
+
 def plot_accuracy_coverage_panel(ax_acc, ax_cov, data):
     """Right panel: per-level accuracy and coverage."""
     correctness = data['correctness_vs_truth']
-    
+    levels = dataset_levels(data)
+    labels = level_labels(levels)
+
     # Extract accuracy and coverage for all 3 frameworks
     accuracy = {
-        'v1': [correctness['v1']['per_level_vs_truth'][lvl]['accuracy'] * 100 for lvl in LEVELS],
-        'v2_cpu': [correctness['v2_cpu']['per_level_vs_truth'][lvl]['accuracy'] * 100 for lvl in LEVELS],
-        'v2_gpu': [correctness['v2_gpu']['per_level_vs_truth'][lvl]['accuracy'] * 100 for lvl in LEVELS]
+        fw: [_pct(correctness[fw]['per_level_vs_truth'][lvl]['accuracy'])
+             for lvl in levels]
+        for fw in ('v1', 'v2_cpu', 'v2_gpu')
     }
-    
+
     coverage = {
-        'v1': [correctness['v1']['per_level_vs_truth'][lvl]['coverage'] * 100 for lvl in LEVELS],
-        'v2_cpu': [correctness['v2_cpu']['per_level_vs_truth'][lvl]['coverage'] * 100 for lvl in LEVELS],
-        'v2_gpu': [correctness['v2_gpu']['per_level_vs_truth'][lvl]['coverage'] * 100 for lvl in LEVELS]
+        fw: [correctness[fw]['per_level_vs_truth'][lvl]['coverage'] * 100
+             for lvl in levels]
+        for fw in ('v1', 'v2_cpu', 'v2_gpu')
     }
-    
-    x = np.arange(len(LEVELS))
+
+    x = np.arange(len(levels))
     width = 0.25
     
     # Accuracy subplot
@@ -128,7 +162,7 @@ def plot_accuracy_coverage_panel(ax_acc, ax_cov, data):
     ax_acc.set_ylabel('Accuracy (%)', fontsize=10)
     ax_acc.set_ylim(0, 110)
     ax_acc.set_xticks(x)
-    ax_acc.set_xticklabels(LEVEL_LABELS, rotation=0)
+    ax_acc.set_xticklabels(labels, rotation=0)
     ax_acc.legend(loc='lower left', frameon=False, fontsize=7)
     ax_acc.set_title('Per-Level Accuracy', fontsize=10, pad=5)
     
@@ -153,7 +187,7 @@ def plot_accuracy_coverage_panel(ax_acc, ax_cov, data):
     ax_cov.set_xlabel('Hierarchy Level', fontsize=10)
     ax_cov.set_ylim(0, 110)
     ax_cov.set_xticks(x)
-    ax_cov.set_xticklabels(LEVEL_LABELS, rotation=0)
+    ax_cov.set_xticklabels(labels, rotation=0)
     ax_cov.set_title('Per-Level Coverage', fontsize=10, pad=5)
     
     # Add value labels
@@ -165,10 +199,10 @@ def plot_accuracy_coverage_panel(ax_acc, ax_cov, data):
                            f'{height:.0f}', ha='center', va='bottom',
                            fontsize=6, rotation=90)
 
-def plot_dataset(dataset):
+def plot_dataset(dataset, domain='til'):
     """Generate figure for one dataset."""
-    print(f'Plotting {dataset}...')
-    data = load_dataset(dataset)
+    print(f'Plotting {dataset} ({domain})...')
+    data = load_dataset(dataset, domain)
     
     # Create figure with 1x2 grid
     fig = plt.figure(figsize=(14, 5))
@@ -187,8 +221,9 @@ def plot_dataset(dataset):
     plot_accuracy_coverage_panel(ax_accuracy, ax_coverage, data)
     
     # Add dataset metadata as annotation
-    n_train = data['time']['v1']['n_train']
-    n_test = data['time']['v1']['n_test']
+    ref_fw = 'v1' if 'v1' in data['time'] else 'v2_cpu'
+    n_train = data['time'][ref_fw]['n_train']
+    n_test = data['time'][ref_fw]['n_test']
     metadata_text = f'n_train={n_train:,}  n_test={n_test:,}'
     fig.text(0.02, 0.02, metadata_text, fontsize=7, style='italic', color='gray')
     
@@ -203,7 +238,15 @@ def plot_dataset(dataset):
     print(f'  ✓ Saved {dataset} figures')
 
 if __name__ == '__main__':
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--domain', choices=['til', 'pbmc'], default='til')
+    ap.add_argument('--datasets', nargs='+', default=None)
+    args = ap.parse_args()
+    datasets = args.datasets or (DEFAULT_DATASETS if args.domain == 'til' else [])
+    if not datasets:
+        raise SystemExit('No datasets requested: pass --datasets for --domain pbmc.')
     print('Generating v1 vs v2.0 comparison figures...\n')
-    for dataset in DATASETS:
-        plot_dataset(dataset)
+    for dataset in datasets:
+        plot_dataset(dataset, args.domain)
     print('\nAll figures saved to comparison/figs/')

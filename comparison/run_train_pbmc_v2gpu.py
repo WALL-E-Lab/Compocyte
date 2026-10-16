@@ -130,7 +130,7 @@ def main():
     hc.num_threads = args.num_threads
     fit_kwargs = {"epochs": args.epochs, "batch_size": args.batch_size,
                   "num_threads": args.num_threads, "device": args.device,
-                  "num_workers": args.num_workers}
+                  "num_workers": args.num_workers, "selection_max_cells": 100_000}
     nodes = [n for n in hc.graph.nodes
              if len(list(hc.graph.successors(n))) >= 1]
     rss_after_load = peak_rss()
