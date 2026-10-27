@@ -23,6 +23,40 @@ from Compocyte.core.tools import infer_dict, z_transform_properties
 _PARALLEL_TRAIN_STATE = None
 
 
+def _dense_flat(v):
+    """Flatten the (1, p) result of a sparse row-reduction into a dense array."""
+    if hasattr(v, "toarray"):
+        v = v.toarray()
+    return np.asarray(v).ravel()
+
+
+def _nonconstant_feature_mask(x):
+    """Boolean mask of the features that actually vary across cells.
+
+    A column is considered constant when its maximum equals its minimum, i.e.
+    it carries no information for an ANOVA F-test.  Works for both sparse and
+    dense inputs.
+    """
+    if sparse.issparse(x):
+        try:
+            # NOTE: scipy's sparse min/max reductions along axis 0 already take
+            # the implicit zeros into account, but they return a sparse matrix
+            # whose .toarray() must be used before flattening.
+            xmin = _dense_flat(x.min(axis=0))
+            xmax = _dense_flat(x.max(axis=0))
+        except (ValueError, TypeError, AttributeError):
+            # Fall back to the number of stored values per column.
+            counts = np.asarray((x != 0).sum(axis=0)).ravel()
+            return counts > 0
+    else:
+        x = np.asarray(x)
+        if x.size == 0:
+            return np.zeros(x.shape[1], dtype=bool)
+        xmin = x.min(axis=0)
+        xmax = x.max(axis=0)
+    return xmax > xmin
+
+
 def _train_single_node_worker(node):
     state, fit_kwargs = _PARALLEL_TRAIN_STATE
     params = state.train_single_node(node, **fit_kwargs)
@@ -553,9 +587,29 @@ class HierarchicalClassifier(
         # dense robust_scale(..., axis=1, with_centering=False) call.
         x = row_robust_scale_sparse(subset.X)
         y = np.array(subset.obs[child_obs])
+
+        # Drop constant (zero-variance) features before the ANOVA F-test.
+        # f_classif computes msb/msw, so a constant column evaluates 0/0 and
+        # yields a NaN score.  NaN scores are ranked as -inf by sklearn, so
+        # they are not selected, but they still emit one
+        # "Features [...] are constant" warning plus one
+        # "invalid value encountered in divide" RuntimeWarning per constant
+        # feature -- which floods the logs of large runs.  Filtering them out
+        # here is also strictly better for the model: a constant gene carries
+        # no information and only slows the F-test down.
+        keep = _nonconstant_feature_mask(x)
+        n_kept = int(keep.sum())
+        if n_kept == 0:
+            # Degenerate node: every feature is constant.  Fall back to using
+            # all features rather than failing the whole training run.
+            return self.adata.var_names.tolist()
+        if n_kept < x.shape[1]:
+            x = x[:, keep]
+        n_features = min(n_features, n_kept)
+
         selecter = SelectKBest(f_classif, k=n_features)
         selecter.fit(x, y)
-        features = self.adata.var_names[selecter.get_support()]
+        features = self.adata.var_names[keep][selecter.get_support()]
 
         return features.tolist()
 

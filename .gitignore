@@ -146,3 +146,9 @@ comparison/standalone_model
 
 # hatch-vcs: dynamically generated version file; do not track.
 src/Compocyte/_version.py
+
+comparison/resource_comparison/results
+
+comparison/resource_comparison/figs
+
+comparison/resource_comparison/resource_benchmark.png
