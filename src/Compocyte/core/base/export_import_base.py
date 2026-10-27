@@ -4,8 +4,6 @@ from Compocyte.core.models.dense_torch import DenseTorch
 from Compocyte.core.models.dummy_classifier import DummyClassifier
 from Compocyte.core.models.log_reg import LogisticRegression
 import networkx as nx
-import torch
-import sklearn
 
 from Compocyte.core.models.trees import BoostedTrees
 

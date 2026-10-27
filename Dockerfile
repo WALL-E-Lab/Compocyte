@@ -4,7 +4,7 @@ WORKDIR /app
 RUN apt-get update; \
 	apt-get install -y gcc g++ graphviz graphviz-dev git
 COPY . .
-RUN pip install -e ".[dev]"
+RUN pip install -e ".[dev,all]"
 
 # --- test stage ---
 FROM base AS test

@@ -44,20 +44,12 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  "catboost==1.2.10",
-  "balanced-loss==0.1.1",
+  # Minimal install: importable package + sklearn-based inference.
+  # Heavier backends live in [project.optional-dependencies] below.
   "anndata==0.12.11",
   "scanpy==1.12.1",
-  "SEACells==0.3.3",
-  "cytopus==1.3.4",
   "scikit-learn==1.8.0",
-  "torch==2.11.0",
-  "pytest==9.0.3",
-  "nbmake==1.5.5",
-  "dask==2026.3.0",
   "pooch==1.9.0",
-  "leidenalg==0.11.0",
-  "pygraphviz==1.14",
 ]
 
 [project.urls]
@@ -65,7 +57,45 @@ dependencies = [
 "Bug Tracker" = "https://github.com/WALL-E-Lab/Compocyte/issues"
 
 [project.optional-dependencies]
-dev = []
+# torch backend: DenseTorch models, incl. all pretrained classifiers.
+torch = [
+  "torch==2.11.0",
+]
+# Gradient-boosted trees backend.
+boosted = [
+  "catboost==1.2.10",
+]
+# Class-balanced focal loss used by fit_torch.
+focal = [
+  "balanced-loss==0.1.1",
+]
+# Ontology knowledge base (tutorials / custom hierarchies).
+trees = [
+  "cytopus==1.3.4",
+]
+# Atlas-scale / visualization helpers.
+atlas = [
+  "dask==2026.3.0",
+  "leidenalg==0.11.0",
+  "pygraphviz==1.14",
+]
+tutorials = [
+  "SEACells==0.3.3",
+]
+dev = [
+  "pytest==9.0.3",
+  "nbmake==1.5.5",
+]
+# Today's behaviour: everything, for Docker/CI/backward compatibility.
+all = [
+  "Compocyte[torch]",
+  "Compocyte[boosted]",
+  "Compocyte[focal]",
+  "Compocyte[trees]",
+  "Compocyte[atlas]",
+  "Compocyte[tutorials]",
+  "Compocyte[dev]",
+]
 docs = [
     "sphinx>=7.0",
     "furo>=2024.01.29",
@@ -74,6 +104,16 @@ docs = [
     "myst-parser>=2.0.0",
     "ipython>=8.0.0",
 ]
+
+# Plugin discovery for local classifiers. Built-ins resolve without optional
+# dependencies; third parties (or future backends such as XGBoost/JAX) can
+# register here without Compocyte importing them. See
+# src/Compocyte/core/models/registry.py.
+[project.entry-points."compocyte.classifiers"]
+dense_torch = "Compocyte.core.models.dense_torch:DenseTorch"
+logistic_regression = "Compocyte.core.models.log_reg:LogisticRegression"
+dummy = "Compocyte.core.models.dummy_classifier:DummyClassifier"
+boosted_trees = "Compocyte.core.models.trees:BoostedTrees"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

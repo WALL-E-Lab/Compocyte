@@ -1,7 +1,16 @@
 import numpy as np
-from catboost import CatBoostClassifier, metrics
 import pickle
 import os
+
+
+def _require_catboost():
+    try:
+        from catboost import CatBoostClassifier, metrics
+    except ImportError as e:
+        raise ImportError(
+            "BoostedTrees requires the 'boosted' extra: "
+            "pip install \"Compocyte[boosted]\"") from e
+    return CatBoostClassifier, metrics
 
 class BoostedTrees():
     def __init__(self, labels=None, labels_enc=None, labels_dec=None, model=None, catboost_kwargs={}, **kwargs):
@@ -16,7 +25,8 @@ class BoostedTrees():
             
             self.labels_enc = {label: i for i, label in enumerate(labels)}
             self.labels_dec = {self.labels_enc[label]: label for label in self.labels_enc.keys()}
-            self.model = CatBoostClassifier (
+            CatBoostClassifier, metrics = _require_catboost()
+            self.model = CatBoostClassifier(
                 custom_loss=[metrics.Accuracy()],
                 random_seed=42,
                 logging_level='Silent',
@@ -36,6 +46,7 @@ class BoostedTrees():
 
     @classmethod
     def _load(cls, path):
+        CatBoostClassifier, _ = _require_catboost()
         args = {}
         args['model'] = CatBoostClassifier().load_model(os.path.join(path, 'model.cbm'))
         for attribute in ['labels_enc', 'labels_dec']:
